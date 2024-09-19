@@ -1,8 +1,16 @@
 import bpy
 import bmesh
 from mathutils import Vector, geometry
+from dataclasses import dataclass
 from ...utils import infobar
 from ...utils.bmesh import Closest
+
+
+@dataclass
+class Plane:
+    co_init: Vector
+    co: Vector
+    no: Vector
 
 
 class BOUT_OT_EdgeExpand(bpy.types.Operator):
@@ -11,24 +19,14 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
     bl_description = "Slide a new edge parallel to a selected edge along a linked face"
 
-    edge_index: int = -1
-    face_index: int = -1
-    closest: Closest = None
-    stored_mesh_data: bpy.types.Mesh = None
+    move: bpy.props.FloatProperty(name="Move", description="Offset from selected edge center", default=0.0, step=1, precision=4, subtype='DISTANCE')
 
-    move: bpy.props.FloatProperty(
-        name="Move",
-        description="Offset from selected edge center",
-        default=0.0,
-        step=1,
-        precision=4,
-        subtype='DISTANCE'
-    )
-    plane_co_init: Vector = Vector((0, 0, 0))
-    plane_co: Vector = Vector((0, 0, 0))
-    plane_no: Vector = Vector((0, 0, 0))
-
-    intersections: list = []
+    def __init__(self):
+        self.stored_mesh_data = None
+        self.edge_index = -1
+        self.face_index = -1
+        self.plane = Plane(Vector(), Vector(), Vector())
+        self.closest = None
 
     @classmethod
     def poll(cls, context):
@@ -49,54 +47,54 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
         selected_edges = [e for e in bm.edges if e.select]
 
         if not selected_edges:
-            return self.cancel_operator("No edge selected.")
+            return self._cancel_operator("No edge selected.")
 
         edge = selected_edges[0]
         self.edge_index = edge.index
 
         faces = edge.link_faces
         if len(faces) == 0:
-            return self.cancel_operator("Selected edge has no linked faces.")
+            return self._cancel_operator("Selected edge has no linked faces.")
         elif len(faces) > 2:
-            return self.cancel_operator("Selected edge has more than two linked faces.")
+            return self._cancel_operator("Selected edge has more than two linked faces.")
 
         self.stored_mesh_data = obj.data.copy()
 
         # Initialize plane based on selected edge and face
-        self.plane_co_init = (edge.verts[0].co + edge.verts[1].co) / 2
-        self.plane_co = self.plane_co_init.copy()
-        self.plane_no = faces[0].normal.normalized()
+        self.plane.co_init = (edge.verts[0].co + edge.verts[1].co) / 2
+        self.plane.co = self.plane.co_init.copy()
+        self.plane.no = faces[0].normal.normalized()
 
         # Initialize Closest instance
         self.closest = Closest(context, bm, Vector((event.mouse_region_x, event.mouse_region_y)))
 
-        infobar.draw(context, event, self.infobar_hotkeys, blank=True)
+        infobar.draw(context, event, self._infobar_hotkeys, blank=True)
         context.area.header_text_set("Edge Expand")
         context.window.cursor_set('SCROLL_XY')
         context.window_manager.modal_handler_add(self)
 
-        self.expand_edge(context)
+        self._expand_edge(context)
         return {'RUNNING_MODAL'}
 
     def modal(self, context, event):
         if event.type == 'MOUSEMOVE':
-            self.handle_mouse_move(context, event)
+            self._handle_mouse_move(context, event)
 
         elif event.type == 'LEFTMOUSE' and event.value == 'PRESS':
-            self.end(context)
+            self._end(context)
             return {'FINISHED'}
 
         elif event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS':
-            self.restore_mesh()
-            self.end(context)
+            self._restore_mesh()
+            self._end(context)
             return {'CANCELLED'}
 
         return {'RUNNING_MODAL'}
 
-    def handle_mouse_move(self, context, event):
+    def _handle_mouse_move(self, context, event):
         mouse_pos = Vector((event.mouse_region_x, event.mouse_region_y))
 
-        self.restore_mesh()
+        self._restore_mesh()
         obj = context.edit_object
         bm = bmesh.from_edit_mesh(obj.data)
         bm.faces.ensure_lookup_table()
@@ -111,34 +109,33 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
             if self.closest.face.index in linked_faces:
                 self.face_index = self.closest.face.index
                 hit_loc = self.closest.face.hit_loc
-                self.move = (hit_loc - self.plane_co_init).dot(self.plane_no)
-                self.adjust_plane_co(self.move)
-                self.expand_edge(context)
-
+                self.move = (hit_loc - self.plane.co_init).dot(self.plane.no)
+                self._adjust_plane_co(self.move)
+                self._expand_edge(context)
                 return
 
         self.face_index = -1
-        self.update_bmesh(context)
+        self._update_bmesh(context)
 
-    def adjust_plane_co(self, move_distance):
-        '''Adjust the plane_co based on the move distance.'''
-        self.plane_co = self.plane_co_init + self.plane_no * move_distance
+    def _adjust_plane_co(self, move_distance):
+        """Adjust the plane.co based on the move distance."""
+        self.plane.co = self.plane.co_init + self.plane.no * move_distance
 
-    def update_bmesh(self, context):
-        '''Update the mesh with the new edge'''
+    def _update_bmesh(self, context):
+        """Update the mesh with the new edge."""
         bmesh.update_edit_mesh(context.edit_object.data, loop_triangles=True, destructive=True)
         context.area.tag_redraw()
 
-    def restore_mesh(self):
-        '''Restore the mesh to its original state'''
+    def _restore_mesh(self):
+        """Restore the mesh to its original state."""
         obj = bpy.context.edit_object
         bm = bmesh.from_edit_mesh(obj.data)
         bm.clear()
         bm.from_mesh(self.stored_mesh_data)
         bmesh.update_edit_mesh(obj.data)
 
-    def get_intersections(self, face, hit_loc):
-        '''Get the line segments for the new edge'''
+    def _get_intersections(self, face, hit_loc):
+        """Get the line segments for the new edge."""
         obj = bpy.context.edit_object
         bm = bmesh.from_edit_mesh(obj.data)
         bm.edges.ensure_lookup_table()
@@ -147,26 +144,26 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
         face_verts = set(face.verts)
 
         if edge_verts <= face_verts:
-            intersections = self.get_intersections_points(bm, face.normal, hit_loc)
+            intersections = self._get_intersections_points(bm, face.normal, hit_loc)
             return intersections
         if edge_verts & face_verts:
             vert = next(iter(edge_verts & face_verts))
             if len(edge.link_faces) == 2:
                 avg_normal = sum((f.normal for f in edge.link_faces), Vector()).normalized()
-                intersections = self.get_intersections_points(bm, avg_normal, vert.co)
+                intersections = self._get_intersections_points(bm, avg_normal, vert.co)
                 return intersections
 
         return []
 
-    def get_intersections_points(self, bm, normal, vec):
-        '''Define the plane and calculate the intersection points'''
+    def _get_intersections_points(self, bm, normal, vec):
+        """Define the plane and calculate the intersection points."""
         edge = bm.edges[self.edge_index]
         edge_vector = edge.verts[1].co - edge.verts[0].co
-        self.plane_no = normal.cross(edge_vector).normalized()
-        return self.calculate_intersection_points(bm, vec, self.plane_no)
+        self.plane.no = normal.cross(edge_vector).normalized()
+        return self._calculate_intersection_points(bm, vec, self.plane.no)
 
-    def calculate_intersection_points(self, bm, plane_co, plane_normal):
-        '''Calculate the intersection points of the edges of the given face with the given plane'''
+    def _calculate_intersection_points(self, bm, plane_co, plane_normal):
+        """Calculate the intersection points of the edges of the given face with the given plane."""
         intersections = []
         if self.face_index == -1:
             return intersections  # Return an empty list if no face is found
@@ -185,12 +182,12 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
         return intersections
 
     def execute(self, context):
-        '''Execute the operator'''
-        self.expand_edge(context)
+        """Execute the operator."""
+        self._expand_edge(context)
         return {'FINISHED'}
 
-    def expand_edge(self, context):
-        '''Run the operator'''
+    def _expand_edge(self, context):
+        """Run the operator."""
         if self.face_index == -1:
             return
 
@@ -205,43 +202,43 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
 
         face = bm.faces[self.face_index]
         edge_vector = edge.verts[1].co - edge.verts[0].co
-        self.plane_no = face.normal.cross(edge_vector).normalized()
-        self.plane_co = self.plane_co_init + self.plane_no * self.move
+        self.plane.no = face.normal.cross(edge_vector).normalized()
+        self.plane.co = self.plane.co_init + self.plane.no * self.move
 
-        intersections = self.get_intersections(face, self.plane_co)
+        intersections = self._get_intersections(face, self.plane.co)
         if not intersections or len(intersections) < 2:
             return
 
-        new_verts = self.get_intersecting_vertices(intersections)
+        new_verts = self._get_intersecting_vertices(intersections)
         if len(new_verts) < 2:
             return
 
-        new_verts = self.remove_duplicates(new_verts)
-        self.deselect_all_edges(bm)
-        self.connect_vertices_in_pairs(bm, new_verts)
+        new_verts = self._remove_duplicates(new_verts)
+        self._deselect_all_edges(bm)
+        self._connect_vertices_in_pairs(bm, new_verts)
         bmesh.update_edit_mesh(obj.data, loop_triangles=True, destructive=True)
 
-        self.update_bmesh(context)
+        self._update_bmesh(context)
 
-    def remove_duplicates(self, verts, threshold=0.0001):
-        '''Remove duplicate vertices from a list of vertices'''
+    def _remove_duplicates(self, verts, threshold=0.0001):
+        """Remove duplicate vertices from a list of vertices."""
         unique_verts = []
         for v in verts:
             if all((v.co - u.co).length >= threshold for u in unique_verts):
                 unique_verts.append(v)
         return unique_verts
 
-    def get_intersecting_vertices(self, intersections):
-        '''Get the vertices that intersect with the edges of the mesh'''
+    def _get_intersecting_vertices(self, intersections):
+        """Get the vertices that intersect with the edges of the mesh."""
         verts = []
         for point, edge in intersections:
-            vert = self.subdivide_edge(edge, point)
+            vert = self._subdivide_edge(edge, point)
             if vert:
                 verts.append(vert)
         return verts
 
-    def subdivide_edge(self, edge, intersect_point):
-        '''Subdivide the edge at the intersection point'''
+    def _subdivide_edge(self, edge, intersect_point):
+        """Subdivide the edge at the intersection point."""
         vert1, vert2 = edge.verts
         edge_vec = vert2.co - vert1.co
         length = edge_vec.length
@@ -253,8 +250,8 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
         result[1].co = intersect_point
         return result[1]
 
-    def connect_vertices_in_pairs(self, bm, verts):
-        '''Connect the vertices in pairs'''
+    def _connect_vertices_in_pairs(self, bm, verts):
+        """Connect the vertices in pairs."""
         for v1, v2 in zip(verts[::2], verts[1::2]):
             if v1 != v2:
                 result = bmesh.ops.connect_vert_pair(bm, verts=[v1, v2])
@@ -265,33 +262,32 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
                         edge.select = True
                     bm.select_flush_mode()
 
-    def deselect_all_edges(self, bm):
-        '''Deselect all edges'''
+    def _deselect_all_edges(self, bm):
+        """Deselect all edges."""
         for edge in bm.edges:
             edge.select = False
         bm.select_flush_mode()
 
-    def cancel_operator(self, message):
-        '''Handle cancelling the operator with a message.'''
+    def _cancel_operator(self, message):
+        """Handle cancelling the operator with a message."""
         self.report({'ERROR'}, message)
         return {'CANCELLED'}
 
-    def end(self, context):
-        '''End the operator and clean up.'''
+    def _end(self, context):
+        """End the operator and clean up."""
         if self.stored_mesh_data is not None:
             bpy.data.meshes.remove(self.stored_mesh_data)
             self.stored_mesh_data = None
 
         self.closest = None
-        self.intersections = []
 
         infobar.remove(context)
         context.area.header_text_set(text=None)
         context.window.cursor_set('CROSSHAIR')
         context.area.tag_redraw()
 
-    def infobar_hotkeys(self, layout, _context, _event):
-        '''Draw the infobar hotkeys'''
+    def _infobar_hotkeys(self, layout, _context, _event):
+        """Draw the infobar hotkeys."""
         row = layout.row(align=True)
         row.label(text='', icon='MOUSE_MOVE')
         row.label(text='Adjust Radius')

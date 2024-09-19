@@ -20,7 +20,9 @@ class BOUT_MT_Edit_Mesh(bpy.types.Menu):
         line_cut = layout.operator("bout.mesh_line_cut", text="Line Cut")
         line_cut.mode = "CUT"
         line_cut.release_confirm = False
+        line_cut.init_confirm = True
 
         line_slice = layout.operator("bout.mesh_line_cut", text="Line Slice")
         line_slice.mode = "SLICE"
         line_slice.release_confirm = False
+        line_slice.init_confirm = True

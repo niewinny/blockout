@@ -1,7 +1,7 @@
 from pathlib import Path
 import bpy
 
-from ..import utils
+from ..utils import addon, gizmo
 
 
 class BOUT_MT_Mesh_Block2D(bpy.types.WorkSpaceTool):
@@ -20,16 +20,18 @@ class BOUT_MT_Mesh_Block2D(bpy.types.WorkSpaceTool):
     def draw_settings(context, layout, tool):
         row = layout.row(align=True)
 
-        block2d = utils.addon.pref().tools.block2d
+        block2d = addon.pref().tools.block2d
         row.prop(block2d, 'mode', expand=True)
+        layout.prop(block2d, 'only_selected')
 
 
 class pref(bpy.types.PropertyGroup):
     mode: bpy.props.EnumProperty(name="Mode", description="Mode", items=[('CUT', 'Cut', 'Cut'), ('SLICE', 'Slice', 'Slice'), ('BISECT', 'Bisect', 'Bisect')], default='CUT')
+    only_selected: bpy.props.BoolProperty(name="Only Selected", default=False, description="Only cut selected geometry")
 
 
 class scene(bpy.types.PropertyGroup):
-    running: bpy.props.BoolProperty(name="Running", default=False, update=utils.gizmo.refresh)
+    running: bpy.props.BoolProperty(name="Running", default=False, update=gizmo.refresh)
 
 
 types_classes = (

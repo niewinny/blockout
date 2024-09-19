@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 import math
 import bpy
 import bmesh
@@ -5,7 +6,37 @@ import bmesh
 from mathutils import Vector, geometry
 
 from ...shaders.draw import DrawPolyline
+from ...shaders import handle
 from ...utils import view3d, addon, infobar
+
+
+@dataclass
+class Mouse:
+    '''Dataclass for the mouse data'''
+    init: Vector = Vector()
+    co: Vector = Vector()
+    saved: Vector = Vector()
+    median: Vector = Vector()
+
+
+@dataclass
+class Distance:
+    '''Dataclass for the distance calculation'''
+    length: float = 0.0
+    delta: float = 0.0
+
+
+@dataclass
+class Selected:
+    '''Dataclass for the selected vertices'''
+    edges_indices: list = None
+    verts_indices: list = None
+
+
+@dataclass
+class DrawUI:
+    '''Dataclass for the UI drawing'''
+    guide: handle.Polyline = field(default_factory=handle.Polyline)
 
 
 class BOUT_OT_Bevel(bpy.types.Operator):
@@ -14,32 +45,23 @@ class BOUT_OT_Bevel(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
     bl_description = "Bevel the surface along the selected edge"
 
-    bm: bmesh.types.BMesh
-    mesh: bpy.types.Mesh
-
-    guid: list = []
-
-    selected_edges_indices: list = []
-    selected_verts_indices: list = []
     offset: bpy.props.FloatProperty(name='Offset', default=0.1, step=0.1, min=0, precision=3)
     segments: bpy.props.IntProperty(name='Segments', default=1, min=1, max=50)
     expand: bpy.props.BoolProperty(name='Expand', default=True)
     solver: bpy.props.EnumProperty(name='Solver', items=[('EXACT', 'Exact', 'Exact'), ('FAST', 'Fast', 'Fast')], default='EXACT')
 
-    mid_point: Vector
+    def __init__(self):
+        self.bm: bmesh.types.BMesh = None
+        self.mesh: bpy.types.Mesh = None
 
-    init_intersect_point: Vector
+        self.mode: str = 'OFFSET'
 
-    distnace: float = 0.0
-    distance_delta: float = 0.0
+        self.selected: Selected = Selected()
+        self.mouse: Mouse = Mouse()
+        self.distance: Distance = Distance()
+        self.ui: DrawUI = DrawUI()
 
-    saved_mouse_pos: tuple = (0, 0)
-    saved_segments: int = 1
-
-    mode: str = 'OFFSET'
-
-    _callback_guid: DrawPolyline
-    _handle_guid: int
+        self.saved_segments: int = 1
 
     @classmethod
     def poll(cls, context):
@@ -65,33 +87,34 @@ class BOUT_OT_Bevel(bpy.types.Operator):
         ordered_edges = order_selected_edges(selected_edges, end_verts)
         ordered_verts = order_loop_vertices(ordered_edges, end_verts)
 
-        self.selected_verts_indices = [v.index for v in ordered_verts]
-        self.selected_edges_indices = [e.index for e in ordered_edges]
+        self.selected = Selected(
+            verts_indices=[v.index for v in ordered_verts],
+            edges_indices=[e.index for e in ordered_edges]
+        )
 
-        self.mid_point = self.calculate_mid_point(context, selected_edges)
+        self.mouse.median = self._calculate_mid_point(context, selected_edges)
 
         # Project mouse position onto the plane defined by the midpoint and view_vector
         rv3d = context.region_data
         view_vector = rv3d.view_rotation @ Vector((0.0, 0.0, -1.0))
-        intersect_point = self.get_intersect_point(context, event, self.mid_point, view_vector)
-        self.init_intersect_point = intersect_point if intersect_point else self.mid_point
-        self.init_intersect_point = self.init_intersect_point  # Initialize to the same point
+        intersect_point = self._get_intersect_point(context, event, self.mouse.median, view_vector)
+        self.mouse.init = intersect_point if intersect_point else self.mouse.median
+
+        self.mesh = obj.data.copy()
 
         for edge in selected_edges:
             edge.select = False
 
-        self.mesh = obj.data.copy()
+        infobar.draw(context, event, self._infobar_hotkeys, blank=True)
 
-        infobar.draw(context, event, self.infobar_hotkeys, blank=True)
-
-        self.update_info(context)
+        self._update_info(context)
         context.window.cursor_set('SCROLL_XY')
 
-        self.setup_drawing(context)
+        self._setup_drawing(context)
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
-    def calculate_mid_point(self, context, edges):
+    def _calculate_mid_point(self, context, edges):
         '''Calculate the midpoint of the selected edges'''
 
         obj = context.edit_object
@@ -103,20 +126,90 @@ class BOUT_OT_Bevel(bpy.types.Operator):
     def execute(self, context):
 
         bm = bmesh.from_edit_mesh(context.edit_object.data)
-        self.update_geometry(context, bm)
+        self._update_geometry(context, bm)
 
         return {'FINISHED'}
 
-    def initialize_geometry(self, bm):
+    def modal(self, context, event):
+
+        if event.type == 'MOUSEMOVE':
+            intersect_point = self._get_intersect_point(context, event, self.mouse.median, self._view_vector(context))
+
+            if intersect_point:
+                self.mouse.co = intersect_point
+                if self.mode == 'OFFSET':
+                    self._set_offset(intersect_point)
+                elif self.mode == 'SEGMENTS':
+                    self._set_segments(context, event)
+
+                self._update_info(context)
+
+            self._restore_original_mesh(context)
+            self._update_geometry(context, self.bm)
+            self._update_drawing()
+
+        elif event.type == 'LEFTMOUSE':
+            self._end(context)
+            return {'FINISHED'}
+
+        elif event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS':
+            self._restore_original_mesh(context)
+            self._end(context)
+            return {'CANCELLED'}
+
+        elif event.type == 'S' and event.value == 'PRESS':
+            self.mode = 'SEGMENTS'
+            intersect_point = self._get_intersect_point(context, event, self.mouse.median, self._view_vector(context))
+            distance = self._calculate_distance(intersect_point)
+            self.distance.length = distance - self.distance.delta
+            self.mouse.saved = Vector((event.mouse_region_x, event.mouse_region_y))
+            self.saved_segments = self.segments
+            self._update_info(context)
+
+        elif event.type == 'A' and event.value == 'PRESS':
+            self.mode = 'OFFSET'
+            intersect_point = self._get_intersect_point(context, event, self.mouse.median, self._view_vector(context))
+            distance = self._calculate_distance(intersect_point)
+            self.distance.delta = distance - self.distance.length
+
+        elif event.type == 'E' and event.value == 'PRESS':
+            self.expand = not self.expand
+            self._restore_original_mesh(context)
+            self._update_geometry(context, self.bm)
+            self._update_info(context)
+
+        elif event.type == 'Q' and event.value == 'PRESS':
+            self.solver = 'EXACT' if self.solver == 'FAST' else 'FAST'
+            self._restore_original_mesh(context)
+            self._update_geometry(context, self.bm)
+            self._update_info(context)
+
+        elif event.type == 'WHEELUPMOUSE' or event.type == 'NUMPAD_PLUS' or event.type == 'EQUAL':
+            if event.value == 'PRESS':
+                self.segments += 1
+                self._restore_original_mesh(context)
+                self._update_geometry(context, self.bm)
+                self._update_info(context)
+
+        elif event.type == 'WHEELDOWNMOUSE' or event.type == 'NUMPAD_MINUS' or event.type == 'MINUS':
+            if event.value == 'PRESS':
+                self.segments -= 1
+                self._restore_original_mesh(context)
+                self._update_geometry(context, self.bm)
+                self._update_info(context)
+
+        return {'RUNNING_MODAL'}
+
+    def _initialize_geometry(self, bm):
         '''Initialize the selected vertices and edges from the bmesh'''
 
         bm.verts.ensure_lookup_table()
         bm.edges.ensure_lookup_table()
-        selected_verts = [bm.verts[i] for i in self.selected_verts_indices]
-        selected_edges = [bm.edges[i] for i in self.selected_edges_indices]
+        selected_verts = [bm.verts[i] for i in self.selected.verts_indices]
+        selected_edges = [bm.edges[i] for i in self.selected.edges_indices]
         return selected_verts, selected_edges
 
-    def calculate_offsets(self, selected_verts, selected_edges):
+    def _calculate_offsets(self, selected_verts, selected_edges):
         '''Calculate the offset vertices for the selected edges'''
 
         offset_verts = []
@@ -126,7 +219,7 @@ class BOUT_OT_Bevel(bpy.types.Operator):
             offset_verts.extend(points)
         return offset_verts
 
-    def calculate_tangents(self, selected_edges, verts_pairs):
+    def _calculate_tangents(self, selected_edges, verts_pairs):
         '''Calculate the tangents for the selected edges'''
 
         tangents_left, tangents_right = [], []
@@ -151,17 +244,17 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
         return tangents_left, tangents_right
 
-    def update_geometry(self, context, bm):
+    def _update_geometry(self, context, bm):
         '''Update the geometry based on the selected edges'''
 
         obj = context.edit_object
-        selected_verts, selected_edges = self.initialize_geometry(bm)
+        selected_verts, selected_edges = self._initialize_geometry(bm)
 
-        offset_verts = self.calculate_offsets(selected_verts, selected_edges)
+        offset_verts = self._calculate_offsets(selected_verts, selected_edges)
 
         verts_pairs = [(offset_verts[i], offset_verts[i + 1]) for i in range(0, len(offset_verts), 2)]
 
-        tangents_left, tangents_right = self.calculate_tangents(selected_edges, verts_pairs)
+        tangents_left, tangents_right = self._calculate_tangents(selected_edges, verts_pairs)
 
         normal_offset = 0.001
         offset_verts_pairs = []
@@ -202,7 +295,7 @@ class BOUT_OT_Bevel(bpy.types.Operator):
                 offset_pair.append(v)
             offset_verts_pairs_right.append(offset_pair)
 
-        def pairs_to_loop_verts(offset_verts_pairs):
+        def _pairs_to_loop_verts(offset_verts_pairs):
             '''Convert the offset vertices pairs to a loop of vertices'''
 
             offset_loop_verts = [offset_verts_pairs[0][0]]  # Start with the first point of the first pair
@@ -226,11 +319,11 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
             return offset_loop_verts
 
-        offset_loop_verts = pairs_to_loop_verts(offset_verts_pairs)
-        offset_loop_verts_left = pairs_to_loop_verts(offset_verts_pairs_left)
-        offset_loop_verts_right = pairs_to_loop_verts(offset_verts_pairs_right)
+        offset_loop_verts = _pairs_to_loop_verts(offset_verts_pairs)
+        offset_loop_verts_left = _pairs_to_loop_verts(offset_verts_pairs_left)
+        offset_loop_verts_right = _pairs_to_loop_verts(offset_verts_pairs_right)
 
-        def create_loop_geometry(bm, loop_points_co):
+        def _create_loop_geometry(bm, loop_points_co):
             '''Create the loop edges based on the loop vertices'''
 
             verts = []
@@ -244,9 +337,9 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
             return verts, edges
 
-        loop_verts, main_loop = create_loop_geometry(bm, offset_loop_verts)
-        loop_verts_left, _ = create_loop_geometry(bm, offset_loop_verts_left)
-        loop_verts_right, _ = create_loop_geometry(bm, offset_loop_verts_right)
+        loop_verts, main_loop = _create_loop_geometry(bm, offset_loop_verts)
+        loop_verts_left, _ = _create_loop_geometry(bm, offset_loop_verts_left)
+        loop_verts_right, _ = _create_loop_geometry(bm, offset_loop_verts_right)
 
         new_faces = []
 
@@ -264,7 +357,7 @@ class BOUT_OT_Bevel(bpy.types.Operator):
             new_faces.append(right_face)
 
         if new_faces:
-            self.shell_geometry(bm, new_faces, thickness=0.5)
+            self._shell_geometry(bm, new_faces, thickness=0.5)
 
         geom = bmesh.ops.bevel(bm, geom=main_loop, offset=self.offset, segments=self.segments, profile=0.5, affect='EDGES')
 
@@ -277,7 +370,7 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
         bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver=self.solver)
 
-    def shell_geometry(self, bm, faces, thickness):
+    def _shell_geometry(self, bm, faces, thickness):
         '''Create a shell geometry based on the selected faces'''
 
         shell = bmesh.ops.solidify(bm, geom=faces, thickness=thickness)
@@ -290,105 +383,33 @@ class BOUT_OT_Bevel(bpy.types.Operator):
                     vert.select = True
                     vert.co += normal * thickness
 
-    def restore_original_mesh(self, context):
+    def _restore_original_mesh(self, context):
         '''Restore the original mesh data from a backup stored in self.mesh'''
 
         obj = context.edit_object
 
         bm = self.bm
-        bm.clear()  # Clear all existing bmesh data
+        bm.clear()
         bm.from_mesh(self.mesh)
         bmesh.update_edit_mesh(obj.data, loop_triangles=True, destructive=True)
 
-        bpy.ops.mesh.select_all(action='DESELECT')
-
-    def modal(self, context, event):
-
-        if event.type == 'MOUSEMOVE':
-            intersect_point = self.get_intersect_point(context, event, self.mid_point, self.view_vector(context))
-
-            if intersect_point:
-                if self.mode == 'OFFSET':
-                    self.set_offset(intersect_point)
-                elif self.mode == 'SEGMENTS':
-                    self.set_segments(context, event)
-
-                self.guid = [(self.mid_point, intersect_point)]
-                self.update_info(context)
-
-            self.restore_original_mesh(context)
-            self.update_geometry(context, self.bm)
-            self.update_drawing()
-
-        elif event.type == 'LEFTMOUSE':
-            self.end(context)
-            return {'FINISHED'}
-
-        elif event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS':
-            self.restore_original_mesh(context)
-            self.end(context)
-            return {'CANCELLED'}
-
-        elif event.type == 'S' and event.value == 'PRESS':
-            self.mode = 'SEGMENTS'
-            intersect_point = self.get_intersect_point(context, event, self.mid_point, self.view_vector(context))
-            distance = self.calculate_distance(intersect_point)
-            self.distnace = distance - self.distance_delta
-            self.saved_mouse_pos = (event.mouse_region_x, event.mouse_region_y)
-            self.saved_segments = self.segments
-            self.update_info(context)
-
-        elif event.type == 'A' and event.value == 'PRESS':
-            self.mode = 'OFFSET'
-            intersect_point = self.get_intersect_point(context, event, self.mid_point, self.view_vector(context))
-            distance = self.calculate_distance(intersect_point)
-            self.distance_delta = distance - self.distnace
-
-        elif event.type == 'E' and event.value == 'PRESS':
-            self.expand = not self.expand
-            self.restore_original_mesh(context)
-            self.update_geometry(context, self.bm)
-            self.update_info(context)
-
-        elif event.type == 'Q' and event.value == 'PRESS':
-            self.solver = 'EXACT' if self.solver == 'FAST' else 'FAST'
-            self.restore_original_mesh(context)
-            self.update_geometry(context, self.bm)
-            self.update_info(context)
-
-        elif event.type == 'WHEELUPMOUSE' or event.type == 'NUMPAD_PLUS' or event.type == 'EQUAL':
-            if event.value == 'PRESS':
-                self.segments += 1
-                self.restore_original_mesh(context)
-                self.update_geometry(context, self.bm)
-                self.update_info(context)
-
-        elif event.type == 'WHEELDOWNMOUSE' or event.type == 'NUMPAD_MINUS' or event.type == 'MINUS':
-            if event.value == 'PRESS':
-                self.segments -= 1
-                self.restore_original_mesh(context)
-                self.update_geometry(context, self.bm)
-                self.update_info(context)
-
-        return {'RUNNING_MODAL'}
-
-    def set_offset(self, intersect_point):
+    def _set_offset(self, intersect_point):
         '''Set the offset based on the initial and current mouse position'''
 
-        distance = self.calculate_distance(intersect_point)
-        distance = distance if distance > self.distance_delta else self.distance_delta
-        offset = distance - self.distance_delta
+        distance = self._calculate_distance(intersect_point)
+        distance = distance if distance > self.distance.delta else self.distance.delta
+        offset = distance - self.distance.delta
         self.offset = offset
 
-    def set_segments(self, context, event):
+    def _set_segments(self, context, event):
         '''Set the segments based on the initial and current mouse position'''
 
         region = context.region
         rv3d = context.region_data
 
         # Convert 3D mid_point to 2D
-        mid_point_2d = view3d.location_3d_to_region_2d(region, rv3d, self.mid_point)
-        saved_mouse_pos = Vector(self.saved_mouse_pos)
+        mid_point_2d = view3d.location_3d_to_region_2d(region, rv3d, self.mouse.median)
+        saved_mouse_pos = self.mouse.saved
         mouse = Vector((event.mouse_region_x, event.mouse_region_y))
 
         if mid_point_2d and saved_mouse_pos:
@@ -404,23 +425,23 @@ class BOUT_OT_Bevel(bpy.types.Operator):
             new_segments = base_segments + delta_segments if distance > 0 else base_segments - delta_segments
             self.segments = max(1, new_segments)  # Ensure segments do not fall below 1
 
-    def view_vector(self, context):
+    def _view_vector(self, context):
         '''Get the view vector from the current view'''
 
         rv3d = context.region_data
         return rv3d.view_rotation @ Vector((0.0, 0.0, -1.0))
 
-    def calculate_distance(self, intersect_point):
+    def _calculate_distance(self, intersect_point):
         '''Calculate the distance based on the initial and current mouse position'''
 
         if intersect_point:
-            delta_init = (self.mid_point - self.init_intersect_point).length
-            distance = (self.mid_point - intersect_point).length
+            delta_init = (self.mouse.median - self.mouse.init).length
+            distance = (self.mouse.median - intersect_point).length
             distance_fixed = distance - delta_init
 
             return distance_fixed
 
-    def get_intersect_point(self, context, event, plane_co, plane_no):
+    def _get_intersect_point(self, context, event, plane_co, plane_no):
         '''Calculate the intersection point on the plane defined by the plane_co and plane_no'''
 
         mouse = Vector((event.mouse_region_x, event.mouse_region_y))
@@ -442,7 +463,7 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
         return Vector((0, 0, 0))
 
-    def update_info(self, context):
+    def _update_info(self, context):
         '''Update header with the current settings'''
 
         info = f'Offset: {self.offset:.3f}    Segments: {self.segments}    Expand: {self.expand}    Solver: {self.solver}'
@@ -457,10 +478,11 @@ class BOUT_OT_Bevel(bpy.types.Operator):
         layout.prop(self, 'expand')
         layout.prop(self, 'solver')
 
-    def end(self, context):
+    def _end(self, context):
         '''Cleanup and finish the operator'''
 
-        bpy.data.meshes.remove(self.mesh)
+        if self.mesh:
+            bpy.data.meshes.remove(self.mesh)
 
         self.mesh = None
         self.bm = None
@@ -469,28 +491,29 @@ class BOUT_OT_Bevel(bpy.types.Operator):
         context.area.header_text_set(text=None)
         context.window.cursor_set('CROSSHAIR')
 
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle_guid, 'WINDOW')
+        self.ui.guide.remove()
 
         context.area.tag_redraw()
 
-    def update_drawing(self):
+    def _update_drawing(self):
         '''Update the drawing'''
 
-        theme = addon.pref().theme.ops.mesh.bevel
-        color = theme.guid
-        self._callback_guid.update_batch(self.guid, color=color)
+        _theme = addon.pref().theme.ops.mesh.bevel
+        color = _theme.guide
+        point = [(self.mouse.median, self.mouse.co)]
+        self.ui.guide.callback.update_batch(point, color=color)
 
-    def setup_drawing(self, context, points=None):
+    def _setup_drawing(self, context, points=None):
         '''Setup the drawing'''
 
-        theme = addon.pref().theme.ops.mesh.bevel
-        color = theme.guid
+        _theme = addon.pref().theme.ops.mesh.bevel
+        color = _theme.guide
 
         points = points or [(Vector((0, 0, 0)), Vector((0, 0, 0)))]
-        self._callback_guid = DrawPolyline(points, width=1.2, color=color)
-        self._handle_guid = bpy.types.SpaceView3D.draw_handler_add(self._callback_guid.draw, (context,), 'WINDOW', 'POST_VIEW')
+        self.ui.guide.callback = DrawPolyline(points, width=1.2, color=color)
+        self.ui.guide.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.guide.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
 
-    def infobar_hotkeys(self, layout, _context, _event):
+    def _infobar_hotkeys(self, layout, _context, _event):
         '''Draw the infobar hotkeys'''
 
         row = layout.row(align=True)
@@ -639,7 +662,7 @@ def order_selected_edges(selected_edges, end_verts):
 
 
 class theme(bpy.types.PropertyGroup):
-    guid: bpy.props.FloatVectorProperty(name="Bevel Guid", description="Color of the guid line", size=4, subtype='COLOR', default=(0.0, 0.0, 0.0, 0.8), min=0.0, max=1.0)
+    guide: bpy.props.FloatVectorProperty(name="Bevel Guid", description="Color of the guide line", size=4, subtype='COLOR', default=(0.0, 0.0, 0.0, 0.8), min=0.0, max=1.0)
 
 
 types_classes = (

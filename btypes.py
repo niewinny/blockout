@@ -2,8 +2,8 @@ import bpy
 from . import ops, tools
 
 
-class Pref(bpy.types.PropertyGroup):
-    tools: bpy.props.PointerProperty(type=tools.pref)
+class Tools(bpy.types.PropertyGroup):
+    block2d: bpy.props.PointerProperty(type=tools.block2d.pref)
 
 
 class Scene(bpy.types.PropertyGroup):
@@ -17,7 +17,7 @@ class Theme(bpy.types.PropertyGroup):
 classes = [
     *ops.types_classes,
     *tools.types_classes,
-    Pref,
+    Tools,
     Scene,
     Theme,
 ]

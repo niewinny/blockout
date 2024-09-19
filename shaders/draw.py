@@ -1,8 +1,7 @@
-from math import cos, sin
+from dataclasses import dataclass
 import gpu
 from mathutils import Vector
 from gpu_extras.batch import batch_for_shader
-from ..utils import view3d
 from .POLYLINE_DOTTED_COLOR import shader_info
 
 

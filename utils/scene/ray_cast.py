@@ -1,4 +1,8 @@
-from mathutils import Vector
+from dataclasses import dataclass
+
+import bpy
+
+from mathutils import Vector, Matrix
 from ..view3d import region_2d_to_origin_3d, region_2d_to_vector_3d
 
 
@@ -35,7 +39,7 @@ def _ray_cast(context, origin, direction, objects):
     for h in hidden:
         h.hide_viewport = False
 
-    ray = {'hit': hit, 'location': location, 'normal': normal, 'index': index, 'obj': obj, 'matrix': matrix}
+    ray = Ray(hit, location, normal, index, obj, matrix)
     return ray
 
 
@@ -62,3 +66,14 @@ def visible(context, position, modes=('OBJECT')):
     objects = {obj for obj in context.visible_objects if obj.type in types and obj.mode in modes}
     ray = _ray_cast(context, origin, direction, objects)
     return ray
+
+
+@dataclass
+class Ray:
+    '''Ray cast data'''
+    hit: bool = False
+    location: Vector = Vector()
+    normal: Vector = Vector()
+    index: int = -1
+    obj: bpy.types.Object = None
+    matrix: Matrix = Matrix()

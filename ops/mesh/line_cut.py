@@ -1,358 +1,334 @@
 import math
+from dataclasses import dataclass, field
+
 import bpy
 import bmesh
 
 from mathutils import Vector
 
-# from ...draw.line import DrawLine
-from ...shaders.draw import DrawPolylineDotted
-from ...shaders.draw import DrawGradient
-from ...shaders.draw import DrawLine
+from ...shaders.draw import DrawGradient, DrawLine, DrawPolyline
+from ...shaders import handle
 
 from ...utils import view3d, addon, infobar
 
 
-class Cut_line(bpy.types.Operator):
+@dataclass
+class Mouse:
+    """Dataclass for tracking mouse positions."""
+    init: Vector = Vector()
+    co: Vector = Vector()
 
-    start_mouse_pos: Vector = Vector()
-    mouse_pos: Vector = Vector()
 
-    mode: bpy.props.EnumProperty(name="Mode", items=[('CUT', 'Cut', 'Cut'), ('SLICE', 'Slice', 'Slice'), ('BISECT', 'Bisect', 'Bisect')], default='CUT')
-    move: bpy.props.FloatProperty(name="Move", description="Offset form selected edge center", default=0.0, step=1, precision=4, subtype='DISTANCE')
+@dataclass
+class DrawUI(handle.Common):
+    """Dataclass for managing draw handlers."""
+    line: handle.Line = field(default_factory=handle.Line)
+    polyline: handle.Polyline = field(default_factory=handle.Polyline)
+    gradient: handle.Gradient = field(default_factory=handle.Gradient)
+    gradient_flip: handle.Gradient = field(default_factory=handle.Gradient)
 
-    release_confirm: bpy.props.BoolProperty(name="Release Confirm", default=True)
 
-    flip: bpy.props.BoolProperty(name="Flip",description="Flip the cut direction",default=False)
+class CutLine(bpy.types.Operator):
+    """Operator to cut a mesh in Edit Mode."""
 
-    _callback_dotted_line: DrawPolylineDotted
-    _handle_dotted_line: int
-    _callback_line: DrawLine
-    _handle_line: int
-    _callback_gradient: DrawGradient
-    _handle_gradient: int
-    _callback_gradient_flip: DrawGradient
-    _handle_gradient_flip: int
+    mode: bpy.props.EnumProperty(name="Mode", description="Operation mode", items=[('CUT', 'Cut', 'Cut the mesh by removing one side'), ('SLICE', 'Slice', 'Slice the mesh without removing any side'), ('BISECT', 'Bisect', 'Bisect the mesh without duplication')], default='CUT')
+    move: bpy.props.FloatProperty(name="Move", description="Offset from selected edge center", default=0.0, step=1, precision=4, subtype='DISTANCE')
+    init_confirm: bpy.props.BoolProperty(name="Initial Confirm", description="Confirm on mouse press", default=False)
+    release_confirm: bpy.props.BoolProperty(name="Release Confirm", description="Confirm on mouse release", default=True)
+    flip: bpy.props.BoolProperty(name="Flip", description="Flip the cut direction", default=False)
+    only_selected: bpy.props.BoolProperty(name="Only Selected", description="Cut only selected geometry", default=True)
+
+    def __init__(self):
+        self.state = 'DRAW'
+        self.mouse = Mouse()
+        self.ui = DrawUI()
+        self.draw_handlers = []
 
     @classmethod
     def poll(cls, context):
         return context.area.type == 'VIEW_3D' and context.mode == 'EDIT_MESH'
 
     def draw(self, context):
+        """Draw the operator's UI in the tool panel."""
         layout = self.layout
         layout.use_property_split = True
-
         layout.prop(self, 'move')
 
-    def tool(self):
-        '''Tool settings for the operator.'''
-        pass
-
     def invoke(self, context, event):
+        """Initialize the operator."""
 
-        self.tool()
-
-        self.start_mouse_pos = Vector((event.mouse_region_x, event.mouse_region_y))
+        self.mouse.init = Vector((event.mouse_region_x, event.mouse_region_y))
+        if self.init_confirm:
+            self.state = 'INIT'
 
         infobar.draw(context, event, self.infobar_hotkeys, blank=True)
-        text = 'Mesh Cut' if self.mode == 'CUT' else 'Mesh Slice'
-        context.area.header_text_set(text)
+        header_text = {'CUT': 'Mesh Cut', 'SLICE': 'Mesh Slice'}.get(self.mode, 'Mesh Cut')
+        context.area.header_text_set(header_text)
+
         context.window.cursor_set('SCROLL_XY')
-        self.setup_drawing(context)
+        self._setup_drawing(context)
 
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
     def modal(self, context, event):
-        if event.type == 'MOUSEMOVE':
-
-            self.mouse_pos = Vector((event.mouse_region_x, event.mouse_region_y))
-
-            use_snap = context.scene.tool_settings.use_snap or event.ctrl
-            if use_snap:
-                precision = True if event.shift else False
-                self.mouse_pos = self.snap(context, precision=precision)
-
-            self.update_drawing(context)
-            context.area.tag_redraw()
-
-        elif event.type == 'F' and event.value == 'PRESS':
-            self.flip = not self.flip
-            self.update_drawing(context)
-            context.area.tag_redraw()
+        """Handle events during the operator's execution."""
+        if self.state == 'INIT':
+            if event.type == 'LEFTMOUSE' and event.value == 'PRESS':
+                self.mouse.init = Vector((event.mouse_region_x, event.mouse_region_y))
+                self.state = 'DRAW'
             return {'RUNNING_MODAL'}
 
-        elif event.type == 'X' and event.value == 'PRESS':
-            if self.mode == 'SLICE':
-                self.mode = 'CUT'
-                self._callback_gradient.visible = True
-                self._callback_gradient_flip.visible = False
-                context.area.header_text_set('Mesh Cut')
-
-            else:
-                self.mode = 'SLICE'
-                self._callback_gradient.visible = True
-                self._callback_gradient_flip.visible = True
-                context.area.header_text_set('Mesh Slice')
-            self.update_drawing(context)
-            context.area.tag_redraw()
-
-        elif event.type == 'B' and event.value == 'PRESS':
-            self.mode = 'BISECT'
-            self._callback_gradient.visible = False
-            self._callback_gradient_flip.visible = False
-            context.area.header_text_set('Mesh Bisect')
-            self.update_drawing(context)
-            context.area.tag_redraw()
-
+        if event.type == 'MOUSEMOVE':
+            self._handle_mouse_move(context, event)
+        elif event.type in {'F', 'X', 'B'} and event.value == 'PRESS':
+            self._handle_key_press(context, event)
         elif event.type in {'LEFTMOUSE', 'RET', 'SPACE'}:
-            if event.type == 'LEFTMOUSE' and event.value != ('RELEASE' if self.release_confirm else 'PRESS'):
-                return {'RUNNING_MODAL'}
-            self.execute(context)
-            self.end(context)
-            return {'FINISHED'}
-
+            if not (self.release_confirm and event.type == 'LEFTMOUSE' and event.value != 'RELEASE'):
+                self.execute(context)
+                self._end(context)
+                return {'FINISHED'}
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
-            self.end(context)
+            self._end(context)
             return {'CANCELLED'}
 
         return {'RUNNING_MODAL'}
 
-    def snap(self, context, precision=False):
-        '''Snap the mouse position to the nearest angle increment.'''
+    def _handle_mouse_move(self, context, event):
+        """Update mouse position and redraw UI."""
+        self.mouse.co = Vector((event.mouse_region_x, event.mouse_region_y))
+        use_snap = context.scene.tool_settings.use_snap or event.ctrl
+        if use_snap:
+            precision = event.shift
+            self.mouse.co = self._snap(context, precision=precision)
+        self._update_drawing(context)
+        context.area.tag_redraw()
 
-        angle_increment = context.scene.tool_settings.snap_angle_increment_3d if hasattr(context.scene.tool_settings, 'snap_angle_increment_3d') else math.radians(15)
+    def _handle_key_press(self, context, event):
+        """Handle key presses for flipping and mode switching."""
+        if event.type == 'F':
+            self.flip = not self.flip
+            self._update_drawing(context)
+            context.area.tag_redraw()
+        elif event.type == 'X':
+            self._toggle_mode('CUT' if self.mode == 'SLICE' else 'SLICE', context)
+        elif event.type == 'B':
+            self._toggle_mode('BISECT', context)
+
+    def _toggle_mode(self, new_mode, context):
+        """Toggle between different operation modes."""
+        self.mode = new_mode
+        visibility = {
+            'CUT': {'gradient': True, 'gradient_flip': False},
+            'SLICE': {'gradient': True, 'gradient_flip': True},
+            'BISECT': {'gradient': False, 'gradient_flip': False}
+        }
+        self.ui.gradient.callback.visible = visibility[self.mode]['gradient']
+        self.ui.gradient_flip.callback.visible = visibility[self.mode]['gradient_flip']
+        context.area.header_text_set({
+            'CUT': 'Mesh Cut',
+            'SLICE': 'Mesh Slice',
+            'BISECT': 'Mesh Bisect'
+        }.get(self.mode, 'Mesh Cut'))
+        self._update_drawing(context)
+        context.area.tag_redraw()
+
+    def _snap(self, context, precision=False):
+        """Snap the mouse position to the nearest angle increment."""
+        tool_settings = context.scene.tool_settings
+        angle_increment = getattr(tool_settings, 'snap_angle_increment_3d', math.radians(15))
         if precision:
-            angle_increment = context.scene.tool_settings.snap_angle_increment_3d_precision if hasattr(context.scene.tool_settings, 'snap_angle_increment_3d') else math.radians(5)
+            angle_increment = getattr(tool_settings, 'snap_angle_increment_3d_precision', math.radians(5))
 
-        # Calculate the 2D angle from initial to current mouse position
-        angle = math.atan2(self.mouse_pos[1] - self.start_mouse_pos[1], self.mouse_pos[0] - self.start_mouse_pos[0])
-        snap_angle_rad = angle_increment
-        snapped_angle = round(angle / snap_angle_rad) * snap_angle_rad
-
-        # Calculate the distance to maintain from start to current position
-        distance = (self.mouse_pos - self.start_mouse_pos).length
-
-        # Create a direction vector from the snapped angle
+        delta = self.mouse.co - self.mouse.init
+        angle = math.atan2(delta.y, delta.x)
+        snapped_angle = round(angle / angle_increment) * angle_increment
+        distance = delta.length
         direction = Vector((math.cos(snapped_angle), math.sin(snapped_angle)))
+        snapped_mouse_pos = self.mouse.init + direction * distance
+        return snapped_mouse_pos
 
-        # Update current mouse position in 2D based on the snapped direction and original distance
-        snaped_mouse_pos = self.start_mouse_pos + direction * distance
-
-        return snaped_mouse_pos
-
-    def end(self, context):
-        '''Clean up.'''
-
+    def _end(self, context):
+        """Clean up after the operator finishes."""
         infobar.remove(context)
         context.area.header_text_set(text=None)
         context.window.cursor_set('CROSSHAIR')
 
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle_line, 'WINDOW')
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle_dotted_line, 'WINDOW')
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle_gradient, 'WINDOW')
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle_gradient_flip, 'WINDOW')
+        self.ui.clear()
 
         context.area.tag_redraw()
 
-    def setup_drawing(self, context):
-        '''Setup the drawing for the line'''
+    def _setup_drawing(self, context):
+        """Setup the drawing handlers based on the current mode."""
+        color = addon.pref().theme.ops.mesh.line_cut
 
-        theme = addon.pref().theme.ops.mesh.line_cut
+        # Setup Line
+        self.ui.line.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=color.line if self.mode == 'CUT' else color.slice_line, depth=True)
+        self.ui.line.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.line.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
 
-        start_pos, end_pos = Vector((0, 0, 0)), Vector((0, 0, 0))
-        color = theme.line if self.mode == 'CUT' else theme.slice_line
-        self._callback_line = DrawLine((start_pos, end_pos), width=1.6, color=color, depth=True)
-        self._handle_line = bpy.types.SpaceView3D.draw_handler_add(self._callback_line.draw, (context,), 'WINDOW', 'POST_VIEW')
+        # Setup Polyline
+        self.ui.polyline.callback = DrawPolyline([], width=1, color=color.slice_line)
+        self.ui.polyline.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.polyline.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
 
-        new_points = [(0, 0), (0, 0), (0, 0), (0, 0)]  # New corner points for the rectangle
-        gradient_color = theme.gradient if self.mode == 'CUT' else theme.slice_gradient
-        new_colors = [gradient_color, gradient_color, (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)]  # New colors
-        self._callback_gradient = DrawGradient(new_points, new_colors)
-        self._handle_gradient = bpy.types.SpaceView3D.draw_handler_add(self._callback_gradient.draw, (context,), 'WINDOW', 'POST_PIXEL')
+        # Setup Gradient
+        gradient_color = color.gradient if self.mode == 'CUT' else color.slice_gradient
+        self.ui.gradient.callback = DrawGradient(points=[(0, 0), (0, 0), (0, 0), (0, 0)], colors=[gradient_color, gradient_color, (0, 0, 0, 0), (0, 0, 0, 0)])
+        self.ui.gradient.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.gradient.callback.draw, (context,), 'WINDOW', 'POST_PIXEL')
 
-        new_points_flip = [(0, 0), (0, 0), (0, 0), (0, 0)]
-        gradient_color_flip = theme.slice_gradient
-        self._callback_gradient_flip = DrawGradient(new_points_flip, [gradient_color_flip] * 4)
-        self._handle_gradient_flip = bpy.types.SpaceView3D.draw_handler_add(self._callback_gradient_flip.draw, (context,), 'WINDOW', 'POST_PIXEL')
+        # Setup Gradient Flip
+        gradient_flip_color = color.slice_gradient
+        self.ui.gradient_flip.callback = DrawGradient(points=[(0, 0), (0, 0), (0, 0), (0, 0)], colors=[gradient_flip_color] * 4)
+        self.ui.gradient_flip.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.gradient_flip.callback.draw, (context,), 'WINDOW', 'POST_PIXEL')
 
-        start_pos, end_pos = Vector((0, 0)), Vector((0, 0))
-        dotted_color = theme.guid
-        self._callback_dotted_line = DrawPolylineDotted([start_pos, end_pos], width=1.4, color=dotted_color)
-        self._handle_dotted_line = bpy.types.SpaceView3D.draw_handler_add(self._callback_dotted_line.draw, (context,), 'WINDOW', 'POST_PIXEL')
+    def _update_drawing(self, context):
+        """Update the drawing elements based on the current mode and mouse position."""
+        color = addon.pref().theme.ops.mesh.line_cut
+        self._update_lines(context, color)
 
-    def update_drawing(self, context):
-        '''Update the drawing for the line'''
-
-        theme = addon.pref().theme.ops.mesh.line_cut
-
-        self.update_lines(context, theme)
+        # Update gradients based on mode
         if self.mode == 'CUT':
-            self.update_cut_mode(theme)
+            self._update_gradient(perp_distance=150, gradient_color=color.gradient, flip=self.flip)
+            self._reset_gradient(self.ui.gradient_flip.callback)
         elif self.mode == 'SLICE':
-            self.update_slice_mode(theme)
+            self._update_gradient(perp_distance=75, gradient_color=color.slice_gradient)
+            if self.flip:
+                self._update_gradient(perp_distance=75, gradient_color=color.slice_gradient, flip=True, is_flip=True)
         elif self.mode == 'BISECT':
-            self.update_bisect_mode()
+            self.ui.gradient.callback.visible = False
+            self._reset_gradient(self.ui.gradient.callback)
+            self._reset_gradient(self.ui.gradient_flip.callback)
 
-    def update_lines(self, context, theme):
-        '''Update the lines for the cut.'''
-
+    def _update_lines(self, context, color):
+        """Update the line and polyline based on mouse positions."""
         region = context.region
         rv3d = context.region_data
 
         obj = context.edit_object
         obj.update_from_editmode()
         center_point = bbox_center(obj)
-        largest_dimension = get_largest_dimension(obj)
+        largest_dim = get_largest_dimension(obj)
 
-        point1 = view3d.region_2d_to_location_3d(region, rv3d, self.start_mouse_pos, center_point + largest_dimension * rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)))
-        point2 = view3d.region_2d_to_location_3d(region, rv3d, self.mouse_pos, center_point + largest_dimension * rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)))
-        color = theme.line if self.mode == 'CUT' else theme.slice_line
-        self._callback_line.update_batch((point1, point2), color)
+        # Convert 2D mouse positions to 3D points
+        point1 = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.init, center_point + largest_dim * rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)))
+        point2 = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.co, center_point + largest_dim * rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)))
 
-        self._callback_dotted_line.update_batch([self.start_mouse_pos, self.mouse_pos], theme.guid)
+        # Update Line
+        line_color = color.line if self.mode == 'CUT' else color.slice_line
+        self.ui.line.callback.update_batch((point1, point2), color=line_color)
 
-    def update_cut_mode(self, theme):
-        '''Update the gradient for the cut mode.'''
+        # Update Polyline
+        self.ui.polyline.callback.update_batch([(point1, point2)], color=line_color)
 
-        self.handle_gradient_update(250, theme.gradient, flip=self.flip)
-        self.reset_gradient(self._callback_gradient_flip)
+    def _update_gradient(self, perp_distance, gradient_color, flip=False, is_flip=False):
+        """Update the gradient visualization based on direction and flip."""
+        direction = (self.mouse.co - self.mouse.init).normalized()
+        perp_vector = Vector((-direction.y, direction.x)) if flip else Vector((direction.y, -direction.x))
 
-    def update_slice_mode(self, theme):
-        '''Update the gradient for the slice mode.'''
-
-        self.handle_gradient_update(125, theme.slice_gradient)
-        self._callback_gradient_flip.visible = True
-        self.handle_gradient_update(125, theme.slice_gradient, True, True)
-
-    def update_bisect_mode(self):
-        '''Update the gradient for the bisect mode.'''
-
-        self._callback_gradient.visible = False
-        self.reset_gradient(self._callback_gradient)
-        self.reset_gradient(self._callback_gradient_flip)
-
-    def handle_gradient_update(self, perp_distance, gradient_color, flip=False, _flip=False):
-        '''Update the gradient based on the cut or slice mode and flip status.'''
-        direction = (self.mouse_pos - self.start_mouse_pos).normalized()
-        # Adjust the perpendicular vector based on flip status
-        if flip:
-            perp_vector = Vector((-direction.y, direction.x))
-        else:
-            perp_vector = Vector((direction.y, -direction.x))
-
-        # Define points based on the direction and flip status
-        point3 = self.mouse_pos + perp_vector * perp_distance
-        point4 = self.start_mouse_pos + perp_vector * perp_distance
-        new_points = [self.mouse_pos, self.start_mouse_pos, point4, point3] if flip else [self.start_mouse_pos, self.mouse_pos, point3, point4]
+        point3 = self.mouse.co + perp_vector * perp_distance
+        point4 = self.mouse.init + perp_vector * perp_distance
+        points = [self.mouse.co, self.mouse.init, point4, point3] if flip else [self.mouse.init, self.mouse.co, point3, point4]
 
         colors = [gradient_color, gradient_color, (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)]
-        callback = self._callback_gradient_flip if _flip else self._callback_gradient
-        callback.update_batch(points=new_points, colors=colors)
+        target_callback = self.ui.gradient_flip.callback if is_flip else self.ui.gradient.callback
+        target_callback.update_batch(points=points, colors=colors)
 
-    def reset_gradient(self, gradient_callback):
-        '''Reset the gradient to a blank state.'''
-
-        gradient_callback.update_batch(points=[(0, 0), (0, 0), (0, 0), (0, 0)], colors=[(0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0), (0, 0, 0, 0)])
+    def _reset_gradient(self, gradient_callback):
+        """Reset a gradient to a transparent state."""
+        gradient_callback.update_batch(points=[(0, 0), (0, 0), (0, 0), (0, 0)], colors=[(0, 0, 0, 0)] * 4)
 
     def execute(self, context):
+        """Execute the cutting operation."""
         region = context.region
         region_data = context.space_data.region_3d
 
         obj = context.edit_object
         obj.update_from_editmode()
-        center_point = bbox_center(obj)  # or center_of_mass(obj)
+        center_point = bbox_center(obj)
 
-        # Calculate the 3D space position of the start and current mouse positions
-        point1 = view3d.region_2d_to_location_3d(region, region_data, self.start_mouse_pos, center_point)
-        point2 = view3d.region_2d_to_location_3d(region, region_data, self.mouse_pos, center_point)
+        # Convert mouse positions to 3D coordinates
+        point1 = view3d.region_2d_to_location_3d(region, region_data, self.mouse.init, center_point)
+        point2 = view3d.region_2d_to_location_3d(region, region_data, self.mouse.co, center_point)
 
-        # Calculate the tangent vector from point1 to point2
+        # Calculate plane normal based on mouse movement and view direction
         tangent = (point2 - point1).normalized()
-
-        view_direction = view3d.region_2d_to_vector_3d(region, region_data, self.start_mouse_pos)
-
-        # The plane's normal is the cross product of the tangent and the view direction
+        view_direction = view3d.region_2d_to_vector_3d(region, region_data, self.mouse.init)
         plane_no_global = tangent.cross(view_direction).normalized()
 
-        # Proceed with bisecting using the calculated plane coordinates in local space
-        selected = context.selected_objects
-        for obj in selected:
-            if obj.type != 'MESH':
-                continue
-
-            # Convert global coordinates to the object's local space
-            plane_no_local = obj.matrix_world.transposed() @ plane_no_global
-
+        # Iterate over selected mesh objects
+        selected_meshes = [obj for obj in context.selected_objects if obj.type == 'MESH']
+        for mesh_obj in selected_meshes:
+            mesh_obj.update_from_editmode()
+            plane_no_local = mesh_obj.matrix_world.transposed() @ plane_no_global
             move_vector = plane_no_local * self.move
-            plane_co_local = (obj.matrix_world.inverted() @ point1) + move_vector
+            plane_co_local = (mesh_obj.matrix_world.inverted() @ point1) + move_vector
 
             if self.mode == 'CUT':
-                self.bisect_mesh_with_plane(obj, plane_co_local, plane_no_local, self.flip, True)
+                self._bisect_mesh(mesh_obj, plane_co_local, plane_no_local, self.flip, clear_inner=True)
+            elif self.mode == 'SLICE':
+                self._slice_mesh(mesh_obj, plane_co_local, plane_no_local)
             elif self.mode == 'BISECT':
-                self.bisect_mesh_with_plane(obj, plane_co_local, plane_no_local, False, False)
-            else:
-                self.slice_mesh_with_plane(obj, plane_co_local, plane_no_local)
+                self._bisect_mesh(mesh_obj, plane_co_local, plane_no_local, flip=False, clear_inner=False)
+
+            bmesh.update_edit_mesh(mesh_obj.data, loop_triangles=True, destructive=True)
 
         return {'FINISHED'}
 
-    def slice_mesh_with_plane(self, obj, plane_co, plane_no):
-        '''Slice the mesh with the given plane, retaining both sides.'''
-
+    def _slice_mesh(self, obj, plane_co, plane_no):
+        """Slice the mesh with the given plane, retaining both sides."""
         bm = bmesh.from_edit_mesh(obj.data)
+        geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+        if self.only_selected:
+            geom = [g for g in geom if (g.select and not g.hide)]
+        else:
+            geom = [g for g in geom if not g.hide]
 
-        # Step 1: Bisect without clearing any geometry
-        result = bmesh.ops.bisect_plane(
-            bm,
-            geom=bm.verts[:] + bm.edges[:] + bm.faces[:],
-            plane_co=plane_co,
-            plane_no=plane_no,
-            clear_outer=False,
-            clear_inner=False
-        )
+        # Perform bisect without clearing any geometry
+        result = bmesh.ops.bisect_plane(bm, geom=geom, plane_co=plane_co, plane_no=plane_no, clear_outer=False, clear_inner=False)
 
-        # Ensure the new geometry from the bisect is properly updated
+        # Update mesh without destruction to preserve both sides
         bmesh.update_edit_mesh(obj.data, loop_triangles=True, destructive=False)
 
-        # Step 2: Use the "geom_cut" to find the boundary edges created by the bisect
+        # Split along the bisect edges
         split_edges = [e for e in result['geom_cut'] if isinstance(e, bmesh.types.BMEdge)]
+        if split_edges:
+            bmesh.ops.split_edges(bm, edges=split_edges)
+            bm.verts.ensure_lookup_table()
+            bm.edges.ensure_lookup_table()
+            bm.faces.ensure_lookup_table()
 
-        # Step 3: Split the mesh along the bisect edges
-        bmesh.ops.split_edges(bm, edges=split_edges)
+            # Fill open boundaries to form closed meshes
+            fill_edges = [e for e in bm.edges if e.is_boundary]
+            if fill_edges:
+                bmesh.ops.edgeloop_fill(bm, edges=fill_edges)
 
-        # Refresh the bmesh to account for new topology changes
-        bm.verts.ensure_lookup_table()
-        bm.edges.ensure_lookup_table()
-        bm.faces.ensure_lookup_table()
+            bm.select_flush(True)
 
-        # Step 4: Fill the open boundaries created by the split to form two separate closed meshes
-        fill_edges = [e for e in bm.edges if e.is_boundary]
-        bmesh.ops.edgeloop_fill(bm, edges=fill_edges)
-
-        # Finalize the update
-        bmesh.update_edit_mesh(obj.data, loop_triangles=True, destructive=True)
-
-    def bisect_mesh_with_plane(self, obj, plane_co, plane_no, flip, cut):
-        '''Bisect the mesh with the given plane.'''
-
+    def _bisect_mesh(self, obj, plane_co, plane_no, flip, clear_inner):
+        """Bisect the mesh with the given plane, optionally flipping and clearing inner geometry."""
         bm = bmesh.from_edit_mesh(obj.data)
+        geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
+        if self.only_selected:
+            geom = [g for g in geom if (g.select and not g.hide)]
+        else:
+            geom = [g for g in geom if not g.hide]
 
         if flip:
             plane_no = -plane_no
 
-        clear_inner = cut
+        # Perform bisect
+        geom_cut = bmesh.ops.bisect_plane(bm, geom=geom, plane_co=plane_co, plane_no=plane_no, clear_outer=False, clear_inner=clear_inner)
 
-        geom_cut = bmesh.ops.bisect_plane(bm, geom=bm.verts[:] + bm.edges[:] + bm.faces[:], plane_co=plane_co, plane_no=plane_no, clear_outer=False, clear_inner=clear_inner)
-        for geom in geom_cut['geom_cut']:
-            geom.select = True
+        # Select the newly cut geometry
+        for geom_elem in geom_cut['geom_cut']:
+            geom_elem.select = True
 
-        if cut:
+        if clear_inner:
             bmesh.ops.contextual_create(bm, geom=geom_cut['geom_cut'], mat_nr=0)
 
-        bmesh.update_edit_mesh(obj.data, loop_triangles=True, destructive=True)
+        bm.select_flush(True)
 
     def infobar_hotkeys(self, layout, _context, _event):
-        '''Draw the infobar with the hotkeys.'''
-
+        """Display hotkeys in the infobar."""
         row = layout.row(align=True)
         row.label(text='', icon='MOUSE_MOVE')
         row.label(text='Draw')
@@ -370,44 +346,48 @@ class Cut_line(bpy.types.Operator):
         row.label(text='Change Mode')
 
 
-class BOUT_OT_Cut2D(Cut_line):
+class BOUT_OT_Cut2D(CutLine):
+    """Operator to  bisect a mesh in Edit Mode."""
     bl_idname = "bout.mesh_line_cut"
     bl_label = "Mesh Line Cut"
-    bl_description = "Cut the mesh"
-    bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR', 'DEPENDS_ON_CURSOR'}
-
-
-class BOUT_OT_Cut2D_TOOL(Cut_line):
-    bl_idname = "bout.mesh_line_cut_tool"
-    bl_label = "Mesh Line Cut Tool"
-    bl_description = "Cut the mesh"
+    bl_description = "Cut, slice, or bisect the mesh"
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
 
-    def tool(self):
-        tool = addon.pref().tools.block2d
-        self.mode = tool.mode
+
+class BOUT_OT_Cut2D_TOOL(CutLine):
+    """Tool variant of the CutLineOperator with predefined settings."""
+    bl_idname = "bout.mesh_line_cut_tool"
+    bl_label = "Mesh Line Cut Tool"
+    bl_description = "Tool to bisect the mesh"
+    bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
+
+    def invoke(self, context, event):
+        """Initialize tool-specific settings before invoking the operator."""
+        tool_prefs = addon.pref().tools.block2d
+        self.mode = tool_prefs.mode
+        self.only_selected = tool_prefs.only_selected
+        return super().invoke(context, event)
 
 
 def get_largest_dimension(obj):
-    '''Return the largest dimension of the object.'''
-
-    dimensions = obj.dimensions
-    return max(dimensions.x, dimensions.y, dimensions.z)
+    """Return the largest dimension of the object."""
+    return max(obj.dimensions)
 
 
 def bbox_center(obj):
-    local_bbox_center = 0.125 * sum((Vector(b) for b in obj.bound_box), Vector())
-    global_bbox_center = obj.matrix_world @ local_bbox_center
-    return global_bbox_center
+    """Return the center of the bounding box of the object."""
+    local_center = sum((Vector(b) for b in obj.bound_box), Vector()) * 0.125
+    return obj.matrix_world @ local_center
 
 
 class theme(bpy.types.PropertyGroup):
+    """Property group for operator theme colors."""
     guid: bpy.props.FloatVectorProperty(name="Cut Guide", description="Guide color", default=(0.0, 0.0, 0.0, 0.7), subtype='COLOR', size=4, min=0.0, max=1.0)
-    line: bpy.props.FloatVectorProperty(name="Cut", description="Cut Line color", default=(1.0, 0.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
-    gradient: bpy.props.FloatVectorProperty(name="Cut Gradient ", description="Cut Gradient color", default=(1.0, 0.0, 0.0, 0.15), subtype='COLOR', size=4, min=0.0, max=1.0)
-    slice_line: bpy.props.FloatVectorProperty(name="Slice", description="Slice Line color", default=(1.0, 1.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
-    slice_gradient: bpy.props.FloatVectorProperty(name="Slice Gradient", description="Slice gradient color", default=(1.0, 1.0, 0.0, 0.15), subtype='COLOR', size=4, min=0.0, max=1.0)
-    bisect: bpy.props.FloatVectorProperty(name="Bisect", description="Bisect color", default=(0.0, 1.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
+    line: bpy.props.FloatVectorProperty(name="Cut Line", description="Color of the cut line", default=(1.0, 0.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
+    gradient: bpy.props.FloatVectorProperty(name="Cut Gradient", description="Color of the cut gradient", default=(1.0, 0.0, 0.0, 0.15), subtype='COLOR', size=4, min=0.0, max=1.0)
+    slice_line: bpy.props.FloatVectorProperty(name="Slice Line", description="Color of the slice line", default=(1.0, 1.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
+    slice_gradient: bpy.props.FloatVectorProperty(name="Slice Gradient", description="Color of the slice gradient", default=(1.0, 1.0, 0.0, 0.15), subtype='COLOR', size=4, min=0.0, max=1.0)
+    bisect: bpy.props.FloatVectorProperty(name="Bisect", description="Color of the bisect line", default=(0.0, 1.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
 
 
 types_classes = (

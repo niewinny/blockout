@@ -1,11 +1,38 @@
+from dataclasses import dataclass, field
 import bpy
 import bmesh
-
 from mathutils import Vector
 
 from ...shaders.draw import DrawPolyline
+from ...shaders import handle
 from ...utils import addon, view3d, scene, infobar
 from ...utils.bmesh import Closest
+
+
+@dataclass
+class PlaneData:
+    '''Dataclass for the plane data.'''
+    co: Vector = None
+    no: Vector = Vector((0, 0, 0))
+    co_init: Vector = None
+    no_init: Vector = None
+    move_init: Vector = None
+
+
+@dataclass
+class MeshData:
+    '''Dataclass for the mesh data.'''
+    bm: bmesh.types.BMesh = None
+    geom: list = None
+    stored_mesh_data: bpy.types.Mesh = None
+    closest: Closest = None
+
+
+@dataclass
+class DrawUI(handle.Common):
+    '''Dataclass for the UI data.'''
+    line: handle.Line = field(default_factory=handle.Line)
+    guid: handle.Polyline = field(default_factory=handle.Polyline)
 
 
 class BOUT_OT_LoopBisect(bpy.types.Operator):
@@ -14,29 +41,17 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
     bl_description = "Create Loop Cut along a given edge across the mesh."
 
-    state: str = 'DETECT'
-    orientation: str = 'EDGE'
-
-    bms: dict = {}
-    closests: dict = {}
-    geoms: dict = {}
-    stored_mesh_data: dict = {}
-    guid: tuple = []
-
-    edge: bmesh.types.BMEdge = None
-
-    move_init: Vector = None
-    move: bpy.props.FloatProperty(name="Move", description="Offset form selected edge center", default=0.0, step=1, precision=4, subtype='DISTANCE')
-
-    plane_co: Vector
+    move: bpy.props.FloatProperty(name="Move", description="Offset from selected edge center", default=0.0, step=1, precision=4, subtype='DISTANCE')
     plane_no: bpy.props.FloatVectorProperty(name="Normal", description="Move vector", default=(0, 0, 0), min=-1, max=1, subtype='XYZ')
-    plane_co_init: Vector
-    plane_no_init: Vector
 
-    _callback_line: DrawPolyline
-    _handle_line: int
-    _callback_guid: DrawPolyline
-    _handle_guid: int
+    def __init__(self):
+        self.state: str = 'DETECT'
+        self.orientation: str = 'EDGE'
+        self.mesh_data = {}
+        self.plane_data = PlaneData()
+        self.ui = DrawUI()
+        self.edge = None
+        self.guid = None
 
     @classmethod
     def poll(cls, context):
@@ -56,125 +71,122 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
         selected_objects = context.selected_objects
         mouse_pos = Vector((event.mouse_region_x, event.mouse_region_y))
 
-        self.bms = {}
-        self.closests = {}
-
         bpy.ops.mesh.select_all(action='DESELECT')
 
         for obj in selected_objects:
             if obj.type == 'MESH':
-
                 obj.update_from_editmode()
-                # Operate on this object
                 bm = bmesh.from_edit_mesh(obj.data)
-                geom = [v for v in bm.verts if not v.hide] + [e for e in bm.edges if not e.hide] + [f for f in bm.faces if not f.hide]
+                geom = [v for v in bm.verts if not v.hide] + \
+                       [e for e in bm.edges if not e.hide] + \
+                       [f for f in bm.faces if not f.hide]
 
-                # Store bmesh and selections
-                self.bms[obj] = bm
-                self.geoms[obj] = geom
-                self.closests[obj] = Closest(context, bm, mouse_pos)
-                self.stored_mesh_data[obj] = obj.data.copy()
+                closest = Closest(context, bm, mouse_pos)
+                stored_mesh_data = obj.data.copy()
+
+                self.mesh_data[obj] = MeshData(
+                    bm=bm,
+                    geom=geom,
+                    stored_mesh_data=stored_mesh_data,
+                    closest=closest
+                )
 
         points = [(Vector((0, 0, 0)), Vector((0, 0, 0)))]
 
         _theme = addon.pref().theme.ops.mesh.loop_bisect
         color = _theme.line
-        self._callback_line = DrawPolyline(points, width=1.0, color=color)
-        self._handle_line = bpy.types.SpaceView3D.draw_handler_add(self._callback_line.draw, (context,), 'WINDOW', 'POST_VIEW')
+        self.ui.line.callback = DrawPolyline(points, width=1.0, color=color)
+        self.ui.line.handle = bpy.types.SpaceView3D.draw_handler_add(
+            self.ui.line.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
         color = _theme.guid
-        self._callback_guid = DrawPolyline(points, width=1.2, color=color)
-        self._handle_guid = bpy.types.SpaceView3D.draw_handler_add(self._callback_guid.draw, (context,), 'WINDOW', 'POST_VIEW')
+        self.ui.guid.callback = DrawPolyline(points, width=1.2, color=color)
+        self.ui.guid.handle = bpy.types.SpaceView3D.draw_handler_add(
+            self.ui.guid.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
 
-        infobar.draw(context, event, self.infobar_hotkeys_detect, blank=True)
+        infobar.draw(context, event, self._infobar_hotkeys_detect, blank=True)
         context.area.header_text_set(f'Cuts: {1}')
         context.window.cursor_set('SCROLL_XY')
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
     def modal(self, context, event):
-
         if event.type == 'MOUSEMOVE':
             if self.state == 'DETECT':
                 mouse_pos = Vector((event.mouse_region_x, event.mouse_region_y))
                 scene.set_active_object(context, mouse_pos)
 
-                edge, edit_object, _bm = self.detect_edge(context, event)
+                edge, edit_object = self._detect_edge(context, event)
                 if edge:
-
                     self.edge = edge
-                    self.plane_co_init = (edge.verts[0].co + edge.verts[1].co) / 2
-                    self.plane_no_init = (edge.verts[1].co - edge.verts[0].co).normalized()
+                    self.plane_data.co_init = (edge.verts[0].co + edge.verts[1].co) / 2
+                    self.plane_data.no_init = (edge.verts[1].co - edge.verts[0].co).normalized()
 
-                    self.guid = (edit_object.matrix_world @ edge.verts[0].co, edit_object.matrix_world @ edge.verts[1].co)
+                    self.guid = (
+                        edit_object.matrix_world @ edge.verts[0].co,
+                        edit_object.matrix_world @ edge.verts[1].co
+                    )
 
-                    self.plane_co = self.plane_co_init
+                    self.plane_data.co = self.plane_data.co_init
                     if self.orientation == 'EDGE':
-                        self.plane_no = self.plane_no_init
+                        self.plane_no = self.plane_data.no_init
 
-                    self.update(context, edit_object, edge)
-
+                    self._update(context, edit_object, edge)
                 else:
                     self.edge = None
-                    self._callback_line.update_batch([])
-
+                    self.ui.line.callback.update_batch([])
             elif self.state == 'MOVE':
-
                 edit_object = context.edit_object
+                mesh_data = self.mesh_data.get(edit_object)
+                plane_data = self.plane_data
 
-                # Transform self.plane_co_init and self.plane_no to global space
-                global_plane_co_init = edit_object.matrix_world @ self.plane_co_init
+                if not mesh_data:
+                    # Handle case where mesh_data is missing
+                    self.report({'WARNING'}, "Mesh data not found for the object.")
+                    self._end(context)
+                    return {'CANCELLED'}
 
+                global_plane_co_init = edit_object.matrix_world @ plane_data.co_init
                 plane_no = self.plane_no
 
                 if self.orientation == 'EDGE':
                     plane_no = (edit_object.matrix_world.to_3x3() @ self.plane_no).normalized()
 
-                # Now use these global vectors for calculating the closest point on the line
                 mouse_pos = Vector((event.mouse_region_x, event.mouse_region_y))
                 region = context.region
                 rv3d = context.region_data
-                closest_point_on_line = view3d.region_2d_to_nearest_point_on_line_3d(region, rv3d, mouse_pos, global_plane_co_init, plane_no)
+                closest_point_on_line = view3d.region_2d_to_nearest_point_on_line_3d(
+                    region, rv3d, mouse_pos, global_plane_co_init, plane_no)
 
                 if closest_point_on_line:
-                    # Convert the closest point back to local space before using it
                     local_closest_point = edit_object.matrix_world.inverted() @ closest_point_on_line
 
-                    if self.move_init is None:
-                        self.move_init = self.plane_co_init - local_closest_point
+                    if plane_data.move_init is None:
+                        plane_data.move_init = plane_data.co_init - local_closest_point
 
-                    adjusted_closest_point = local_closest_point + self.move_init
-                    self.plane_co = adjusted_closest_point
+                    adjusted_closest_point = local_closest_point + plane_data.move_init
+                    plane_data.co = adjusted_closest_point
 
-                    # Determine the direction to adjust the move
-                    self.calculate_offset_from_plane_co()
-                    context.area.header_text_set(f'Loop Slide: {self.move:.4f} along {self.orientation.lower()}')
+                    self._calculate_offset_from_plane_co()
+                    context.area.header_text_set(
+                        f'Loop Slide: {self.move:.4f} along {self.orientation.lower()}')
 
-                # Restore the previous mesh state
-                self.restore_mesh(context)
-
-                # Execute the bisect operation
+                self._restore_mesh(context)
                 self.execute(context)
 
-                self._callback_line.update_batch([])
-                self._callback_guid.update_batch([self.guid])
-
+                self.ui.line.callback.update_batch([])
+                self.ui.guid.callback.update_batch([self.guid])
         elif event.type == 'LEFTMOUSE':
             if event.value == 'PRESS':
-
                 if self.state == 'MOVE':
-
-                    self.end(context)
+                    self._end(context)
                     return {'FINISHED'}
-
                 elif self.state == 'DETECT':
                     if self.edge:
                         self.state = 'MOVE'
-                        infobar.draw(context, event, self.infobar_hotkeys_move, blank=True)
-
+                        infobar.draw(context, event, self._infobar_hotkeys_move, blank=True)
                     else:
-                        self.end(context)
+                        self._end(context)
                         return {'CANCELLED'}
-
         elif event.type in {'X', 'Y', 'Z', 'E'} and event.value == 'PRESS' and self.state == 'MOVE':
             edit_object = context.edit_object
 
@@ -185,7 +197,6 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                 else:
                     self.orientation = 'GLOBAL_Z'
                     self.plane_no = edit_object.matrix_world.to_3x3().inverted_safe() @ Vector((0, 0, 1))
-
             elif event.type == 'X':
                 if self.orientation == 'GLOBAL_X':
                     self.orientation = 'LOCAL_X'
@@ -193,7 +204,6 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                 else:
                     self.orientation = 'GLOBAL_X'
                     self.plane_no = edit_object.matrix_world.to_3x3().inverted_safe() @ Vector((1, 0, 0))
-
             elif event.type == 'Y':
                 if self.orientation == 'GLOBAL_Y':
                     self.orientation = 'LOCAL_Y'
@@ -201,102 +211,80 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                 else:
                     self.orientation = 'GLOBAL_Y'
                     self.plane_no = edit_object.matrix_world.to_3x3().inverted_safe() @ Vector((0, 1, 0))
-
             elif event.type == 'E':
                 self.orientation = 'EDGE'
-                self.plane_no = self.plane_no_init
+                self.plane_no = self.plane_data.no_init
 
             context.area.header_text_set(f'Loop Slide: {self.move:.4f} along {self.orientation.lower()}')
-
         if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS':
-
             if self.state == 'MOVE':
-
-                self.restore_mesh(context)
+                self._restore_mesh(context)
                 self.move = 0.0
-                self.plane_co = self.plane_co_init
+                self.plane_data.co = self.plane_data.co_init
                 self.execute(context)
-                self.end(context)
-
+                self._end(context)
                 return {'FINISHED'}
-
             elif self.state == 'DETECT':
-
-                selected_objects = context.selected_objects
-
-                for obj in selected_objects:
+                for obj in context.selected_objects:
                     bmesh.update_edit_mesh(obj.data)
-
-                self.end(context)
+                self._end(context)
                 return {'CANCELLED'}
-
         return {'RUNNING_MODAL'}
 
-    def restore_mesh(self, context):
-        '''Restore the mesh to the state before the operation.'''
+    def _restore_mesh(self, context):
+        '''Restore the mesh to the stored mesh data'''
         edit_object = context.edit_object
-        bm = self.bms[edit_object]
-        stored_mesh_data = self.stored_mesh_data[edit_object]
+        mesh_data = self.mesh_data.get(edit_object)
+        if not mesh_data:
+            # Handle case where mesh_data is missing
+            self.report({'WARNING'}, "Mesh data not found for the object.")
+            return
+        bm = mesh_data.bm
+        stored_mesh_data = mesh_data.stored_mesh_data
         if stored_mesh_data:
             bm.clear()
             bm.from_mesh(stored_mesh_data)
 
-    def update(self, context, edit_object, edge):
-        '''Update the bisect operation based on the current state.'''
-
+    def _update(self, context, edit_object, edge):
+        '''Update the bisect operation'''
         if edge:
-            edge_points = self.traverse_edges(edge, edit_object)
-            self.update_bisect_callback(edge_points)
+            edge_points = self._traverse_edges(edge, edit_object)
+            self._update_bisect_callback(edge_points)
             context.area.tag_redraw()
 
-    def traverse_edges(self, start_edge, edit_object):
-        '''Traverse edges starting from a given edge, collecting intersection points with the plane.'''
-
+    def _traverse_edges(self, start_edge, edit_object):
+        '''Traverse the edges to get the intersection points'''
         matrix_world = edit_object.matrix_world
-
-        plane_co = matrix_world @ self.plane_co
+        plane_co = matrix_world @ self.plane_data.co
         plane_no = matrix_world.to_3x3() @ self.plane_no
-
         visited_faces = set()
         intersection_points = []
 
-        def traverse_single_direction(start_edge):
-            '''Traverse edges in a single direction from the start edge.'''
-            current_edge = start_edge
-            prev_point = self.get_intersection_point(current_edge, plane_co, plane_no, matrix_world)
-
+        def traverse_single_direction(current_edge):
+            '''Traverse the edges in a single direction'''
+            prev_point = self._get_intersection_point(current_edge, plane_co, plane_no, matrix_world)
             if not prev_point:
                 return []
-
             points = []
-            initial_edge = current_edge
-
             while True:
                 found_next_edge = False
-
                 for face in current_edge.link_faces:
                     if face in visited_faces:
                         continue
-
                     visited_faces.add(face)
-
                     for edge in face.edges:
                         if edge != current_edge:
-                            next_point = self.get_intersection_point(edge, plane_co, plane_no, matrix_world)
+                            next_point = self._get_intersection_point(edge, plane_co, plane_no, matrix_world)
                             if next_point:
                                 points.append((prev_point, next_point))
                                 prev_point = next_point
                                 current_edge = edge
                                 found_next_edge = True
-                                break  # Only follow one edge per face
-
+                                break
                     if found_next_edge:
                         break
-
-                # Stop if we've looped back to the initial edge or if no further edges were found
-                if current_edge == initial_edge or not found_next_edge:
+                if not found_next_edge:
                     break
-
             return points
 
         # Traverse in the initial direction
@@ -304,7 +292,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
         intersection_points.extend(points_forward)
 
         # If the last edge does not bring us back to the starting edge, traverse again in the opposite direction
-        if points_forward and points_forward[-1][1] != self.get_intersection_point(start_edge, plane_co, plane_no, matrix_world):
+        if points_forward and points_forward[-1][1] != self._get_intersection_point(start_edge, plane_co, plane_no, matrix_world):
             points_backward = traverse_single_direction(start_edge)
             # Reverse the points collected and extend to the full list
             intersection_points.extend(reversed(points_backward))
@@ -315,111 +303,89 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
 
         return intersection_points
 
-    def get_intersection_point(self, edge, plane_co, plane_no, matrix_world):
-        '''Calculate the intersection point of an edge with a plane.'''
-
+    def _get_intersection_point(self, edge, plane_co, plane_no, matrix_world):
+        '''Get the intersection point between the edge and the plane'''
         vert1 = matrix_world @ edge.verts[0].co
         vert2 = matrix_world @ edge.verts[1].co
         edge_vector = vert2 - vert1
-
         denom = plane_no.dot(edge_vector)
-        if abs(denom) > 1e-6:  # Ensure the edge is not parallel to the plane
+        if abs(denom) > 1e-6:
             t = (plane_co - vert1).dot(plane_no) / denom
             if 0 <= t <= 1:
                 return vert1 + t * edge_vector
-
         return None
 
-    def update_bisect_callback(self, edge_points):
-        '''Update the drawing callback with new points.'''
-
+    def _update_bisect_callback(self, edge_points):
+        '''Update the bisect callback'''
         if edge_points:
             color = addon.pref().theme.ops.mesh.loop_bisect.line
-            flattened_points = []
-            for start, end in edge_points:
-                flattened_points.append((start, end))
-            self._callback_line.update_batch(flattened_points, color=color)
+            flattened_points = [(start, end) for start, end in edge_points]
+            self.ui.line.callback.update_batch(flattened_points, color=color)
 
-    def calculate_offset_from_plane_co(self):
-        '''Calculate the move based on the current plane_co and the initial plane_co.'''
-
-        difference_vector = self.plane_co - self.plane_co_init
-
-        # The projection formula is: proj_v_on_u = (v . u / u . u) * u
-        # But since plane_no should be a unit vector (normalized), u . u = 1, simplifying the formula
+    def _calculate_offset_from_plane_co(self):
+        '''Calculate the offset from the plane co'''
+        difference_vector = self.plane_data.co - self.plane_data.co_init
         projection_length = difference_vector.dot(self.plane_no)
         self.move = projection_length
 
-    def adjust_plane_co(self, plane_no):
-        '''Adjust the plane_co based on the move.'''
-
+    def _adjust_plane_co(self, plane_no):
+        '''Adjust the plane co based on the move vector'''
         movement_vector = plane_no * self.move
-        self.plane_co = self.plane_co_init + movement_vector
+        self.plane_data.co = self.plane_data.co_init + movement_vector
 
     def execute(self, context):
-        '''Execute the bisect operation.'''
-
-        if self.plane_co is None:
+        if self.plane_data.co is None:
             return {'CANCELLED'}
-
         bpy.ops.mesh.select_all(action='DESELECT')
-
         edit_object = context.edit_object
         bm = bmesh.from_edit_mesh(edit_object.data)
-        geom = [v for v in bm.verts if not v.hide] + [e for e in bm.edges if not e.hide] + [f for f in bm.faces if not f.hide]
-
-        self.adjust_plane_co(self.plane_no)
-        result = self.bisect(context, self.plane_co, self.plane_no, bm, geom)
-
+        geom = [v for v in bm.verts if not v.hide] + \
+               [e for e in bm.edges if not e.hide] + \
+               [f for f in bm.faces if not f.hide]
+        self._adjust_plane_co(self.plane_no)
+        result = self._bisect(context, self.plane_data.co, self.plane_no, bm, geom)
         for edge in result['geom_cut']:
             if isinstance(edge, bmesh.types.BMEdge):
                 edge.select = True
-
         bm.select_flush(True)
         bmesh.update_edit_mesh(edit_object.data)
-
         return {'FINISHED'}
 
-    def end(self, context):
-        '''Clean up.'''
-
-        self.bms.clear()
-        self.geoms.clear()
-        self.closests.clear()
-
-        for data in self.stored_mesh_data.values():
-            bpy.data.meshes.remove(data)
-        self.stored_mesh_data.clear()
-
+    def _end(self, context):
+        '''End the operator'''
+        # Clean up stored mesh data
+        for mesh_data in self.mesh_data.values():
+            if mesh_data.stored_mesh_data:
+                bpy.data.meshes.remove(mesh_data.stored_mesh_data)
+        self.mesh_data.clear()
         self.edge = None
         self.guid = None
-
         infobar.remove(context)
         context.area.header_text_set(text=None)
         context.window.cursor_set('CROSSHAIR')
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle_line, 'WINDOW')
-        bpy.types.SpaceView3D.draw_handler_remove(self._handle_guid, 'WINDOW')
+
+        self.ui.clear()
 
         context.area.tag_redraw()
 
-    def detect_edge(self, context, event):
-        '''Detect the edge under the mouse cursor.'''
-
+    def _detect_edge(self, context, event):
+        '''Detect the edge under the mouse cursor'''
         edit_object = context.edit_object
-        bm = self.bms[edit_object]
-
-        mosue_pos = Vector((event.mouse_region_x, event.mouse_region_y))
-        self.closests[edit_object].detect(context, bm, mosue_pos)
-        if self.closests[edit_object].edge:
-            edge_index = self.closests[edit_object].edge.index
+        mesh_data = self.mesh_data.get(edit_object)
+        if not mesh_data:
+            # Handle case where mesh_data is missing
+            return None, None
+        bm = mesh_data.bm
+        mouse_pos = Vector((event.mouse_region_x, event.mouse_region_y))
+        mesh_data.closest.detect(context, bm, mouse_pos)
+        if mesh_data.closest.edge:
+            edge_index = mesh_data.closest.edge.index
             edge = bm.edges[edge_index]
-            return edge, edit_object, bm
+            return edge, edit_object
+        return None, None
 
-        return None, None, None
-
-    def bisect(self, context, plane_co, plane_no, bm, geom):
-        '''Cut the mesh using the bisect_plane.'''
-
+    def _bisect(self, context, plane_co, plane_no, bm, geom):
+        '''Perform the bisect operation'''
         result = bmesh.ops.bisect_plane(
             bm,
             geom=geom,
@@ -428,21 +394,16 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
             clear_outer=False,
             clear_inner=False
         )
-
-        # Update the mesh
         bmesh.update_edit_mesh(context.edit_object.data, destructive=True)
-
         return result
 
-    def infobar_hotkeys_detect(self, layout, _context, _event):
-        '''Draw the infobar for the "DETECT" state.'''
-
+    def _infobar_hotkeys_detect(self, layout, _context, _event):
+        '''Draw the infobar for the detect state'''
         row = layout.row()
-        row.label(text='Select an edge to loop cut along it, hide the mesh to cut ony chosen geometry.')
+        row.label(text='Select an edge to loop cut along it, hide the mesh to cut only chosen geometry.')
 
-    def infobar_hotkeys_move(self, layout, _context, _event):
-        '''Draw the infobar for the "MOVE" state.'''
-
+    def _infobar_hotkeys_move(self, layout, _context, _event):
+        '''Draw the infobar for the move state'''
         row = layout.row(align=True)
         row.label(text='', icon='MOUSE_MOVE')
         row.label(text='Adjust')
@@ -465,10 +426,10 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
         row.label(text='', icon='EVENT_E')
         row.label(text='Edge Axis')
 
-    def axis_update(self, edge, edit_object):
+    def _axis_update(self, edge, edit_object):
+        '''Update the axis for the edge'''
         _theme = addon.pref().theme.ops.mesh.loop_bisect
 
-        # Define the axis vectors and their corresponding colors for each orientation
         axis_info = {
             'GLOBAL_X': {'axis': Vector((1, 0, 0)), 'color': _theme.axis_x},
             'GLOBAL_Y': {'axis': Vector((0, 1, 0)), 'color': _theme.axis_y},
@@ -495,7 +456,6 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                     rotation_quaternion = edge_vector.rotation_difference(target_axis)
                     rot_matrix = rotation_quaternion.to_matrix().to_4x4()
 
-                    # Translate points to origin, apply rotation, and translate back
                     p1_rotated = rot_matrix @ (p1 - center) + center
                     p2_rotated = rot_matrix @ (p2 - center) + center
 
@@ -504,15 +464,14 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                     new_points.append((p1, p2))
         else:
             new_points = []
-            current_color = theme.guid
+            current_color = _theme.guid
 
-        self._callback_guid.update_batch(new_points, color=current_color)
+        self.ui.guid.callback.update_batch(new_points, color=current_color)
 
 
 class theme(bpy.types.PropertyGroup):
-    line: bpy.props.FloatVectorProperty(name="Loop Cut Line", description="Color of the line", size=4, subtype='COLOR', default=(1.0, 1.0, 0.3, 0.9), min=0.0, max=1.0)
+    line: bpy.props.FloatVectorProperty(name="Loop Cut Line", description="Color of the line", size=4, subtype='COLOR', default=(1.0, 0.6, 0.0, 0.9), min=0.0, max=1.0)
     guid: bpy.props.FloatVectorProperty(name="Loop Cut guid", description="Color of the guid", size=4, subtype='COLOR', default=(1.0, 1.0, 0.3, 0.5), min=0.0, max=1.0)
-
     axis_x: bpy.props.FloatVectorProperty(name="Axis X", description="Color of the X axis", size=4, subtype='COLOR', default=(1.0, 0.2, 0.322, 1.0), min=0.0, max=1.0)
     axis_y: bpy.props.FloatVectorProperty(name="Axis Y", description="Color of the Y axis", size=4, subtype='COLOR', default=(0.545, 0.863, 0.0, 1.0), min=0.0, max=1.0)
     axis_z: bpy.props.FloatVectorProperty(name="Axis Z", description="Color of the Z axis", size=4, subtype='COLOR', default=(0.157, 0.565, 1.0, 1.0), min=0.0, max=1.0)
