@@ -28,7 +28,7 @@ class DrawUI(handle.Common):
     gradient_flip: handle.Gradient = field(default_factory=handle.Gradient)
 
 
-class CutLine(bpy.types.Operator):
+class Bisect(bpy.types.Operator):
     """Operator to cut a mesh in Edit Mode."""
 
     mode: bpy.props.EnumProperty(name="Mode", description="Operation mode", items=[('CUT', 'Cut', 'Cut the mesh by removing one side'), ('SLICE', 'Slice', 'Slice the mesh without removing any side'), ('BISECT', 'Bisect', 'Bisect the mesh without duplication')], default='CUT')
@@ -36,7 +36,6 @@ class CutLine(bpy.types.Operator):
     init_confirm: bpy.props.BoolProperty(name="Initial Confirm", description="Confirm on mouse press", default=False)
     release_confirm: bpy.props.BoolProperty(name="Release Confirm", description="Confirm on mouse release", default=True)
     flip: bpy.props.BoolProperty(name="Flip", description="Flip the cut direction", default=False)
-    only_selected: bpy.props.BoolProperty(name="Only Selected", description="Cut only selected geometry", default=True)
 
     def __init__(self):
         self.state = 'DRAW'
@@ -277,10 +276,7 @@ class CutLine(bpy.types.Operator):
         """Slice the mesh with the given plane, retaining both sides."""
         bm = bmesh.from_edit_mesh(obj.data)
         geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
-        if self.only_selected:
-            geom = [g for g in geom if (g.select and not g.hide)]
-        else:
-            geom = [g for g in geom if not g.hide]
+        geom = [g for g in geom if not g.hide]
 
         # Perform bisect without clearing any geometry
         result = bmesh.ops.bisect_plane(bm, geom=geom, plane_co=plane_co, plane_no=plane_no, clear_outer=False, clear_inner=False)
@@ -307,10 +303,7 @@ class CutLine(bpy.types.Operator):
         """Bisect the mesh with the given plane, optionally flipping and clearing inner geometry."""
         bm = bmesh.from_edit_mesh(obj.data)
         geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
-        if self.only_selected:
-            geom = [g for g in geom if (g.select and not g.hide)]
-        else:
-            geom = [g for g in geom if not g.hide]
+        geom = [g for g in geom if not g.hide]
 
         if flip:
             plane_no = -plane_no
@@ -346,7 +339,7 @@ class CutLine(bpy.types.Operator):
         row.label(text='Change Mode')
 
 
-class BOUT_OT_Cut2D(CutLine):
+class BOUT_OT_Cut2D(Bisect):
     """Operator to  bisect a mesh in Edit Mode."""
     bl_idname = "bout.mesh_line_cut"
     bl_label = "Mesh Line Cut"
@@ -354,7 +347,7 @@ class BOUT_OT_Cut2D(CutLine):
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
 
 
-class BOUT_OT_Cut2D_TOOL(CutLine):
+class BOUT_OT_Cut2D_TOOL(Bisect):
     """Tool variant of the CutLineOperator with predefined settings."""
     bl_idname = "bout.mesh_line_cut_tool"
     bl_label = "Mesh Line Cut Tool"
@@ -365,7 +358,6 @@ class BOUT_OT_Cut2D_TOOL(CutLine):
         """Initialize tool-specific settings before invoking the operator."""
         tool_prefs = addon.pref().tools.block2d
         self.mode = tool_prefs.mode
-        self.only_selected = tool_prefs.only_selected
         return super().invoke(context, event)
 
 

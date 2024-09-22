@@ -22,13 +22,10 @@ class BOUT_MT_Mesh_Block2D(bpy.types.WorkSpaceTool):
 
         block2d = addon.pref().tools.block2d
         row.prop(block2d, 'mode', expand=True)
-        layout.prop(block2d, 'only_selected')
 
 
 class pref(bpy.types.PropertyGroup):
     mode: bpy.props.EnumProperty(name="Mode", description="Mode", items=[('CUT', 'Cut', 'Cut'), ('SLICE', 'Slice', 'Slice'), ('BISECT', 'Bisect', 'Bisect')], default='CUT')
-    only_selected: bpy.props.BoolProperty(name="Only Selected", default=False, description="Only cut selected geometry")
-
 
 class scene(bpy.types.PropertyGroup):
     running: bpy.props.BoolProperty(name="Running", default=False, update=gizmo.refresh)
