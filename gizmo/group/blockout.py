@@ -1,7 +1,15 @@
+from dataclasses import dataclass
 import bpy
 import bmesh
 from mathutils import Matrix, Vector
 from ..types import move, arrow
+
+
+@dataclass
+class Gizmo():
+    '''Dataclass for the gizmo.'''
+    extrude: arrow.Draw = None
+    bevel: arrow.Draw = None
 
 
 class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
@@ -12,8 +20,8 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
     bl_region_type = 'WINDOW'
     bl_options = {'3D', 'EXCLUDE_MODAL'}
 
-    extrude_gizmo: arrow.Draw = None
-    bevel_gizmo: arrow.Draw = None
+    def __init__(self):
+        self.gizmo = Gizmo()
 
     @classmethod
     def poll(cls, context):
@@ -22,21 +30,37 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
         return context.space_data.show_gizmo_tool and context.edit_object and blockout_tool
 
     def setup(self, context):
+        '''Setup the gizmos.'''
         self.gizmos.clear()
         self.create_extrude_gizmo(context)
         self.create_bevel_gizmo(context)
 
     def refresh(self, context):
+        '''Refresh the gizmos.'''
+        modals = context.window.modal_operators
+        if any(modal is not None for modal in modals):
+            self.remove_gizmos()
+            return
+
         self.update_extrude_gizmo(context)
         self.update_bevel_gizmo(context)
+
+    def remove_gizmos(self):
+        '''Remove all gizmos.'''
+        if self.gizmo.extrude:
+            self.gizmos.remove(self.gizmo.extrude.gz)
+            self.gizmo.extrude = None
+        if self.gizmo.bevel:
+            self.gizmos.remove(self.gizmo.bevel.gz)
+            self.gizmo.bevel = None
 
     def create_extrude_gizmo(self, context):
         '''Create the extrude gizmo.'''
 
         matrix = self.compute_extrude_gizmo_matrix(context)
         if matrix is not None:
-            self.extrude_gizmo = arrow.Draw(self, matrix)
-            self.extrude_gizmo.operator('mesh.extrude_manifold', {
+            self.gizmo.extrude = arrow.Draw(self, matrix)
+            self.gizmo.extrude.operator('mesh.extrude_manifold', {
                 'MESH_OT_extrude_region': {
                     "use_dissolve_ortho_edges": True,
                 },
@@ -52,26 +76,26 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
 
         matrix = self.compute_extrude_gizmo_matrix(context)
         if matrix is not None:
-            if self.extrude_gizmo:
-                self.extrude_gizmo.gz.matrix_basis = matrix
+            if self.gizmo.extrude:
+                self.gizmo.extrude.gz.matrix_basis = matrix
             else:
                 self.create_extrude_gizmo(context)
         else:
-            if self.extrude_gizmo:
-                self.gizmos.remove(self.extrude_gizmo.gz)
-                self.extrude_gizmo = None
+            if self.gizmo.extrude:
+                self.gizmos.remove(self.gizmo.extrude.gz)
+                self.gizmo.extrude = None
 
     def create_bevel_gizmo(self, context):
         '''Create the bevel gizmo.'''
 
         matrix = self.compute_bevel_gizmo_matrix(context)
         if matrix is not None:
-            self.bevel_gizmo = arrow.Draw(self, matrix)
-            self.bevel_gizmo.gz.draw_options = {'ORIGIN'}
-            self.bevel_gizmo.gz.length = 0.0
-            self.bevel_gizmo.gz.scale_basis = 0.2
-            self.bevel_gizmo.gz.draw_style = 'CROSS'
-            self.bevel_gizmo.operator('mesh.bevel', {
+            self.gizmo.bevel = arrow.Draw(self, matrix)
+            self.gizmo.bevel.gz.draw_options = {'ORIGIN'}
+            self.gizmo.bevel.gz.length = 0.0
+            self.gizmo.bevel.gz.scale_basis = 0.2
+            self.gizmo.bevel.gz.draw_style = 'CROSS'
+            self.gizmo.bevel.operator('mesh.bevel', {
                 'affect': 'EDGES',
                 'offset_type': 'OFFSET',
                 'segments': 1,
@@ -84,14 +108,14 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
 
         matrix = self.compute_bevel_gizmo_matrix(context)
         if matrix is not None:
-            if self.bevel_gizmo:
-                self.bevel_gizmo.gz.matrix_basis = matrix
+            if self.gizmo.bevel:
+                self.gizmo.bevel.gz.matrix_basis = matrix
             else:
                 self.create_bevel_gizmo(context)
         else:
-            if self.bevel_gizmo:
-                self.gizmos.remove(self.bevel_gizmo.gz)
-                self.bevel_gizmo = None
+            if self.gizmo.bevel:
+                self.gizmos.remove(self.gizmo.bevel.gz)
+                self.gizmo.bevel = None
 
     def compute_extrude_gizmo_matrix(self, context):
         '''Compute the matrix for the extrude gizmo.'''
