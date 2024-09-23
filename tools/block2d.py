@@ -24,14 +24,14 @@ class BOUT_MT_Mesh_Block2D(bpy.types.WorkSpaceTool):
         row.prop(block2d, 'mode', expand=True)
 
 
-class pref(bpy.types.PropertyGroup):
+class Pref(bpy.types.PropertyGroup):
     mode: bpy.props.EnumProperty(name="Mode", description="Mode", items=[('CUT', 'Cut', 'Cut'), ('SLICE', 'Slice', 'Slice'), ('BISECT', 'Bisect', 'Bisect')], default='CUT')
 
-class scene(bpy.types.PropertyGroup):
+class Scene(bpy.types.PropertyGroup):
     running: bpy.props.BoolProperty(name="Running", default=False, update=gizmo.refresh)
 
 
 types_classes = (
-    pref,
-    scene,
+    Pref,
+    Scene,
 )

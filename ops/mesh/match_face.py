@@ -141,10 +141,10 @@ class BOUT_OT_MatchFace(bpy.types.Operator):
         return self.ray.location, self.ray.normal, verts
 
 
-class theme(bpy.types.PropertyGroup):
+class Theme(bpy.types.PropertyGroup):
     face: bpy.props.FloatVectorProperty(name="Face", description="Face indicator color", default=(1.0, 0.6, 0.0, 0.3), subtype='COLOR', size=4, min=0.0, max=1.0)
 
 
 types_classes = (
-    theme,
+    Theme,
 )

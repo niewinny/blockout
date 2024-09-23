@@ -3,15 +3,15 @@ from . import ops, tools
 
 
 class Tools(bpy.types.PropertyGroup):
-    block2d: bpy.props.PointerProperty(type=tools.block2d.pref)
+    block2d: bpy.props.PointerProperty(type=tools.block2d.Pref)
 
 
 class Scene(bpy.types.PropertyGroup):
-    tools: bpy.props.PointerProperty(type=tools.scene)
+    tools: bpy.props.PointerProperty(type=tools.Scene)
 
 
 class Theme(bpy.types.PropertyGroup):
-    ops: bpy.props.PointerProperty(type=ops.theme)
+    ops: bpy.props.PointerProperty(type=ops.Theme)
 
 
 classes = [

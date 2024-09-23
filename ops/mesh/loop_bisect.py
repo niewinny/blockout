@@ -469,7 +469,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
         self.ui.guid.callback.update_batch(new_points, color=current_color)
 
 
-class theme(bpy.types.PropertyGroup):
+class Theme(bpy.types.PropertyGroup):
     line: bpy.props.FloatVectorProperty(name="Loop Cut Line", description="Color of the line", size=4, subtype='COLOR', default=(1.0, 0.6, 0.0, 0.9), min=0.0, max=1.0)
     guid: bpy.props.FloatVectorProperty(name="Loop Cut guid", description="Color of the guid", size=4, subtype='COLOR', default=(1.0, 1.0, 0.3, 0.5), min=0.0, max=1.0)
     axis_x: bpy.props.FloatVectorProperty(name="Axis X", description="Color of the X axis", size=4, subtype='COLOR', default=(1.0, 0.2, 0.322, 1.0), min=0.0, max=1.0)
@@ -478,5 +478,5 @@ class theme(bpy.types.PropertyGroup):
 
 
 types_classes = (
-    theme,
+    Theme,
 )

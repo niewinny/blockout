@@ -661,10 +661,10 @@ def order_selected_edges(selected_edges, end_verts):
     return ordered_edges
 
 
-class theme(bpy.types.PropertyGroup):
+class Theme(bpy.types.PropertyGroup):
     guide: bpy.props.FloatVectorProperty(name="Bevel Guid", description="Color of the guide line", size=4, subtype='COLOR', default=(0.0, 0.0, 0.0, 0.8), min=0.0, max=1.0)
 
 
 types_classes = (
-    theme,
+    Theme,
 )

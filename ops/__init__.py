@@ -2,13 +2,13 @@ import bpy
 from . import mesh
 
 
-class theme(bpy.types.PropertyGroup):
-    mesh: bpy.props.PointerProperty(type=mesh.theme)
+class Theme(bpy.types.PropertyGroup):
+    mesh: bpy.props.PointerProperty(type=mesh.Theme)
 
 
 types_classes = (
     *mesh.types_classes,
-    theme,
+    Theme,
 )
 
 

@@ -372,7 +372,7 @@ def bbox_center(obj):
     return obj.matrix_world @ local_center
 
 
-class theme(bpy.types.PropertyGroup):
+class Theme(bpy.types.PropertyGroup):
     """Property group for operator theme colors."""
     guid: bpy.props.FloatVectorProperty(name="Cut Guide", description="Guide color", default=(0.0, 0.0, 0.0, 0.7), subtype='COLOR', size=4, min=0.0, max=1.0)
     line: bpy.props.FloatVectorProperty(name="Cut Line", description="Color of the cut line", default=(1.0, 0.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
@@ -383,5 +383,5 @@ class theme(bpy.types.PropertyGroup):
 
 
 types_classes = (
-    theme,
+    Theme,
 )

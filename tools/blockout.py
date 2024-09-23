@@ -23,10 +23,10 @@ class BOUT_MT_Blockout(bpy.types.WorkSpaceTool):
         row = layout.row(align=True)
 
 
-class scene(bpy.types.PropertyGroup):
+class Scene(bpy.types.PropertyGroup):
     running: bpy.props.BoolProperty(name="Running", default=False, update=utils.gizmo.refresh)
 
 
 types_classes = (
-    scene,
+    Scene,
 )
