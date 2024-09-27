@@ -12,7 +12,7 @@ def register():
     kc = addon_keyconfig
 
     km = kc.keymaps.new(name='Mesh', space_type='EMPTY')
-    kmi = km.keymap_items.new('wm.call_menu', 'FIVE', 'PRESS', alt=True)
+    kmi = km.keymap_items.new('wm.call_menu', 'THREE', 'PRESS', alt=True)
     kmi.properties.name = 'BOUT_MT_Edit_Mesh'
     keys.append((km, kmi))
 
