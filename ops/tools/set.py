@@ -7,5 +7,9 @@ class BOUT_OT_SetActiveToolOperator(bpy.types.Operator):
     bl_label = "Set Active Tool"
 
     def execute(self, context):
-        bpy.context.workspace.tools.active_tool = bpy.context.workspace.tools['bout.block2d']
+        active_edit_mode_tool = bpy.context.workspace.tools.from_space_view3d_mode('EDIT_MESH', create=False).idname
+        if active_edit_mode_tool != 'bout.blockout':
+            bpy.ops.wm.tool_set_by_id(name="bout.blockout")
+        else:
+            bpy.ops.wm.tool_set_by_id(name="bout.block2d")
         return {'FINISHED'}
