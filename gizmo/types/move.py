@@ -6,7 +6,7 @@ class Draw:
         self.scale_basis = scale_basis
 
         # Create gizmo
-        self.gizmo = self.create(gm, matrix_basis, hide_select, line_width, draw_options)
+        self.gz = self.create(gm, matrix_basis, hide_select, line_width, draw_options)
 
     def create(self, gm, matrix_basis, hide_select, line_width, draw_options):
         # Define gizmos for X arrow (Red)
@@ -27,21 +27,21 @@ class Draw:
         return gz
 
     def is_modal(self):
-        return self.gizmo.is_modal
+        return self.gz.is_modal
 
     def hide(self, set=False):
         if set:
-            self.gizmo.hide = True
+            self.gz.hide = True
         else:
-            self.gizmo.hide = False
+            self.gz.hide = False
 
     def operator(self, operator, properties=None):
 
-        op_props = self.gizmo.target_set_operator(operator)
+        op_props = self.gz.target_set_operator(operator)
         if properties:
             for prop, value in properties.items():
                 setattr(op_props, prop, value)
 
     def update(self, matrix_basis):
 
-        self.gizmo.matrix_basis = matrix_basis
+        self.gz.matrix_basis = matrix_basis

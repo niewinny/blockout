@@ -190,8 +190,7 @@ class Bisect(bpy.types.Operator):
             self._reset_gradient(self.ui.gradient_flip.callback)
         elif self.mode == 'SLICE':
             self._update_gradient(perp_distance=75, gradient_color=color.slice_gradient)
-            if self.flip:
-                self._update_gradient(perp_distance=75, gradient_color=color.slice_gradient, flip=True, is_flip=True)
+            self._update_gradient(perp_distance=75, gradient_color=color.slice_gradient, flip=True, is_flip=True)
         elif self.mode == 'BISECT':
             self.ui.gradient.callback.visible = False
             self._reset_gradient(self.ui.gradient.callback)

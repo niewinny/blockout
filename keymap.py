@@ -24,6 +24,11 @@ def register():
     kmi = km.keymap_items.new('bout.edge_expand', 'E', 'PRESS', alt=True, shift=True)
     keys.append((km, kmi))
 
+    km = kc.keymaps.new(name='Mesh', space_type='EMPTY')
+    kmi = km.keymap_items.new('bout.set_active_tool', 'W', 'PRESS', alt=True, shift=True)
+    keys.append((km, kmi))
+
+
     del active_keyconfig
     del addon_keyconfig
 

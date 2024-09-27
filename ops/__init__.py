@@ -1,5 +1,6 @@
 import bpy
 from . import mesh
+from . import tools
 
 
 class Theme(bpy.types.PropertyGroup):
@@ -14,4 +15,5 @@ types_classes = (
 
 classes = (
     *mesh.classes,
+    *tools.classes,
 )
