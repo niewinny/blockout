@@ -50,7 +50,6 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
         self.mesh_data = {}
         self.plane_data = PlaneData()
         self.ui = DrawUI()
-        self.edge = None
         self.guid = None
 
     @classmethod
@@ -116,8 +115,8 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                 scene.set_active_object(context, mouse_pos)
 
                 edge, edit_object = self._detect_edge(context, event)
+
                 if edge:
-                    self.edge = edge
                     self.plane_data.co_init = (edge.verts[0].co + edge.verts[1].co) / 2
                     self.plane_data.no_init = (edge.verts[1].co - edge.verts[0].co).normalized()
 
@@ -132,7 +131,6 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
 
                     self._update(context, edit_object, edge)
                 else:
-                    self.edge = None
                     self.ui.line.callback.update_batch([])
             elif self.state == 'MOVE':
                 edit_object = context.edit_object
@@ -181,7 +179,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                     self._end(context)
                     return {'FINISHED'}
                 elif self.state == 'DETECT':
-                    if self.edge:
+                    if self.mesh_data.get(context.edit_object).closest.edge:
                         self.state = 'MOVE'
                         infobar.draw(context, event, self._infobar_hotkeys_move, blank=True)
                     else:
@@ -358,7 +356,6 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
             if mesh_data.stored_mesh_data:
                 bpy.data.meshes.remove(mesh_data.stored_mesh_data)
         self.mesh_data.clear()
-        self.edge = None
         self.guid = None
         infobar.remove(context)
         context.area.header_text_set(text=None)
