@@ -17,6 +17,7 @@ class PlaneData:
     co_init: Vector = None
     no_init: Vector = None
     move_init: Vector = None
+    orientation: str = 'EDGE'
 
 
 @dataclass
@@ -46,7 +47,6 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
 
     def __init__(self):
         self.state: str = 'DETECT'
-        self.orientation: str = 'EDGE'
         self.mesh_data = {}
         self.plane_data = PlaneData()
         self.ui = DrawUI()
@@ -126,7 +126,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                     )
 
                     self.plane_data.co = self.plane_data.co_init
-                    if self.orientation == 'EDGE':
+                    if self.plane_data.orientation == 'EDGE':
                         self.plane_no = self.plane_data.no_init
 
                     self._update(context, edit_object, edge)
@@ -146,7 +146,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                 global_plane_co_init = edit_object.matrix_world @ plane_data.co_init
                 plane_no = self.plane_no
 
-                if self.orientation == 'EDGE':
+                if self.plane_data.orientation == 'EDGE':
                     plane_no = (edit_object.matrix_world.to_3x3() @ self.plane_no).normalized()
 
                 mouse_pos = Vector((event.mouse_region_x, event.mouse_region_y))
@@ -166,7 +166,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
 
                     self._calculate_offset_from_plane_co()
                     context.area.header_text_set(
-                        f'Loop Slide: {self.move:.4f} along {self.orientation.lower()}')
+                        f'Loop Slide: {self.move:.4f} along {self.plane_data.orientation.lower()}')
 
                 self._restore_mesh(context)
                 self.execute(context)
@@ -189,31 +189,31 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
             edit_object = context.edit_object
 
             if event.type == 'Z':
-                if self.orientation == 'GLOBAL_Z':
-                    self.orientation = 'LOCAL_Z'
+                if self.plane_data.orientation == 'GLOBAL_Z':
+                    self.plane_data.orientation = 'LOCAL_Z'
                     self.plane_no = Vector((0, 0, 1))
                 else:
-                    self.orientation = 'GLOBAL_Z'
+                    self.plane_data.orientation = 'GLOBAL_Z'
                     self.plane_no = edit_object.matrix_world.to_3x3().inverted_safe() @ Vector((0, 0, 1))
             elif event.type == 'X':
-                if self.orientation == 'GLOBAL_X':
-                    self.orientation = 'LOCAL_X'
+                if self.plane_data.orientation == 'GLOBAL_X':
+                    self.plane_data.orientation = 'LOCAL_X'
                     self.plane_no = Vector((1, 0, 0))
                 else:
-                    self.orientation = 'GLOBAL_X'
+                    self.plane_data.orientation = 'GLOBAL_X'
                     self.plane_no = edit_object.matrix_world.to_3x3().inverted_safe() @ Vector((1, 0, 0))
             elif event.type == 'Y':
-                if self.orientation == 'GLOBAL_Y':
-                    self.orientation = 'LOCAL_Y'
+                if self.plane_data.orientation == 'GLOBAL_Y':
+                    self.plane_data.orientation = 'LOCAL_Y'
                     self.plane_no = Vector((0, 1, 0))
                 else:
-                    self.orientation = 'GLOBAL_Y'
+                    self.plane_data.orientation = 'GLOBAL_Y'
                     self.plane_no = edit_object.matrix_world.to_3x3().inverted_safe() @ Vector((0, 1, 0))
             elif event.type == 'E':
-                self.orientation = 'EDGE'
+                self.plane_data.orientation = 'EDGE'
                 self.plane_no = self.plane_data.no_init
 
-            context.area.header_text_set(f'Loop Slide: {self.move:.4f} along {self.orientation.lower()}')
+            context.area.header_text_set(f'Loop Slide: {self.move:.4f} along {self.plane_data.orientation.lower()}')
         if event.type in {'RIGHTMOUSE', 'ESC'} and event.value == 'PRESS':
             if self.state == 'MOVE':
                 self._restore_mesh(context)
@@ -436,7 +436,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
             'LOCAL_Z': {'axis': (edit_object.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized(), 'color': _theme.axis_z},
         }
 
-        axis_data = axis_info.get(self.orientation, None)
+        axis_data = axis_info.get(self.plane_data.orientation, None)
 
         if axis_data:
             target_axis = axis_data['axis']
