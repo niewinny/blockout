@@ -94,11 +94,8 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
         self.mouse.median = self._calculate_mid_point(context, selected_edges)
 
-        # Project mouse position onto the plane defined by the midpoint and view_vector
-        rv3d = context.region_data
-        view_vector = rv3d.view_rotation @ Vector((0.0, 0.0, -1.0))
-        intersect_point = self._get_intersect_point(context, event, self.mouse.median, view_vector)
-        self.mouse.init = intersect_point if intersect_point else self.mouse.median
+        self.mouse.co = self._get_intersect_point(context, event, self.mouse.median)
+        self.mouse.init = self.mouse.co if self.mouse.co else self.mouse.median
 
         self.mesh = obj.data.copy()
 
@@ -133,12 +130,12 @@ class BOUT_OT_Bevel(bpy.types.Operator):
     def modal(self, context, event):
 
         if event.type == 'MOUSEMOVE':
-            intersect_point = self._get_intersect_point(context, event, self.mouse.median, self._view_vector(context))
+            intersect_point = self._get_intersect_point(context, event, self.mouse.median)
 
             if intersect_point:
                 self.mouse.co = intersect_point
                 if self.mode == 'OFFSET':
-                    self._set_offset(intersect_point)
+                    self._set_offset()
                 elif self.mode == 'SEGMENTS':
                     self._set_segments(context, event)
 
@@ -159,8 +156,8 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
         elif event.type == 'S' and event.value == 'PRESS':
             self.mode = 'SEGMENTS'
-            intersect_point = self._get_intersect_point(context, event, self.mouse.median, self._view_vector(context))
-            distance = self._calculate_distance(intersect_point)
+            self.mouse.co = self._get_intersect_point(context, event, self.mouse.median)
+            distance = self._calculate_distance()
             self.distance.length = distance - self.distance.delta
             self.mouse.saved = Vector((event.mouse_region_x, event.mouse_region_y))
             self.saved_segments = self.segments
@@ -168,8 +165,8 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
         elif event.type == 'A' and event.value == 'PRESS':
             self.mode = 'OFFSET'
-            intersect_point = self._get_intersect_point(context, event, self.mouse.median, self._view_vector(context))
-            distance = self._calculate_distance(intersect_point)
+            self.mouse.co = self._get_intersect_point(context, event, self.mouse.median)
+            distance = self._calculate_distance()
             self.distance.delta = distance - self.distance.length
 
         elif event.type == 'E' and event.value == 'PRESS':
@@ -393,10 +390,10 @@ class BOUT_OT_Bevel(bpy.types.Operator):
         bm.from_mesh(self.mesh)
         bmesh.update_edit_mesh(obj.data, loop_triangles=True, destructive=True)
 
-    def _set_offset(self, intersect_point):
+    def _set_offset(self):
         '''Set the offset based on the initial and current mouse position'''
 
-        distance = self._calculate_distance(intersect_point)
+        distance = self._calculate_distance()
         distance = distance if distance > self.distance.delta else self.distance.delta
         offset = distance - self.distance.delta
         self.offset = offset
@@ -425,15 +422,10 @@ class BOUT_OT_Bevel(bpy.types.Operator):
             new_segments = base_segments + delta_segments if distance > 0 else base_segments - delta_segments
             self.segments = max(1, new_segments)  # Ensure segments do not fall below 1
 
-    def _view_vector(self, context):
-        '''Get the view vector from the current view'''
 
-        rv3d = context.region_data
-        return rv3d.view_rotation @ Vector((0.0, 0.0, -1.0))
-
-    def _calculate_distance(self, intersect_point):
+    def _calculate_distance(self):
         '''Calculate the distance based on the initial and current mouse position'''
-
+        intersect_point = self.mouse.co
         if intersect_point:
             delta_init = (self.mouse.median - self.mouse.init).length
             distance = (self.mouse.median - intersect_point).length
@@ -441,7 +433,7 @@ class BOUT_OT_Bevel(bpy.types.Operator):
 
             return distance_fixed
 
-    def _get_intersect_point(self, context, event, plane_co, plane_no):
+    def _get_intersect_point(self, context, event, plane_co):
         '''Calculate the intersection point on the plane defined by the plane_co and plane_no'''
 
         mouse = Vector((event.mouse_region_x, event.mouse_region_y))
@@ -453,13 +445,7 @@ class BOUT_OT_Bevel(bpy.types.Operator):
         mouse_pos_3d = view3d.region_2d_to_location_3d(region, rv3d, mouse, plane_co)
 
         if mouse_pos_3d:
-            mouse_ray = view3d.region_2d_to_vector_3d(region, rv3d, mouse)
-            mouse_ray_origin = view3d.region_2d_to_origin_3d(region, rv3d, mouse)
-
-            intersect_point = geometry.intersect_line_plane(mouse_ray_origin, mouse_ray_origin + mouse_ray, plane_co, plane_no, False)
-
-            if intersect_point:
-                return intersect_point
+            return mouse_pos_3d
 
         return Vector((0, 0, 0))
 
