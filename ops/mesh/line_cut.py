@@ -384,3 +384,9 @@ class Theme(bpy.types.PropertyGroup):
 types_classes = (
     Theme,
 )
+
+
+classes = (
+    BOUT_OT_Cut2D,
+    BOUT_OT_Cut2D_TOOL,
+)

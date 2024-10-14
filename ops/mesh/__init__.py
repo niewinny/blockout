@@ -5,6 +5,7 @@ from . import line_cut
 from . import edge_expand
 from . import loop_bisect
 from . import match_face
+from . import sweep
 
 
 class Theme(bpy.types.PropertyGroup):
@@ -23,10 +24,10 @@ types_classes = (
 )
 
 classes = (
-    bevel.BOUT_OT_Bevel,
-    line_cut.BOUT_OT_Cut2D,
-    line_cut.BOUT_OT_Cut2D_TOOL,
-    edge_expand.BOUT_OT_EdgeExpand,
-    loop_bisect.BOUT_OT_LoopBisect,
-    match_face.BOUT_OT_MatchFace,
+    *bevel.classes,
+    *line_cut.classes,
+    *edge_expand.classes,
+    *loop_bisect.classes,
+    *match_face.classes,
+    *sweep.classes,
 )

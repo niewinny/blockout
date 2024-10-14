@@ -298,3 +298,8 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
         row.label(text='', icon='MOUSE_RMB')
         row.label(text='Cancel')
         row.separator(factor=12.0)
+
+
+classes = (
+    BOUT_OT_EdgeExpand,
+)

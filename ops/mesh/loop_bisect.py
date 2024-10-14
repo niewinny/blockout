@@ -477,3 +477,7 @@ class Theme(bpy.types.PropertyGroup):
 types_classes = (
     Theme,
 )
+
+classes = (
+    BOUT_OT_LoopBisect,
+)
