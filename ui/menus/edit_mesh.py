@@ -14,6 +14,7 @@ class BOUT_MT_Edit_Mesh(bpy.types.Menu):
         layout.operator("bout.edge_expand", text="Edge Expand")
         layout.operator("bout.loop_bisect", text="Loop Bisect")
         layout.operator("bout.match_face", text="Match Face")
+        layout.operator("bout.sweep", text="Sweep")
 
         layout.separator()
 
