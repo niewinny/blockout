@@ -3,7 +3,7 @@ import bmesh
 from mathutils import Vector, geometry
 from dataclasses import dataclass
 from ...utils import infobar
-from ...utils.bmesh import Closest
+from ...bmeshutils import detection
 
 
 @dataclass
@@ -66,7 +66,7 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
         self.plane.no = faces[0].normal.normalized()
 
         # Initialize Closest instance
-        self.closest = Closest(context, bm, Vector((event.mouse_region_x, event.mouse_region_y)))
+        self.closest = detection.Closest(context, bm, Vector((event.mouse_region_x, event.mouse_region_y)))
 
         infobar.draw(context, event, self._infobar_hotkeys, blank=True)
         context.area.header_text_set("Edge Expand")

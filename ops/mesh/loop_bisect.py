@@ -6,7 +6,7 @@ from mathutils import Vector
 from ...shaders.draw import DrawPolyline
 from ...shaders import handle
 from ...utils import addon, view3d, scene, infobar
-from ...utils.bmesh import Closest
+from ...bmeshutils import detection
 
 
 @dataclass
@@ -26,7 +26,7 @@ class MeshData:
     bm: bmesh.types.BMesh = None
     geom: list = None
     stored_mesh_data: bpy.types.Mesh = None
-    closest: Closest = None
+    closest: detection.Closest = None
 
 
 @dataclass
@@ -80,7 +80,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
                        [e for e in bm.edges if not e.hide] + \
                        [f for f in bm.faces if not f.hide]
 
-                closest = Closest(context, bm, mouse_pos)
+                closest = detection.Closest(context, bm, mouse_pos)
                 stored_mesh_data = obj.data.copy()
 
                 self.mesh_data[obj] = MeshData(
