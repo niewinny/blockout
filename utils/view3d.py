@@ -1,6 +1,6 @@
 import bpy
 
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Vector, geometry
 from mathutils.geometry import intersect_line_plane, intersect_line_line
 from bpy_extras.view3d_utils import region_2d_to_origin_3d, region_2d_to_vector_3d, location_3d_to_region_2d, region_2d_to_location_3d
 
@@ -132,3 +132,29 @@ def region_2d_to_nearest_point_on_line_3d(region, rv3d, point, vector, normal):
         return closest_point
 
     return None
+
+
+def region2d_to_plane3d(region, re3d, point, plane, matrix=None):
+    # Get mouse origin and direction in world space
+    location, normal = plane
+
+    mouse_origin_world = region_2d_to_origin_3d(
+        region, re3d, point)
+    mouse_direction_world = region_2d_to_vector_3d(
+        region, re3d, point)
+
+    mouse_origin = mouse_origin_world
+    mouse_direction = mouse_direction_world
+
+    if matrix:
+        obj_matrix_world_inv = matrix.inverted_safe()
+
+        # Transform them to object local space
+        mouse_origin = obj_matrix_world_inv @ mouse_origin_world
+        mouse_direction = obj_matrix_world_inv.to_3x3() @ mouse_direction_world
+
+    # Intersect the mouse ray with the plane in object space
+    mouse_point_on_plane = geometry.intersect_line_plane(
+        mouse_origin, mouse_origin + mouse_direction, location, normal)
+
+    return mouse_point_on_plane

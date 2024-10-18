@@ -36,7 +36,7 @@ class BOUT_OT_Sweep(bpy.types.Operator):
     bl_idname = 'bout.sweep'
     bl_label = 'Sweep'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
-    bl_description = "Sweep selected faces along the selected loop"
+    bl_description = "Sweep selected planar faces along the selected loop"
 
     remove_swept_faces: bpy.props.BoolProperty(
         name="Remove swept faces",

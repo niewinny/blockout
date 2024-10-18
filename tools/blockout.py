@@ -12,12 +12,7 @@ class BOUT_MT_Blockout(bpy.types.WorkSpaceTool):
     bl_description = 'Tool for blocking out a mesh'
     bl_icon = 'ops.generic.select_circle'
     bl_widget = 'BOUT_GGT_Blockout'
-    bl_keymap = (
-        ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': [('mode', 'SET')]}),
-        ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG', 'ctrl': True}, {'properties': [('mode', 'SUB')]}),
-        ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG', 'shift': True}, {'properties': [('mode', 'ADD')]}),
-
-    )
+    bl_options = {'KEYMAP_FALLBACK'}
 
     def draw_settings(context, layout, tool):
         row = layout.row(align=True)

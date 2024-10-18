@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
-from bpy_extras.view3d_utils import region_2d_to_origin_3d, region_2d_to_vector_3d, location_3d_to_region_2d
+from . import view3d
 
 
 @dataclass
@@ -84,8 +84,8 @@ class Closest:
         rv3d = context.region_data
         matrix = context.edit_object.matrix_world
         matrix_inv = matrix.inverted()
-        direction = region_2d_to_vector_3d(region, rv3d, mouse_pos)
-        origin = region_2d_to_origin_3d(region, rv3d, mouse_pos)
+        direction = view3d.region_2d_to_vector_3d(region, rv3d, mouse_pos)
+        origin = view3d.region_2d_to_origin_3d(region, rv3d, mouse_pos)
         local_origin = matrix_inv @ origin
         local_direction = matrix_inv.to_3x3() @ direction
         return direction, origin, local_origin, local_direction
@@ -113,7 +113,7 @@ class Closest:
         matrix = context.edit_object.matrix_world
         closest_edge = None
         min_dist = float('inf')
-        hit_loc_2d = location_3d_to_region_2d(region, rv3d, matrix @ hit_loc)
+        hit_loc_2d = view3d.location_3d_to_region_2d(region, rv3d, matrix @ hit_loc)
         if hit_loc_2d is None:
             return None
 
@@ -122,7 +122,7 @@ class Closest:
             p2 = edge.verts[1].co
 
             closest_point = self._closest_point_on_edge(p1, p2, hit_loc)
-            closest_point_2d = location_3d_to_region_2d(region, rv3d, matrix @ closest_point)
+            closest_point_2d = view3d.location_3d_to_region_2d(region, rv3d, matrix @ closest_point)
 
             if closest_point_2d is not None and self._is_within_radius(hit_loc_2d, closest_point_2d, self.radius.edge):
                 dist = np.linalg.norm(np.array(hit_loc_2d) - np.array(closest_point_2d))
@@ -171,7 +171,7 @@ class Closest:
         region = context.region
         rv3d = context.region_data
         matrix = context.edit_object.matrix_world
-        coords = [location_3d_to_region_2d(region, rv3d, matrix @ v.co) for v in verts]
+        coords = [view3d.location_3d_to_region_2d(region, rv3d, matrix @ v.co) for v in verts]
         valid_coords = [c for c in coords if c is not None]
         valid_indices = np.array([i for i, c in enumerate(coords) if c is not None])
         return np.array(valid_coords, dtype=np.float32), valid_indices

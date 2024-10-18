@@ -20,6 +20,8 @@ def register():
     register_tool(tools.blockout.BOUT_MT_Blockout, group=True, separator=True)
     register_tool(tools.block2d.BOUT_MT_Mesh_Block2D, group=False, separator=False, after={'bout.blockout'})
 
+    register_tool(tools.sketch.BOUT_MT_Sketch, group=False, separator=True)
+
     btypes.register()
     keymap.register()
 
@@ -27,6 +29,8 @@ def register():
 def unregister():
 
     keymap.unregister()
+
+    unregister_tool(tools.sketch.BOUT_MT_Sketch)
 
     unregister_tool(tools.blockout.BOUT_MT_Blockout)
     unregister_tool(tools.block2d.BOUT_MT_Mesh_Block2D)
