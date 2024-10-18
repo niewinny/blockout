@@ -467,7 +467,7 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
 
 
 class Theme(bpy.types.PropertyGroup):
-    line: bpy.props.FloatVectorProperty(name="Loop Cut Line", description="Color of the line", size=4, subtype='COLOR', default=(1.0, 0.6, 0.0, 0.9), min=0.0, max=1.0)
+    line: bpy.props.FloatVectorProperty(name="Loop Cut Line", description="Color of the line", size=4, subtype='COLOR', default=(0.0, 0.88, 1.0, 0.9), min=0.0, max=1.0)
     guid: bpy.props.FloatVectorProperty(name="Loop Cut guid", description="Color of the guid", size=4, subtype='COLOR', default=(1.0, 1.0, 0.3, 0.5), min=0.0, max=1.0)
     axis_x: bpy.props.FloatVectorProperty(name="Axis X", description="Color of the X axis", size=4, subtype='COLOR', default=(1.0, 0.2, 0.322, 1.0), min=0.0, max=1.0)
     axis_y: bpy.props.FloatVectorProperty(name="Axis Y", description="Color of the Y axis", size=4, subtype='COLOR', default=(0.545, 0.863, 0.0, 1.0), min=0.0, max=1.0)

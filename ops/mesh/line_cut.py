@@ -211,7 +211,7 @@ class Bisect(bpy.types.Operator):
         point2 = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.co, center_point + largest_dim * rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)))
 
         # Update Line
-        line_color = color.line if self.mode == 'CUT' else color.slice_line
+        line_color = color.line if self.mode == 'CUT' else color.slice_line if self.mode == 'SLICE' else color.bisect
         self.ui.line.callback.update_batch((point1, point2), color=line_color)
 
         # Update Polyline
@@ -378,7 +378,7 @@ class Theme(bpy.types.PropertyGroup):
     gradient: bpy.props.FloatVectorProperty(name="Cut Gradient", description="Color of the cut gradient", default=(1.0, 0.0, 0.0, 0.15), subtype='COLOR', size=4, min=0.0, max=1.0)
     slice_line: bpy.props.FloatVectorProperty(name="Slice Line", description="Color of the slice line", default=(1.0, 1.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
     slice_gradient: bpy.props.FloatVectorProperty(name="Slice Gradient", description="Color of the slice gradient", default=(1.0, 1.0, 0.0, 0.15), subtype='COLOR', size=4, min=0.0, max=1.0)
-    bisect: bpy.props.FloatVectorProperty(name="Bisect", description="Color of the bisect line", default=(0.0, 1.0, 0.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
+    bisect: bpy.props.FloatVectorProperty(name="Bisect", description="Color of the bisect line", default=(0.0, 0.88, 1.0, 0.8), subtype='COLOR', size=4, min=0.0, max=1.0)
 
 
 types_classes = (
