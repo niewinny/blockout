@@ -5,6 +5,7 @@ from . import ops, tools
 class Tools(bpy.types.PropertyGroup):
     block2d: bpy.props.PointerProperty(type=tools.block2d.Pref)
     sketch: bpy.props.PointerProperty(type=tools.sketch.Pref)
+    sketch_obj: bpy.props.PointerProperty(type=tools.sketch_obj.Pref)
 
 
 class Scene(bpy.types.PropertyGroup):

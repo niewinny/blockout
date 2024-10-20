@@ -8,8 +8,20 @@ class BOUT_OT_SetActiveToolOperator(bpy.types.Operator):
 
     def execute(self, context):
         active_edit_mode_tool = bpy.context.workspace.tools.from_space_view3d_mode('EDIT_MESH', create=False).idname
-        if active_edit_mode_tool != 'bout.blockout':
+
+        tools = [
+            'bout.blockout',
+            'bout.block2d',
+            'bout.sketch'
+        ]
+
+        if active_edit_mode_tool not in tools:
             bpy.ops.wm.tool_set_by_id(name="bout.blockout")
-        else:
+        elif active_edit_mode_tool == 'bout.blockout':
             bpy.ops.wm.tool_set_by_id(name="bout.block2d")
+        elif active_edit_mode_tool == 'bout.block2d':
+            bpy.ops.wm.tool_set_by_id(name="bout.sketch")
+        else:
+            bpy.ops.wm.tool_set_by_id(name="bout.blockout")
+
         return {'FINISHED'}

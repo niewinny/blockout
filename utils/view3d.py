@@ -158,3 +158,24 @@ def region2d_to_plane3d(region, re3d, point, plane, matrix=None):
         mouse_origin, mouse_origin + mouse_direction, location, normal)
 
     return mouse_point_on_plane
+
+
+def get_mouse_region_prev(event):
+    '''Get the previous mouse coordinates in region space'''
+
+    mouse_x = event.mouse_x
+    mouse_y = event.mouse_y
+
+    mouse_prev_x = event.mouse_prev_x
+    mouse_prev_y = event.mouse_prev_y
+
+    mouse_region_x = event.mouse_region_x
+    mouse_region_y = event.mouse_region_y
+
+    global_diff_x = mouse_x - mouse_prev_x
+    global_diff_y = mouse_y - mouse_prev_y
+
+    mouse_region_prev_x = mouse_region_x - global_diff_x
+    mouse_region_prev_y = mouse_region_y - global_diff_y
+
+    return mouse_region_prev_x, mouse_region_prev_y

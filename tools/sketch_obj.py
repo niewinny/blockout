@@ -4,16 +4,16 @@ import bpy
 from ..utils import gizmo, addon
 
 
-class BOUT_MT_Sketch(bpy.types.WorkSpaceTool):
+class BOUT_MT_SketchObj(bpy.types.WorkSpaceTool):
     bl_space_type = 'VIEW_3D'
-    bl_context_mode = 'EDIT_MESH'
-    bl_idname = 'bout.sketch'
+    bl_context_mode = 'OBJECT'
+    bl_idname = 'bout.sketch_obj'
     bl_label = 'Sketch'
     bl_description = 'Tool for blocking out a mesh'
     bl_icon = 'ops.generic.select_circle'
     bl_options = {'KEYMAP_FALLBACK'}
     bl_keymap = (
-        ('bout.draw_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
+        ('bout.draw_obj_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
 
     )
 

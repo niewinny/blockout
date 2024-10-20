@@ -5,24 +5,34 @@ import bmesh
 from mathutils import Vector
 from ...shaders import handle
 from ...utils import addon, scene, infobar, view3d
-from ...bmeshutils import orientation
-from ...bmeshutils.rectangle import create_rectangle, expand_rectangle
+from ...bmeshutils import orientation, rectangle
 
 
 @dataclass
 class Config:
     '''Dataclass for storing options'''
     shape: str = 'RECTANGLE'
-    align: str = 'NORMAL'
+    align: str = 'FACE'
+    align_face: str = 'NORMAL'
+    align_view: str = 'WORLD'
 
 
 @dataclass
 class CreatedData:
     '''Dataclass for storing'''
+    obj: bpy.types.Object = None
     bm: bmesh.types.BMesh = None
     face: bmesh.types.BMFace = None
     direction: Vector = Vector((0, 1, 0))
     plane: tuple = (Vector(), Vector())
+    is_local: bool = False
+
+
+@dataclass
+class Objects:
+    '''Dataclass for storing'''
+    active: bpy.types.Object = None
+    selected: list = field(default_factory=list)
 
 
 @dataclass
@@ -47,30 +57,37 @@ class DrawMesh(bpy.types.Operator):
         self.ray = scene.ray_cast.Ray()
         self.data = CreatedData()
         self.config = Config()
-
-    @classmethod
-    def poll(cls, context):
-        return context.area.type == 'VIEW_3D' and context.mode == 'EDIT_MESH'
+        self.objects = Objects()
 
     def set_config(self, context):
+        '''Set the options'''
         raise NotImplementedError("Subclasses must implement the set_options method")
+
+    def invoke_data(self, context):
+        '''Set the object data'''
+        raise NotImplementedError("Subclasses must implement the set_object method")
+
+    def update_bmesh(self, loop_triangles=False, destructive=False):
+        '''Update the bmesh data'''
+        raise NotImplementedError("Subclasses must implement the update_bmesh method")
 
     def invoke(self, context, event):
         self.config = self.set_config(context)
-        self.mouse.init = Vector((event.mouse_region_x, event.mouse_region_y))
+        mouse_region_prev_x, mouse_region_prev_y = view3d.get_mouse_region_prev(event)
+        self.mouse.init = Vector((mouse_region_prev_x, mouse_region_prev_y))
         self.ray = scene.ray_cast.selected(context, self.mouse.init)
 
-        scene.set_active_object(context, self.mouse.init)
+        self.objects.selected = context.selected_objects[:]
+        self.objects.active = context.active_object
 
-        obj = context.edit_object
-        self.data.bm = bmesh.from_edit_mesh(obj.data)
+        self.invoke_data(context)
 
         created_mesh = self._build_mesh(context)
         if not created_mesh:
             self.report({'ERROR'}, 'Failed to create mesh data')
             return {'CANCELLED'}
 
-        bmesh.update_edit_mesh(obj.data, loop_triangles=True, destructive=True)
+        self.update_bmesh(loop_triangles=True, destructive=True)
 
         context.window.cursor_set('SCROLL_XY')
         self._header(context)
@@ -105,6 +122,7 @@ class DrawMesh(bpy.types.Operator):
         self.ray = None
         self.data = None
         self.config = None
+        self.objects = None
 
         context.window.cursor_set('CROSSHAIR')
         context.area.header_text_set(text=None)
@@ -122,40 +140,62 @@ class DrawMesh(bpy.types.Operator):
     def _build_mesh(self, context):
         '''Build the mesh data'''
 
-        if not self.ray.hit:
-            direction = orientation.direction_from_view(context)
-            plane = orientation.plane_from_view(context, self.mouse.init, Vector((0, 0, 0)))
+        obj = self.data.obj
 
-        else:
-            hit_face = self.data.bm.faces[self.ray.index]
+        align_view = self.config.align_view
+        match align_view:
+            case 'WORLD': depth = Vector((0, 0, 0))
+            case 'OBJECT': depth = self.objects.active.location
+            case 'CURSOR': depth = context.scene.cursor.location
+
+        def get_view_direction(local=False):
+            direction_world = orientation.direction_from_view(context)
+            plane_world = orientation.plane_from_view(context, self.mouse.init, depth)
+
+            if local:
+                direction_local = orientation.direction_local(obj, direction_world)
+                plane_local = orientation.plane_local(obj, plane_world)
+                return direction_local, plane_local
+
+            return direction_world, plane_world
+
+        def get_face_direction(local=False):
+            hit_obj = self.ray.obj
+            hit_bm = bmesh.new()
+            hit_bm.from_mesh(hit_obj.data)
+            hit_bm.faces.ensure_lookup_table()
+            hit_face = hit_bm.faces[self.ray.index]
             loc = self.ray.location
 
-            active_element = self.data.bm.select_history.active
-            if isinstance(active_element, bmesh.types.BMEdge):
-                active_edge = active_element
-                if active_edge not in hit_face.edges:
-                    self.report({'ERROR'}, 'Active Edge must be part of the hit face')
-                    return False
-            else:
-                self.report({'ERROR'}, 'No Active Eddge Selected')
-                return False
+            align_face = self.config.align_face
+            match align_face:
+                case 'NORMAL': direction_local = orientation.direction_from_normal(hit_face.normal)
+                case 'CLOSEST': direction_local = orientation.direction_from_closest_edge(hit_face, loc)
+                case 'LONGEST': direction_local = orientation.direction_from_longest_edge(hit_face)
 
-            align = self.config.align
-            match align:
-                case 'NORMAL': direction = orientation.direction_from_normal(hit_face.normal)
-                case 'CLOSEST': direction = orientation.direction_from_closest_edge(hit_face, loc)
-                case 'LONGEST': direction = orientation.direction_from_longest_edge(hit_face)
-                case 'ACTIVE': direction = orientation.direction_from_active_edge(hit_face, active_edge)
-            plane = orientation.plane_from_ray(self.ray)
+            plane_world = (self.ray.location, self.ray.normal)
+
+            if local:
+                plane_local = orientation.plane_local(obj, plane_world)
+                return direction_local, plane_local
+
+            direction_world = self.ray.obj.matrix_world.to_3x3() @ direction_local
+            return direction_world, plane_world
+
+        direction, plane = get_view_direction(self.data.is_local)
+
+        if self.config.align == 'FACE':
+            if self.ray.hit:
+                direction, plane = get_face_direction(self.data.is_local)
 
         self.data.direction = direction
         self.data.plane = plane
-        self.data.face = create_rectangle(self.data.bm, plane)
+        self.data.face = rectangle.create_rectangle(self.data.bm, self.data.plane)
 
         return True
 
     def _draw_mesh(self, context):
-        obj = context.edit_object
+        obj = self.data.obj
 
         region = context.region
         re3d = context.region_data
@@ -167,16 +207,20 @@ class DrawMesh(bpy.types.Operator):
         if mouse_point_on_plane is None:
             return
 
-        expand_rectangle(self.data.face, plane, mouse_point_on_plane, direction)
+        rectangle.expand_rectangle(self.data.face, plane, mouse_point_on_plane, direction)
 
-        bmesh.update_edit_mesh(obj.data)
+        self.update_bmesh()
 
 
-class BOUT_OT_DrawTool(DrawMesh):
-    bl_idname = 'bout.draw_tool'
+class BOUT_OT_DrawMeshTool(DrawMesh):
+    bl_idname = 'bout.draw_mesh_tool'
     bl_label = 'Draw Polygon'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Tool for drawing a mesh"
+
+    @classmethod
+    def poll(cls, context):
+        return context.area.type == 'VIEW_3D' and context.mode == 'EDIT_MESH'
 
     def _header_text(self):
         '''Set the header text'''
@@ -189,8 +233,23 @@ class BOUT_OT_DrawTool(DrawMesh):
         config = Config()
         config.shape = addon.pref().tools.sketch.shape
         config.align = addon.pref().tools.sketch.align
+        config.align_face = addon.pref().tools.sketch.align_face
+        config.align_view = addon.pref().tools.sketch.align_view
 
         return config
+
+    def invoke_data(self, context):
+        scene.set_active_object(context, self.mouse.init)
+        obj = context.edit_object
+        obj.update_from_editmode()
+        self.data.is_local = True
+        self.data.obj = obj
+        self.data.bm = bmesh.from_edit_mesh(obj.data)
+
+    def update_bmesh(self, loop_triangles=False, destructive=False):
+        obj = self.data.obj
+        mesh = obj.data
+        bmesh.update_edit_mesh(mesh, loop_triangles=loop_triangles, destructive=destructive)
 
 
 class Theme(bpy.types.PropertyGroup):
@@ -201,6 +260,7 @@ types_classes = (
     Theme,
 )
 
+
 classes = (
-    BOUT_OT_DrawTool,
+    BOUT_OT_DrawMeshTool,
 )
