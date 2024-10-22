@@ -6,6 +6,7 @@ from . import line_cut
 from . import edge_expand
 from . import loop_bisect
 from . import match_face
+from . import set_custom_plane
 from . import sweep
 
 
@@ -33,5 +34,6 @@ classes = (
     *edge_expand.classes,
     *loop_bisect.classes,
     *match_face.classes,
+    *set_custom_plane.classes,
     *sweep.classes,
 )

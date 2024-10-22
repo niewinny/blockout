@@ -3,12 +3,12 @@ import bpy
 import bmesh
 
 from ..mesh.draw import DrawMesh, Config
-from ...utils import addon
+from ...utils import addon, scene
 
 
 class BOUT_OT_DrawObjTool(DrawMesh):
     bl_idname = 'bout.draw_obj_tool'
-    bl_label = 'Draw Polygon'
+    bl_label = 'Draw Object'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Tool for drawing a mesh"
 
@@ -16,35 +16,40 @@ class BOUT_OT_DrawObjTool(DrawMesh):
     def poll(cls, context):
         return context.area.type == 'VIEW_3D'
 
+    def ray_cast(self, context):
+        if self.config.pick == 'SELECTED':
+            ray = scene.ray_cast.selected(context, self.mouse.init)
+        else:
+            ray = scene.ray_cast.visible(context, self.mouse.init, modes={'EDIT', 'OBJECT'})
+        return ray
+
     def _header_text(self):
         '''Set the header text'''
-        pref = addon.pref().tools.sketch
+        pref = addon.pref().tools.sketch.obj
         text = f"Shape: {pref.shape.capitalize()}"
 
         return text
 
     def set_config(self, context):
         config = Config()
-        config.shape = addon.pref().tools.sketch.shape
+        config.shape = addon.pref().tools.sketch.obj.shape
         config.align = addon.pref().tools.sketch.align
-        config.align_face = addon.pref().tools.sketch.align_face
-        config.align_view = addon.pref().tools.sketch.align_view
+        config.pick = addon.pref().tools.sketch.obj.pick
 
         return config
 
-    def invoke_data(self, context):
+    def build_bmesh(self, context):
 
         new_mesh = bpy.data.meshes.new('BlockOut')
         new_obj = bpy.data.objects.new('BlockOut', new_mesh)
         context.collection.objects.link(new_obj)
 
-        self.data.obj = new_obj
-        self.data.bm = bmesh.new()
+        bm = bmesh.new()
+        return new_obj, bm
 
-    def update_bmesh(self, loop_triangles=False, destructive=False):
-        obj = self.data.obj
+    def update_bmesh(self, obj, bm, loop_triangles=False, destructive=False):
         mesh = obj.data
-        self.data.bm.to_mesh(mesh)
+        bm.to_mesh(mesh)
 
 
 class Theme(bpy.types.PropertyGroup):

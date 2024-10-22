@@ -42,6 +42,20 @@ def _ray_cast(context, origin, direction, objects):
     ray = Ray(hit, location, normal, index, obj, matrix)
     return ray
 
+def edited(context, position):
+    '''Cast a ray in the scene to detect the selected objects'''
+
+    origin, direction = _prepare_ray_cast(context, position)
+
+    selection = {}
+    obj = context.edit_object
+    if obj and obj.type == 'MESH':
+        selection = {obj}
+
+    ray = _ray_cast(context, origin, direction, selection)
+
+    return ray
+
 
 def selected(context, position):
     '''Cast a ray in the scene to detect the selected objects'''
