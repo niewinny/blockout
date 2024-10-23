@@ -56,6 +56,7 @@ class Objects:
 class Mouse:
     """Dataclass for tracking mouse positions."""
     init: Vector = Vector()
+    store: Vector = Vector()
     co: Vector = Vector()
 
 
@@ -99,6 +100,7 @@ class DrawMesh(bpy.types.Operator):
         self.data = CreatedData()
         self.config = Config()
         self.objects = Objects()
+        self.mode = 'DRAW'
 
     def set_config(self, context):
         raise NotImplementedError("Subclasses must implement the set_options method")
@@ -184,11 +186,18 @@ class DrawMesh(bpy.types.Operator):
             return {'PASS_THROUGH'}
 
         if event.type == 'MOUSEMOVE':
-            self.mouse.co = (event.mouse_region_x, event.mouse_region_y)
-            self._draw_mesh(context)
+            self.mouse.co = Vector((event.mouse_region_x, event.mouse_region_y))
+            if self.mode == 'DRAW':
+                self._draw_mesh(context)
+            else:
+                self._extrude_mesh(context)
             self._header(context)
 
         elif event.type in {'LEFTMOUSE', 'SPACE', 'RET', 'NUMPAD_ENTER'}:
+            if event.value == 'RELEASE':
+                self.mode = 'EXTRUDE'
+                self.mouse.store = self.mouse.co
+                return {'RUNNING_MODAL'}
             self.finish(context)
             self._end(context)
             return {'FINISHED'}
@@ -323,6 +332,7 @@ class DrawMesh(bpy.types.Operator):
         face = self.data.face
         plane = self.data.plane
 
+        distance = (self.mouse.co - self.mouse.store).length
         rectangle.extrude(bm, face, plane, distance)
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
