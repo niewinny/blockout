@@ -69,6 +69,10 @@ class Rectangle(bpy.types.PropertyGroup):
     co: bpy.props.FloatVectorProperty(name="Rectangle", description="Rectangle coordinates", size=2, default=(0, 0), subtype='XYZ_LENGTH')
 
 
+class Cuboid(bpy.types.PropertyGroup):
+    co: bpy.props.FloatVectorProperty(name="Cuboid", description="Cuboid coordinates", size=3, default=(0, 0, 0), subtype='XYZ_LENGTH')
+
+
 class Plane(bpy.types.PropertyGroup):
     location: bpy.props.FloatVectorProperty(name="Location", description="Plane location", size=3, default=(0, 0, 0), subtype='XYZ')
     normal: bpy.props.FloatVectorProperty(name="Normal", description="Plane normal", size=3, default=(0, 0, 0), subtype='XYZ')
@@ -76,6 +80,7 @@ class Plane(bpy.types.PropertyGroup):
 
 class Shape(bpy.types.PropertyGroup):
     rectangle: bpy.props.PointerProperty(type=Rectangle)
+    cuboid: bpy.props.PointerProperty(type=Cuboid)
 
     offset: bpy.props.FloatProperty(name="Offset", description="Offset", default=0.0)
 
@@ -158,17 +163,16 @@ class DrawMesh(bpy.types.Operator):
         location = location + normal * offset
         plane = (location, normal)
         direction = self.shape.direction
-
-        x, y = self.shape.rectangle.co
     
         obj, bm = self.build_bmesh(context)
 
-        rectangle.create_rectangle(bm, plane)
+        rectangle.create(bm, plane)
 
         bm.faces.ensure_lookup_table()
         face = bm.faces[self.shape.face_index]
 
-        rectangle.set_rectangle(face, plane, direction, x, y)
+        rectangle.expand(face, plane, self.shape.rectangle.co, direction, local_space=True)
+        rectangle.extrude(bm, face, plane, 1.0)
 
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
@@ -291,7 +295,7 @@ class DrawMesh(bpy.types.Operator):
 
         self.data.direction = direction
         self.data.plane = plane
-        self.data.face = rectangle.create_rectangle(self.data.bm, self.data.plane)
+        self.data.face = rectangle.create(self.data.bm, self.data.plane)
 
         return True
 
@@ -308,9 +312,19 @@ class DrawMesh(bpy.types.Operator):
         if mouse_point_on_plane is None:
             return
 
-        self.shape.rectangle.co = rectangle.expand_rectangle(self.data.face, plane, mouse_point_on_plane, direction)
+        self.shape.rectangle.co = rectangle.expand(self.data.face, plane, mouse_point_on_plane, direction)
 
         self.update_bmesh(self.data.obj, self.data.bm)
+
+    def _extrude_mesh(self, context):
+        '''Extrude the mesh'''
+        obj = self.data.obj
+        bm = self.data.bm
+        face = self.data.face
+        plane = self.data.plane
+
+        rectangle.extrude(bm, face, plane, distance)
+        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
 
 class BOUT_OT_DrawMeshTool(DrawMesh):
@@ -365,6 +379,7 @@ class Theme(bpy.types.PropertyGroup):
 
 types_classes = (
     Rectangle,
+    Cuboid,
     Plane,
     Shape,
     Theme,

@@ -20,3 +20,21 @@ def draw_align(layout, sketch):
         col.prop(sketch.align.custom, 'location')
         col.prop(sketch.align.custom, 'normal')
         col.prop(sketch.align.custom, 'angle')
+
+
+def draw_type(layout, sketch):
+    '''Draw type properties'''
+
+    layout.use_property_split = False
+    row = layout.row(align=True)
+    row.scale_y = 0.8
+    row.scale_x = 0.8
+    row.prop(sketch, 'mode', expand=True)
+    layout.separator()
+    layout.use_property_split = True
+    layout.prop(sketch, 'geomety')
+    layout.separator()
+    layout.use_property_split = True
+    col = layout.column(align=True)
+    if sketch.geomety == 'OBJECT':
+        col.prop(sketch, 'origin', expand=True)
