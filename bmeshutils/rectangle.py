@@ -1,5 +1,7 @@
+from dataclasses import dataclass, field
 import bmesh
 from mathutils import Matrix, Vector
+from ..utils import view3d
 
 
 def create(bm, plane):
@@ -12,10 +14,13 @@ def create(bm, plane):
     v4 = bm.verts.new(location)
     face = bm.faces.new((v1, v2, v3, v4))
     face.normal = normal
+    face.select_set(True)
+    bm.select_flush(True)
 
     return face
 
-def expand(face, plane, loc, direction, local_space=False):
+
+def set_xy(face, plane, loc, direction, local_space=False):
     '''
     Expand the rectangle face. The `loc` parameter is always provided.
     If `local_space` is True, `loc` is given in the plane's local coordinate system.
@@ -37,7 +42,7 @@ def expand(face, plane, loc, direction, local_space=False):
     matrix.translation = location
 
     # Build the inverse matrix from object local space to plane local space
-    matrix_inv = matrix.inverted()
+    matrix_inv = matrix.inverted_safe()
 
     # In plane local space, the initial point is at the origin
     x0, y0 = 0, 0
@@ -100,7 +105,12 @@ def expand(face, plane, loc, direction, local_space=False):
     v3.co = matrix @ v3_local
     v4.co = matrix @ v4_local
 
-    return dx, dy
+    # Compute the 3D point corresponding to (x1, y1, 0) in plane local space
+    point_local = Vector((x1, y1, 0))
+    point_3d = matrix @ point_local
+
+    # Return dx, dy (2D location), and point_3d (3D point)
+    return (dx, dy), point_3d
 
 
 def extrude(bm, face, plane, dz):
@@ -116,15 +126,31 @@ def extrude(bm, face, plane, dz):
     geom_extruded = result['geom']
 
     # Get the new faces and vertices
-    new_faces = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMFace)]
     new_verts = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMVert)]
+    new_faces = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMFace)]
 
     # Move the new vertices along the direction vector by dz
+
+    extruded_face = new_faces[0]
+    extruded_face.normal = -normal
+    extruded_face.select_set(True)
+
     move_vector = -normal * dz
     for v in new_verts:
         v.co += move_vector
 
-    # Recalculate normals if necessary
-    bmesh.ops.recalc_face_normals(bm, faces=new_faces)
+    return extruded_face
 
-    return new_faces[0]
+
+def set_z(face, normal, dz, verts=None):
+    '''Set the vertices of the extrusion along the extrusion direction based on the mouse position'''
+
+    # Normalize the direction vector
+    normal = normal.normalized()
+
+    if verts:
+        for v, vert_co in zip(face.verts, verts):
+            v.co = vert_co + normal
+    else:
+        for v in face.verts:
+            v.co = v.co + normal * dz

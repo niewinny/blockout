@@ -69,9 +69,7 @@ class Pref(bpy.types.PropertyGroup):
     shape: bpy.props.EnumProperty(
         name="Shape",
         description="Shape",
-        items=[('CUBOID', 'Cuboid', 'Cuboid'),
-               ('CYLINDER', 'Cylinder', 'Cylinder'),
-               ('RECTANGLE', 'Rectangle', 'Rectangle'),
+        items=[('RECTANGLE', 'Rectangle', 'Rectangle'),
                ('CIRCLE', 'Circle', 'Circle')],
         default='RECTANGLE')
     mode: bpy.props.EnumProperty(

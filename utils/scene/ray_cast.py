@@ -25,7 +25,8 @@ def _ray_cast(context, origin, direction, objects):
 
     # Start ray casting
     depsgraph = context.view_layer.depsgraph
-    hit, location, normal, index, obj, matrix = context.scene.ray_cast(depsgraph, origin, direction)
+    scene = context.scene
+    hit, location, normal, index, obj, matrix = scene.ray_cast(depsgraph, origin, direction)
 
     hidden = []
 
@@ -34,13 +35,14 @@ def _ray_cast(context, origin, direction, objects):
         hidden.append(obj)
         obj.hide_viewport = True
 
-        hit, location, normal, index, obj, matrix = context.scene.ray_cast(depsgraph, origin, direction)
+        hit, location, normal, index, obj, matrix = scene.ray_cast(depsgraph, origin, direction)
 
     for h in hidden:
         h.hide_viewport = False
 
     ray = Ray(hit, location, normal, index, obj, matrix)
     return ray
+
 
 def edited(context, position):
     '''Cast a ray in the scene to detect the selected objects'''
