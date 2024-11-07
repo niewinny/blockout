@@ -4,6 +4,7 @@ import bmesh
 
 from mathutils import Vector, Matrix
 from ...shaders import handle
+from ...shaders.draw import DrawLine
 from ...utils import addon, scene, infobar, view3d
 from ...bmeshutils import orientation, rectangle
 
@@ -82,6 +83,7 @@ class Mouse:
 class DrawUI:
     '''Dataclass for the UI  drawing'''
     face: handle.Face = field(default_factory=handle.Face)
+    zaxis: handle.Line = field(default_factory=handle.Line)
 
 
 class Rectangle(bpy.types.PropertyGroup):
@@ -153,6 +155,7 @@ class DrawMesh(bpy.types.Operator):
 
         context.window.cursor_set('SCROLL_XY')
         self._header(context)
+        self._setup_drawing(context)
         infobar.draw(context, event, None)
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
@@ -269,6 +272,12 @@ class DrawMesh(bpy.types.Operator):
         header = f'{text} {dimentions}'
         context.area.header_text_set(text=header)
 
+    def _setup_drawing(self, context):
+
+        self.ui.zaxis.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=(1, 1, 1, 1), depth=False)
+        self.ui.zaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.zaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
+
+
     def _build_mesh(self, context):
         '''Build the mesh data'''
 
@@ -358,7 +367,7 @@ class DrawMesh(bpy.types.Operator):
         direction = self.data.draw.direction
         matrix_world = obj.matrix_world
 
-        mouse_point_on_plane = view3d.region2d_to_plane3d(region, re3d, self.mouse.co, plane, matrix=matrix_world)
+        mouse_point_on_plane = view3d.region_2d_to_plane_3d(region, re3d, self.mouse.co, plane, matrix=matrix_world)
         if mouse_point_on_plane is None:
             return
 
@@ -383,16 +392,59 @@ class DrawMesh(bpy.types.Operator):
     def _set_extrusion(self, context):
         '''Set the extrusion'''
 
+        obj = self.data.obj
+        matrix_world = obj.matrix_world
         face = self.data.extrude.face
-        normal = -self.data.draw.plane[1]
+        plane = self.data.draw.plane  # This plane is in object local space
+        normal = -plane[1]  # Local space normal, negated
         verts = self.data.extrude.verts
 
-        extrude = 1.0
+        region = context.region
+        rv3d = context.region_data
+
+        # Compute the origin in local space (e.g., median of vertices)
+        origin_local = sum(verts, Vector()) / len(verts)
+
+        # Transform plane to world space
+        plane_location_world = matrix_world @ plane[0]
+        plane_normal_world = matrix_world.to_3x3() @ plane[1]
+        plane_normal_world.normalize()
+        plane_world = (plane_location_world, plane_normal_world)
+
+        # Transform normal to world space
+        normal_world = matrix_world.to_3x3() @ normal
+        normal_world.normalize()
+
+        # Compute line_origin in world space
+        line_origin = view3d.region_2d_to_plane_3d(region, rv3d, self.mouse.store, plane_world)
+
+        # Use world space normal for line_direction
+        line_direction = normal_world
+
+        # Calculate extrusion using region_2d_to_line_3d
+        _, extrude = view3d.region_2d_to_line_3d(region, rv3d, self.mouse.co, line_origin, line_direction)
+
+        if extrude is None:
+            # Handle the case where the line and ray are parallel
+            self.shape.extrusion = 0.0
+            self.data.extrude.value = 0.0
+            return
+
+        self.shape.extrusion = extrude
         self.data.extrude.value = extrude
+
+        # Update the UI line visualization (if any)
+        point1 = line_origin
+        point2 = line_origin + line_direction
+        self.ui.zaxis.callback.update_batch((point1, point2))
+
+        # Update the mesh with the new extrusion value
         rectangle.set_z(face, normal, extrude, verts)
 
+        # Update the bmesh
         self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
+        
 
 class BOUT_OT_DrawMeshTool(DrawMesh):
     bl_idname = 'bout.draw_mesh_tool'

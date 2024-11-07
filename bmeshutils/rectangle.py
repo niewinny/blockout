@@ -150,7 +150,7 @@ def set_z(face, normal, dz, verts=None):
 
     if verts:
         for v, vert_co in zip(face.verts, verts):
-            v.co = vert_co + normal
+            v.co = vert_co + normal * dz
     else:
         for v in face.verts:
             v.co = v.co + normal * dz
