@@ -6,7 +6,7 @@ from mathutils import Vector, Matrix
 from ...shaders import handle
 from ...shaders.draw import DrawLine
 from ...utils import addon, scene, infobar, view3d
-from ...bmeshutils import orientation, rectangle
+from ...bmeshutils import orientation, rectangle, facet, circle
 
 
 @dataclass
@@ -99,22 +99,29 @@ class Rectangle(bpy.types.PropertyGroup):
     co: bpy.props.FloatVectorProperty(name="Rectangle", description="Rectangle coordinates", size=2, default=(0, 0), subtype='XYZ_LENGTH')
 
 
+class Circle(bpy.types.PropertyGroup):
+    co: bpy.props.FloatVectorProperty(name="Circle", description="Circle coordinates", size=2, default=(0, 0), subtype='XYZ_LENGTH')
+    verts: bpy.props.IntProperty(name="Verts", description="Circle Verts", default=32, min=3, max=256)
+
+
 class Plane(bpy.types.PropertyGroup):
     location: bpy.props.FloatVectorProperty(name="Location", description="Plane location", size=3, default=(0, 0, 0), subtype='XYZ')
     normal: bpy.props.FloatVectorProperty(name="Normal", description="Plane normal", size=3, default=(0, 0, 0), subtype='XYZ')
 
 
 class Pref(bpy.types.PropertyGroup):
-    rectangle: bpy.props.PointerProperty(type=Rectangle)
     extrusion: bpy.props.FloatProperty(name="Z", description="Z coordinates", default=0.0, subtype='DISTANCE')
     shape: bpy.props.StringProperty(name="Shape", description="Shape", default='RECTANGLE')
 
     offset: bpy.props.FloatProperty(name="Offset", description="Offset", default=0.0, subtype='DISTANCE')
 
-    obj_name: bpy.props.StringProperty(name="Object Name", description="Object name", default='BlockOut')
-    face_index: bpy.props.IntProperty(name="Face Index", description="Face index", default=0)
     plane: bpy.props.PointerProperty(type=Plane)
     direction: bpy.props.FloatVectorProperty(name="Direction", description="Direction", default=(0, 1, 0), subtype='XYZ')
+
+
+class Shapes(bpy.types.PropertyGroup):
+    rectangle: bpy.props.PointerProperty(type=Rectangle)
+    circle: bpy.props.PointerProperty(type=Circle)
 
 
 shapes_to_extrude = {'BOX', 'CYLINDER'}
@@ -122,6 +129,7 @@ shapes_to_extrude = {'BOX', 'CYLINDER'}
 
 class Sketch(bpy.types.Operator):
     pref: bpy.props.PointerProperty(type=Pref)
+    shapes: bpy.props.PointerProperty(type=Shapes)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -178,7 +186,7 @@ class Sketch(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
-        layout.prop(self.pref.rectangle, 'co', text="Dimensions")
+        layout.prop(self.shapes.rectangle, 'co', text="Dimensions")
         if self.pref.shape in shapes_to_extrude:
             layout.prop(self.pref, 'extrusion', text="Z")
         layout.prop(self.pref, 'offset', text="Offset")
@@ -189,8 +197,6 @@ class Sketch(bpy.types.Operator):
 
     def finish(self, context):
         '''Finish the operator'''
-        self.pref.obj_name = self.data.obj.name
-        self.pref.face_index = self.data.draw.face.index
         self.pref.plane.location = self.data.draw.plane[0]
         self.pref.plane.normal = self.data.draw.plane[1]
         self.pref.direction = self.data.draw.direction
@@ -206,7 +212,7 @@ class Sketch(bpy.types.Operator):
         normal = self.data.draw.plane[1]
         offset = self.config.align.offset
 
-        rectangle.set_z(face, normal, offset)
+        facet.set_z(face, normal, offset)
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     def execute(self, context):
@@ -219,18 +225,15 @@ class Sketch(bpy.types.Operator):
 
         obj, bm = self.build_bmesh(context)
 
-        rectangle.create(bm, plane)
+        if self.pref.shape in {'RECTANGLE', 'BOX'}:
+            face = rectangle.create(bm, plane)
+            rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True)
 
-        bm.faces.ensure_lookup_table()
-        face = bm.faces[self.pref.face_index]
-
-        rectangle.set_xy(face, plane, self.pref.rectangle.co, direction, local_space=True)
-
-        if self.mode == 'EXTRUDE':
-            rectangle.extrude(bm, face, plane, extrusion)
+        if self.pref.shape in shapes_to_extrude:
+            facet.extrude(bm, face, plane, extrusion)
             self._recalculate_normals(bm)
 
-        rectangle.set_z(face, normal, offset)
+        facet.set_z(face, normal, offset)
 
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
@@ -294,7 +297,7 @@ class Sketch(bpy.types.Operator):
         '''Set the header text'''
         text = self._header_text()
 
-        x_length, y_length = self.pref.rectangle.co
+        x_length, y_length = self.shapes.rectangle.co
         z_length = self.pref.extrusion
         dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_length:.4f}'
 
@@ -311,11 +314,7 @@ class Sketch(bpy.types.Operator):
         self.ui.yaxis.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=color.y, depth=False)
         self.ui.yaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.yaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
 
-    def _draw_invoke(self, context):
-        '''Build the mesh data'''
-
-        obj = self.data.obj
-
+    def _get_orientation(self, context):
         def get_view_orientation():
             align_view = self.config.align.view
             match align_view:
@@ -378,30 +377,34 @@ class Sketch(bpy.types.Operator):
         else:
             direction, plane = get_view_orientation()
 
-        def to_local(obj, plane, direction):
-            plane_local = orientation.plane_local(obj, plane)
-            direction_local = direction_local = orientation.direction_local(obj, direction)
+        return direction, plane
 
-            return direction_local, plane_local
+    def _draw_invoke(self, context):
+        '''Build the mesh data'''
 
-        def update_axes_drawing(world_origin, world_direction, world_normal):
-            if self.config.align.mode == 'CUSTOM':
-                return
+        obj = self.data.obj
 
-            x_axis_point = world_origin + world_direction
-            y_direction = world_normal.cross(world_direction).normalized()
+        direction, plane = self._get_orientation(context)
+        world_origin, world_normal = plane
+
+        if self.config.align.mode != 'CUSTOM':
+            x_axis_point = world_origin + direction
+            y_direction = world_normal.cross(direction).normalized()
             y_axis_point = world_origin + y_direction
             self.ui.xaxis.callback.update_batch((world_origin, x_axis_point))
             self.ui.yaxis.callback.update_batch((world_origin, y_axis_point))
 
-        update_axes_drawing(plane[0], direction, plane[1])
-
         if self.data.is_local:
-            direction, plane = to_local(obj, plane, direction)
+            direction = orientation.direction_local(obj, direction)
+            plane = orientation.plane_local(obj, plane)
 
         self.data.draw.plane = plane
         self.data.draw.direction = direction
-        self.data.draw.face = rectangle.create(self.data.bm, plane)
+
+        if self.config.shape in {'RECTANGLE', 'BOX'}:
+            self.data.draw.face = rectangle.create(self.data.bm, plane)
+        else:
+            self.data.draw.face = circle.create(self.data.bm, plane, verts_number=self.shapes.circle.verts)
 
         return True
 
@@ -418,7 +421,11 @@ class Sketch(bpy.types.Operator):
         if mouse_point_on_plane is None:
             return
 
-        self.pref.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
+        if self.config.shape in {'RECTANGLE', 'BOX'}:
+            self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
+        else:
+            self.shapes.circle.co, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
+
         self.data.extrude.plane = (matrix_world @ point, matrix_world.to_3x3() @ direction)
 
         self.data.draw.verts = [v.co.copy() for v in self.data.draw.face.verts]
@@ -432,7 +439,7 @@ class Sketch(bpy.types.Operator):
         plane = self.data.draw.plane
 
         # Get both the extruded face and all faces involved
-        self.data.extrude.face, self.data.extrude.faces = rectangle.extrude(self.data.bm, face, plane, 0.0)
+        self.data.extrude.face, self.data.extrude.faces = facet.extrude(self.data.bm, face, plane, 0.0)
         self.data.extrude.verts = [v.co.copy() for v in self.data.extrude.face.verts]
 
         self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
@@ -484,7 +491,7 @@ class Sketch(bpy.types.Operator):
         self.ui.zaxis.callback.update_batch((point1, point2))
 
         # Update the mesh with the new extrusion value
-        dz = rectangle.set_z(face, normal, extrude, verts, snap_value=self.config.form.increments)
+        dz = facet.set_z(face, normal, extrude, verts, snap_value=self.config.form.increments)
 
         # Update the extrusion value
         self.pref.extrusion = dz
@@ -548,6 +555,8 @@ class Theme(bpy.types.PropertyGroup):
 
 types_classes = (
     Rectangle,
+    Circle,
+    Shapes,
     Plane,
     Pref,
     Theme,
