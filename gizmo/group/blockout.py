@@ -21,7 +21,8 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
     bl_region_type = 'WINDOW'
     bl_options = {'3D', 'PERSISTENT'}
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.gizmo = Gizmo()
 
     @classmethod

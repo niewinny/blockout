@@ -50,7 +50,8 @@ class BOUT_OT_Bevel(bpy.types.Operator):
     expand: bpy.props.BoolProperty(name='Expand', default=True)
     solver: bpy.props.EnumProperty(name='Solver', items=[('EXACT', 'Exact', 'Exact'), ('FAST', 'Fast', 'Fast')], default='EXACT')
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.bm: bmesh.types.BMesh = None
         self.mesh: bpy.types.Mesh = None
 

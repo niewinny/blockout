@@ -1,14 +1,13 @@
-from dataclasses import dataclass, field
 import bpy
 import bmesh
 
-from ..mesh.draw import DrawMesh, Config
+from ..mesh.sketch import Sketch, Config
 from ...utils import addon, scene
 
 
-class BOUT_OT_DrawObjTool(DrawMesh):
-    bl_idname = 'bout.draw_obj_tool'
-    bl_label = 'Draw Object'
+class BOUT_OT_SketchObjTool(Sketch):
+    bl_idname = 'bout.sketch_obj_tool'
+    bl_label = 'Blockout Sketch'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Tool for drawing a mesh"
 
@@ -33,9 +32,9 @@ class BOUT_OT_DrawObjTool(DrawMesh):
     def set_config(self, context):
         config = Config()
         config.shape = addon.pref().tools.sketch.obj.shape
+        config.form = addon.pref().tools.sketch.form
         config.align = addon.pref().tools.sketch.align
         config.pick = addon.pref().tools.sketch.obj.pick
-
         return config
 
     def build_bmesh(self, context):
@@ -61,5 +60,5 @@ types_classes = (
 )
 
 classes = (
-    BOUT_OT_DrawObjTool,
+    BOUT_OT_SketchObjTool,
 )

@@ -21,7 +21,8 @@ class BOUT_OT_EdgeExpand(bpy.types.Operator):
 
     move: bpy.props.FloatProperty(name="Move", description="Offset from selected edge center", default=0.0, step=1, precision=4, subtype='DISTANCE')
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.stored_mesh_data = None
         self.edge_index = -1
         self.face_index = -1

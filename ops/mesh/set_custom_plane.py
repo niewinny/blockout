@@ -23,6 +23,12 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
         me = obj.data
         bm = bmesh.from_edit_mesh(me)
 
+        if addon.pref().tools.sketch.align.mode == 'CUSTOM':
+            addon.pref().tools.sketch.align.mode = 'FACE'
+            self.report({'INFO'}, "Custom plane disabled")
+            context.area.tag_redraw()
+            return {'FINISHED'}
+
         addon.pref().tools.sketch.align.mode = 'CUSTOM'
 
         # Ensure lookup tables are up to date

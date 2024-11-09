@@ -34,8 +34,10 @@ class BOUT_Preference(bpy.types.AddonPreferences):
 
         elif self.settings == 'THEME':
             flow = col.grid_flow(row_major=False, columns=0, even_columns=True, even_rows=False, align=False)
+
             theme = context.preferences.addons[base_package].preferences.theme
 
+            self.theme_layout(flow, theme.axis)
             self.theme_layout(flow, theme.ops.mesh.bevel)
             self.theme_layout(flow, theme.ops.mesh.loop_bisect)
             self.theme_layout(flow, theme.ops.mesh.match_face)

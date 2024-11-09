@@ -2,7 +2,7 @@ from pathlib import Path
 import bpy
 
 from ...utils import gizmo, addon
-from .common import draw_align, draw_type
+from .common import draw_align, draw_type, draw_form
 
 
 class BOUT_MT_Sketch(bpy.types.WorkSpaceTool):
@@ -14,7 +14,7 @@ class BOUT_MT_Sketch(bpy.types.WorkSpaceTool):
     bl_icon = 'ops.generic.select_circle'
     bl_options = {'KEYMAP_FALLBACK'}
     bl_keymap = (
-        ('bout.draw_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
+        ('bout.sketch_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
         ('bout.set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': []}),
     )
 
@@ -27,10 +27,10 @@ class BOUT_MT_Sketch(bpy.types.WorkSpaceTool):
             case 'CUT': label = "Cut"
             case 'CREATE': label = "Create"
             case 'SLICE':label = "Slice"
-        layout.label(text="Type:")
+        layout.label(text="Form:")
         layout.popover('BOUT_PT_TypeMesh', text=label)
         layout.label(text="Align:")
-        label = "None" 
+        label = "None"
         mode = sketch.align.mode
         match mode:
             case 'VIEW': label = "View"
@@ -61,17 +61,22 @@ class BOUT_PT_TypeMesh(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        sketch = addon.pref().tools.sketch.mesh
-        draw_type(layout, sketch)
+        sketch = addon.pref().tools.sketch
+        mesh = sketch.mesh
+        draw_type(layout, mesh)
+        form = sketch.form
+        draw_form(layout, form)
 
 
 class Pref(bpy.types.PropertyGroup):
     shape: bpy.props.EnumProperty(
         name="Shape",
         description="Shape",
-        items=[('RECTANGLE', 'Rectangle', 'Rectangle'),
-               ('CIRCLE', 'Circle', 'Circle')],
-        default='RECTANGLE')
+        items=[('RECTANGLE', 'Rectangle', 'Rectangle', 'MESH_PLANE', 1),
+               ('BOX', 'Box', 'Box', 'MESH_CUBE', 2),
+               ('CIRCLE', 'Circle', 'Circle', 'MESH_CIRCLE', 3),
+               ('CYLINDER', 'Cylinder', 'Cylinder', 'MESH_CYLINDER', 4)],
+        default='BOX')
     mode: bpy.props.EnumProperty(
         name="Mode",
         description="Mode",

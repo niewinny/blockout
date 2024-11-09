@@ -37,7 +37,8 @@ class Bisect(bpy.types.Operator):
     release_confirm: bpy.props.BoolProperty(name="Release Confirm", description="Confirm on mouse release", default=True)
     flip: bpy.props.BoolProperty(name="Flip", description="Flip the cut direction", default=False)
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.state = 'DRAW'
         self.mouse = Mouse()
         self.ui = DrawUI()

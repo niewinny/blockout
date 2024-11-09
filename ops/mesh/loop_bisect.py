@@ -45,7 +45,8 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
     move: bpy.props.FloatProperty(name="Move", description="Offset from selected edge center", default=0.0, step=1, precision=4, subtype='DISTANCE')
     plane_no: bpy.props.FloatVectorProperty(name="Normal", description="Move vector", default=(0, 0, 0), min=-1, max=1, subtype='XYZ')
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.state: str = 'DETECT'
         self.mesh_data = {}
         self.plane_data = PlaneData()
@@ -426,14 +427,15 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
     def _axis_update(self, edge, edit_object):
         '''Update the axis for the edge'''
         _theme = addon.pref().theme.ops.mesh.loop_bisect
+        _axis = addon.pref().theme.axis
 
         axis_info = {
-            'GLOBAL_X': {'axis': Vector((1, 0, 0)), 'color': _theme.axis_x},
-            'GLOBAL_Y': {'axis': Vector((0, 1, 0)), 'color': _theme.axis_y},
-            'GLOBAL_Z': {'axis': Vector((0, 0, 1)), 'color': _theme.axis_z},
-            'LOCAL_X': {'axis': (edit_object.matrix_world.to_3x3() @ Vector((1, 0, 0))).normalized(), 'color': _theme.axis_x},
-            'LOCAL_Y': {'axis': (edit_object.matrix_world.to_3x3() @ Vector((0, 1, 0))).normalized(), 'color': _theme.axis_y},
-            'LOCAL_Z': {'axis': (edit_object.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized(), 'color': _theme.axis_z},
+            'GLOBAL_X': {'axis': Vector((1, 0, 0)), 'color': _axis.x},
+            'GLOBAL_Y': {'axis': Vector((0, 1, 0)), 'color': _axis.y},
+            'GLOBAL_Z': {'axis': Vector((0, 0, 1)), 'color': _axis.z},
+            'LOCAL_X': {'axis': (edit_object.matrix_world.to_3x3() @ Vector((1, 0, 0))).normalized(), 'color': _axis.x},
+            'LOCAL_Y': {'axis': (edit_object.matrix_world.to_3x3() @ Vector((0, 1, 0))).normalized(), 'color': _axis.y},
+            'LOCAL_Z': {'axis': (edit_object.matrix_world.to_3x3() @ Vector((0, 0, 1))).normalized(), 'color': _axis.z},
         }
 
         axis_data = axis_info.get(self.plane_data.orientation, None)
@@ -469,9 +471,6 @@ class BOUT_OT_LoopBisect(bpy.types.Operator):
 class Theme(bpy.types.PropertyGroup):
     line: bpy.props.FloatVectorProperty(name="Loop Cut Line", description="Color of the line", size=4, subtype='COLOR', default=(0.0, 0.88, 1.0, 0.9), min=0.0, max=1.0)
     guid: bpy.props.FloatVectorProperty(name="Loop Cut guid", description="Color of the guid", size=4, subtype='COLOR', default=(1.0, 1.0, 0.3, 0.5), min=0.0, max=1.0)
-    axis_x: bpy.props.FloatVectorProperty(name="Axis X", description="Color of the X axis", size=4, subtype='COLOR', default=(1.0, 0.2, 0.322, 1.0), min=0.0, max=1.0)
-    axis_y: bpy.props.FloatVectorProperty(name="Axis Y", description="Color of the Y axis", size=4, subtype='COLOR', default=(0.545, 0.863, 0.0, 1.0), min=0.0, max=1.0)
-    axis_z: bpy.props.FloatVectorProperty(name="Axis Z", description="Color of the Z axis", size=4, subtype='COLOR', default=(0.157, 0.565, 1.0, 1.0), min=0.0, max=1.0)
 
 
 types_classes = (

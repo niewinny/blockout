@@ -18,21 +18,25 @@ class Align(bpy.types.PropertyGroup):
                ('CUSTOM', 'Custom', 'Custom')],
         default='FACE')
     view: bpy.props.EnumProperty(
-        name="View",
-        description="View",
+        name="Orientation",
+        description="View Orientation",
         items=[('WORLD', 'World', 'World'),
                ('OBJECT', 'Object', 'Object'),
                ('CURSOR', 'Cursor', 'Cursor')],
         default='WORLD')
     face: bpy.props.EnumProperty(
-        name="Face",
-        description="Face",
-        items=[('NORMAL', 'Normal', 'Normal'),
-               ('CLOSEST', 'Closest', 'Closest'),
-               ('LONGEST', 'Longest', 'Longest')],
-        default='NORMAL')
+        name="Orientation",
+        description="Face Orientation",
+        items=[('CLOSEST', 'Closest Edge', 'Closest'),
+               ('LONGEST', 'Longest Edge', 'Longest'),
+               ('NORMAL', 'Normal', 'Normal')],
+        default='CLOSEST')
     custom: bpy.props.PointerProperty(type=Custom)
     offset: bpy.props.FloatProperty(name="Offset", default=0.0, subtype='DISTANCE')
+
+
+class Form(bpy.types.PropertyGroup):
+    increments: bpy.props.FloatProperty(name="Increments", default=0.0, min=0.0, subtype='DISTANCE')
 
 
 class Scene(bpy.types.PropertyGroup):
@@ -44,11 +48,13 @@ class Pref(bpy.types.PropertyGroup):
     mesh: bpy.props.PointerProperty(type=mesh.Pref)
     obj: bpy.props.PointerProperty(type=obj.Pref)
     align: bpy.props.PointerProperty(type=Align)
+    form: bpy.props.PointerProperty(type=Form)
 
 
 types_classes = (
     Custom,
     Align,
+    Form,
     *mesh.types_classes,
     *obj.types_classes,
     Pref,

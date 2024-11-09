@@ -20,7 +20,7 @@ def create(bm, plane):
     return face
 
 
-def set_xy(face, plane, loc, direction, local_space=False):
+def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
     '''
     Expand the rectangle face. The `loc` parameter is always provided.
     If `local_space` is True, `loc` is given in the plane's local coordinate system.
@@ -54,6 +54,11 @@ def set_xy(face, plane, loc, direction, local_space=False):
         # Transform loc from object local space to plane local space
         mouse_local = matrix_inv @ loc
         x1, y1 = mouse_local.x, mouse_local.y
+
+    # Apply snapping if a snap_value is provided
+    if snap_value != 0:
+        x1 = round(x1 / snap_value) * snap_value
+        y1 = round(y1 / snap_value) * snap_value
 
     dx = x1 - x0
     dy = y1 - y0
@@ -125,28 +130,58 @@ def extrude(bm, face, plane, dz):
     # Collect the new geometry
     geom_extruded = result['geom']
 
-    # Get the new faces and vertices
+    # Get the new vertices and faces
     new_verts = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMVert)]
+    # new_edges = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMEdge)]
     new_faces = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMFace)]
 
     # Move the new vertices along the direction vector by dz
-
-    extruded_face = new_faces[0]
-    extruded_face.normal = -normal
-    extruded_face.select_set(True)
-
     move_vector = -normal * dz
     for v in new_verts:
         v.co += move_vector
 
-    return extruded_face
+    # Recalculate normals for the new faces
+    bmesh.ops.recalc_face_normals(bm, faces=new_faces)
+
+    # Select the top face if needed
+    extruded_face = None
+    for f in new_faces:
+        if all(v in new_verts for v in f.verts):
+            extruded_face = f
+            break
+
+    # set of faces linked to new_verts
+    connected_faces = []
+    for v in new_verts:
+        for f in v.link_faces:
+            if f == extruded_face:
+                continue
+            if f in connected_faces:
+                continue
+            if f not in connected_faces:
+                connected_faces.append(f)
+
+    for f in connected_faces:
+        f.select_set(True)
+
+    if extruded_face:
+        extruded_face.select_set(True)
+
+    return extruded_face, connected_faces
 
 
-def set_z(face, normal, dz, verts=None):
-    '''Set the vertices of the extrusion along the extrusion direction based on the mouse position'''
+def set_z(face, normal, dz, verts=None, snap_value=0):
+    '''
+    Set the vertices of the extrusion along the extrusion direction based on the mouse position,
+    with an optional snap value for the extrusion distance.
+    '''
 
     # Normalize the direction vector
     normal = normal.normalized()
+
+    # Apply snapping if a snap_value is provided
+    if snap_value != 0:
+        dz = round(dz / snap_value) * snap_value
 
     if verts:
         for v, vert_co in zip(face.verts, verts):
@@ -154,3 +189,5 @@ def set_z(face, normal, dz, verts=None):
     else:
         for v in face.verts:
             v.co = v.co + normal * dz
+
+    return dz

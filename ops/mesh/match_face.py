@@ -21,7 +21,8 @@ class BOUT_OT_MatchFace(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Match the selected vertices to the face under the mouse cursor"
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.ui = DrawUI()
         self.ray = scene.ray_cast.Ray()
 

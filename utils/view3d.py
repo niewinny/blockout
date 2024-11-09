@@ -166,8 +166,8 @@ def get_mouse_region_prev(event):
     mouse_x = event.mouse_x
     mouse_y = event.mouse_y
 
-    mouse_prev_x = event.mouse_prev_x
-    mouse_prev_y = event.mouse_prev_y
+    mouse_prev_x = event.mouse_prev_press_x
+    mouse_prev_y = event.mouse_prev_press_y
 
     mouse_region_x = event.mouse_region_x
     mouse_region_y = event.mouse_region_y

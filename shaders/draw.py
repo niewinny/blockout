@@ -73,6 +73,8 @@ class DrawLine(BaseDraw):
         return self.setup_batch(self.points, self.color)
 
     def setup_batch(self, points, color):
+        if points is None or len(points) < 2:
+            return batch_for_shader(self.shader, 'LINES', {"pos": [], "color": []}, indices=[])
         direction = (points[1] - points[0]).normalized()
         extension_factor = 1e4
         point_a_far = points[0] - direction * extension_factor
@@ -86,6 +88,11 @@ class DrawLine(BaseDraw):
         if color is not None:
             self.color = color
         self.batch = self.setup_batch(self.points, self.color)
+
+    def clear(self):
+        '''Clear the points list'''
+        points = []
+        self.update_batch(points)
 
     def depth_test_set(self, value):
         value = 'GREATER_EQUAL' if self.depth else 'NONE'
