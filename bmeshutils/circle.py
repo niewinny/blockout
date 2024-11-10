@@ -38,11 +38,10 @@ def create(bm, plane, verts_number):
     return face
 
 
-def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
+def set_xy(face, plane, loc=None, radius=None, local_space=False, snap_value=0):
     '''
-    Expand the circle face. The `loc` parameter is always provided.
-    If `local_space` is True, `loc` is given in the plane's local coordinate system.
-    If `local_space` is False, `loc` is given in global coordinate system and will be transformed.
+    Expand the circle face. If `radius` is provided, it will be used directly.
+    Otherwise, the `loc` parameter is used to compute the radius.
     '''
     # Unpack plane data
     location, normal = plane
@@ -55,34 +54,34 @@ def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
 
     y_axis = normal.cross(x_axis).normalized()
 
-    # Build the transformation matrix from plane local space to object local space
+    # Build the transformation matrix
     rotation_matrix = Matrix((x_axis, y_axis, normal)).transposed()
     matrix = rotation_matrix.to_4x4()
     matrix.translation = location
 
-    # Build the inverse matrix from object local space to plane local space
+    # Inverse matrix for coordinate transformation
     matrix_inv = matrix.inverted_safe()
 
-    # Origin in plane local space
-    x0, y0 = 0, 0
+    if radius is None:
+        if loc is None:
+            raise ValueError("Either 'radius' or 'loc' must be provided")
 
-    if local_space:
-        # Use loc directly as it's in local plane space
-        x1, y1 = loc.x, loc.y
+        if local_space:
+            x1, y1 = loc.x, loc.y
+        else:
+            mouse_local = matrix_inv @ loc
+            x1, y1 = mouse_local.x, mouse_local.y
+
+        if snap_value != 0:
+            x1 = round(x1 / snap_value) * snap_value
+            y1 = round(y1 / snap_value) * snap_value
+
+        # Compute the radius
+        radius = math.hypot(x1, y1)
+        point_local = Vector((x1, y1, 0))
     else:
-        # Transform loc from object local space to plane local space
-        mouse_local = matrix_inv @ loc
-        x1, y1 = mouse_local.x, mouse_local.y
-
-    # Apply snapping if snap_value is provided
-    if snap_value != 0:
-        x1 = round(x1 / snap_value) * snap_value
-        y1 = round(y1 / snap_value) * snap_value
-
-    # Compute the radius
-    dx = x1 - x0
-    dy = y1 - y0
-    radius = math.hypot(dx, dy)
+        # Use radius directly
+        point_local = Vector((radius, 0, 0))
 
     # Update the positions of the face's vertices
     verts = face.verts
@@ -91,16 +90,12 @@ def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
 
     for i, v in enumerate(verts):
         angle = i * angle_step
-        # Position in local space
         x = radius * math.cos(angle)
         y = radius * math.sin(angle)
         v_local = Vector((x, y, 0))
-        # Transform to object local space
         v.co = matrix @ v_local
 
-    # Compute the 3D point corresponding to the current mouse position
-    point_local = Vector((x1, y1, 0))
+    # Transform point_local to object local space
     point_3d = matrix @ point_local
 
-    # Return (dx, dy) as radius components and the 3D point
-    return (dx, dy), point_3d
+    return radius, point_3d

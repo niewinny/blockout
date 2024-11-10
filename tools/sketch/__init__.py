@@ -13,30 +13,30 @@ class Align(bpy.types.PropertyGroup):
     mode: bpy.props.EnumProperty(
         name="Mode",
         description="Mode",
-        items=[('FACE', 'Face', 'Face'),
-               ('VIEW', 'View', 'View'),
-               ('CUSTOM', 'Custom', 'Custom')],
+        items=[('FACE', 'Face', 'Align the mesh to the face'),
+               ('VIEW', 'View', 'Align the mesh to the viewport'),
+               ('CUSTOM', 'Custom', 'Align the mesh to a custom plane')],
         default='FACE')
     view: bpy.props.EnumProperty(
         name="Orientation",
         description="View Orientation",
-        items=[('WORLD', 'World', 'World'),
-               ('OBJECT', 'Object', 'Object'),
-               ('CURSOR', 'Cursor', 'Cursor')],
+        items=[('WORLD', 'World', 'Drawing plane origin is at the world origin'),
+               ('OBJECT', 'Object', 'Drawing plane origin is at the object origin'),
+               ('CURSOR', 'Cursor', 'Drawing plane origin is at the cursor location')],
         default='WORLD')
     face: bpy.props.EnumProperty(
         name="Orientation",
         description="Face Orientation",
-        items=[('CLOSEST', 'Closest Edge', 'Closest'),
-               ('LONGEST', 'Longest Edge', 'Longest'),
-               ('NORMAL', 'Normal', 'Normal')],
+        items=[('CLOSEST', 'Closest Edge', 'Orient drawing plane tusing the closest edge of the face'),
+               ('LONGEST', 'Longest Edge', 'Orient drawing plane using the longest edge of the face'),
+               ('PLANAR', 'Planar', 'Orient drawing plane using the face normal and viewport up vector')],
         default='CLOSEST')
     custom: bpy.props.PointerProperty(type=Custom)
-    offset: bpy.props.FloatProperty(name="Offset", default=0.0, subtype='DISTANCE')
+    offset: bpy.props.FloatProperty(name="Offset", description="Offset the mesh above the drawing plane", default=0.0, subtype='DISTANCE')
 
 
 class Form(bpy.types.PropertyGroup):
-    increments: bpy.props.FloatProperty(name="Increments", default=0.0, min=0.0, subtype='DISTANCE')
+    increments: bpy.props.FloatProperty(name="Increments", description="Round the values to the nearest increment", default=0.0, subtype='DISTANCE')
 
 
 class Scene(bpy.types.PropertyGroup):

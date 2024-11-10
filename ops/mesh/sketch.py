@@ -22,7 +22,7 @@ class Align:
     '''Dataclass for storing options'''
     mode: str = 'FACE'
     view: str = 'WORLD'
-    face: str = 'NORMAL'
+    face: str = 'PLANAR'
     custom: Custom = field(default_factory=Custom)
     offset: float = 0.0
 
@@ -100,7 +100,7 @@ class Rectangle(bpy.types.PropertyGroup):
 
 
 class Circle(bpy.types.PropertyGroup):
-    co: bpy.props.FloatVectorProperty(name="Circle", description="Circle coordinates", size=2, default=(0, 0), subtype='XYZ_LENGTH')
+    radius: bpy.props.FloatProperty(name="Radius", description="Circle radius", default=0.0, subtype='DISTANCE')
     verts: bpy.props.IntProperty(name="Verts", description="Circle Verts", default=32, min=3, max=256)
 
 
@@ -122,9 +122,6 @@ class Pref(bpy.types.PropertyGroup):
 class Shapes(bpy.types.PropertyGroup):
     rectangle: bpy.props.PointerProperty(type=Rectangle)
     circle: bpy.props.PointerProperty(type=Circle)
-
-
-shapes_to_extrude = {'BOX', 'CYLINDER'}
 
 
 class Sketch(bpy.types.Operator):
@@ -186,16 +183,31 @@ class Sketch(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True
-        layout.prop(self.shapes.rectangle, 'co', text="Dimensions")
-        if self.pref.shape in shapes_to_extrude:
-            layout.prop(self.pref, 'extrusion', text="Z")
+
+        shape = self.pref.shape
+        match shape:
+            case 'RECTANGLE':
+                col = layout.column(align=True)
+                col.prop(self.shapes.rectangle, 'co', text="Dimensions")
+            case 'BOX':
+                col = layout.column(align=True)
+                col.prop(self.shapes.rectangle, 'co', text="Dimensions")
+                col.prop(self.pref, 'extrusion', text="Z")
+            case 'CIRCLE':
+                layout.prop(self.shapes.circle, 'radius', text="Radius")
+                layout.prop(self.shapes.circle, 'verts', text="Verts")
+            case 'CYLINDER':
+                layout.prop(self.shapes.circle, 'radius', text="Radius")
+                layout.prop(self.pref, 'extrusion', text="Dimensions Z")
+                layout.prop(self.shapes.circle, 'verts', text="Verts")
+
         layout.prop(self.pref, 'offset', text="Offset")
 
     def _recalculate_normals(self, bm):
         selected_faces = [f for f in bm.faces if f.select]
         bmesh.ops.recalc_face_normals(bm, faces=selected_faces)
 
-    def finish(self, context):
+    def store_data(self):
         '''Finish the operator'''
         self.pref.plane.location = self.data.draw.plane[0]
         self.pref.plane.normal = self.data.draw.plane[1]
@@ -225,13 +237,26 @@ class Sketch(bpy.types.Operator):
 
         obj, bm = self.build_bmesh(context)
 
-        if self.pref.shape in {'RECTANGLE', 'BOX'}:
-            face = rectangle.create(bm, plane)
-            rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True)
-
-        if self.pref.shape in shapes_to_extrude:
-            facet.extrude(bm, face, plane, extrusion)
-            self._recalculate_normals(bm)
+        shape = self.pref.shape
+        match shape:
+            case 'RECTANGLE':
+                face = rectangle.create(bm, plane)
+                rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True)
+            case 'BOX':
+                face = rectangle.create(bm, plane)
+                rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True)
+                facet.extrude(bm, face, plane, extrusion)
+                self._recalculate_normals(bm)
+            case 'CIRCLE':
+                face = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+                circle.set_xy(face, plane, radius=self.shapes.circle.radius, local_space=True)
+            case 'CYLINDER':
+                face = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+                circle.set_xy(face, plane, radius=self.shapes.circle.radius, local_space=True)
+                facet.extrude(bm, face, plane, extrusion)
+                self._recalculate_normals(bm)
+            case _:
+                raise ValueError(f"Unsupported shape: {self.pref.shape}")
 
         facet.set_z(face, normal, offset)
 
@@ -245,14 +270,18 @@ class Sketch(bpy.types.Operator):
 
         if event.type == 'MOUSEMOVE':
             self.mouse.co = Vector((event.mouse_region_x, event.mouse_region_y))
-            if self.mode == 'EXTRUDE' and self.config.shape in shapes_to_extrude:
-                self._extrude_modal(context)
-            else:
-                self._draw_modal(context)
+
+            match self.mode:
+                case 'DRAW':
+                    self._draw_modal(context)
+                case 'EXTRUDE':
+                    self._extrude_modal(context)
+
             self._header(context)
 
         elif event.type in {'LEFTMOUSE', 'SPACE', 'RET', 'NUMPAD_ENTER'}:
             if event.value == 'RELEASE':
+                shapes_to_extrude = {'BOX', 'CYLINDER'}
                 if self.config.shape in shapes_to_extrude:
                     self.mode = 'EXTRUDE'
                     self.mouse.store = self.mouse.co
@@ -260,10 +289,11 @@ class Sketch(bpy.types.Operator):
                 self.set_offset()
                 if self.mode == 'EXTRUDE':
                     return {'RUNNING_MODAL'}
-            if self.mode == 'EXTRUDE' and self.config.shape in shapes_to_extrude:
+
+            if self.mode == 'EXTRUDE':
                 self._recalculate_normals(self.data.bm)
                 self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
-            self.finish(context)
+            self.store_data()
             self._end(context)
             return {'FINISHED'}
 
@@ -299,7 +329,14 @@ class Sketch(bpy.types.Operator):
 
         x_length, y_length = self.shapes.rectangle.co
         z_length = self.pref.extrusion
-        dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_length:.4f}'
+        radius = self.shapes.circle.radius
+
+        shape = self.config.shape
+        match shape:
+            case 'RECTANGLE': dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f}'
+            case 'CIRCLE': dimentions = f' Radius:{radius:.4f}'
+            case 'BOX': dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_length:.4f}'
+            case 'CYLINDER': dimentions = f' Radius:{radius:.4f},  Dz:{z_length:.4f}'
 
         header = f'{text} {dimentions}'
         context.area.header_text_set(text=header)
@@ -347,7 +384,7 @@ class Sketch(bpy.types.Operator):
 
             align_face = self.config.align.face
             match align_face:
-                case 'NORMAL': direction_local = orientation.direction_from_normal(hit_face.normal)
+                case 'PLANAR': direction_local = orientation.direction_from_normal(hit_face.normal)
                 case 'CLOSEST': direction_local = orientation.direction_from_closest_edge(hit_obj, hit_face, loc)
                 case 'LONGEST': direction_local = orientation.direction_from_longest_edge(hit_face)
 
@@ -401,10 +438,12 @@ class Sketch(bpy.types.Operator):
         self.data.draw.plane = plane
         self.data.draw.direction = direction
 
-        if self.config.shape in {'RECTANGLE', 'BOX'}:
-            self.data.draw.face = rectangle.create(self.data.bm, plane)
-        else:
-            self.data.draw.face = circle.create(self.data.bm, plane, verts_number=self.shapes.circle.verts)
+        shape = self.config.shape
+        match shape:
+            case 'RECTANGLE': self.data.draw.face = rectangle.create(self.data.bm, plane)
+            case 'BOX': self.data.draw.face = rectangle.create(self.data.bm, plane)
+            case 'CIRCLE': self.data.draw.face = circle.create(self.data.bm, plane, verts_number=self.shapes.circle.verts)
+            case 'CYLINDER': self.data.draw.face = circle.create(self.data.bm, plane, verts_number=self.shapes.circle.verts)
 
         return True
 
@@ -419,12 +458,15 @@ class Sketch(bpy.types.Operator):
 
         mouse_point_on_plane = view3d.region_2d_to_plane_3d(region, re3d, self.mouse.co, plane, matrix=matrix_world)
         if mouse_point_on_plane is None:
+            self.report({'WARNING'}, "Mouse was outside the drawing plane")
             return
 
-        if self.config.shape in {'RECTANGLE', 'BOX'}:
-            self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
-        else:
-            self.shapes.circle.co, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
+        shape = self.config.shape
+        match shape:
+            case 'RECTANGLE': self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
+            case 'BOX': self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
+            case 'CIRCLE': self.shapes.circle.radius, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, snap_value=self.config.form.increments)
+            case 'CYLINDER': self.shapes.circle.radius, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, snap_value=self.config.form.increments)
 
         self.data.extrude.plane = (matrix_world @ point, matrix_world.to_3x3() @ direction)
 
