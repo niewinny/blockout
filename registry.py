@@ -1,6 +1,6 @@
 import bpy
 from bpy.utils import register_class, unregister_class, register_tool, unregister_tool
-from . import btypes, ops, ui, preferences, tools, gizmo, keymap
+from . import btypes, ops, ui, preferences, tools, gizmo, keymap, handlers
 
 
 classes = (
@@ -26,10 +26,12 @@ def register():
 
     btypes.register()
     keymap.register()
+    handlers.register()
 
 
 def unregister():
 
+    handlers.unregister()
     keymap.unregister()
 
     unregister_tool(tools.sketch.obj.BOUT_MT_SketchObj)

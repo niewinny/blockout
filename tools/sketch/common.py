@@ -18,7 +18,7 @@ def draw_align(layout, sketch):
     if sketch.align.mode == 'CUSTOM':
         col.prop(sketch.align.custom, 'location')
         col.prop(sketch.align.custom, 'normal')
-        col.prop(sketch.align.custom, 'angle')
+        col.prop(sketch.align.custom, 'direction')
 
 
 def draw_type(layout, sketch):

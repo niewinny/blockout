@@ -78,6 +78,9 @@ def plane_local(obj, plane):
 
     location_world, view_normal_world = plane
 
+    if location_world is None:
+        return None
+
     obj_matrix_world = obj.matrix_world
     obj_matrix_world_inv = obj_matrix_world.inverted_safe()
 

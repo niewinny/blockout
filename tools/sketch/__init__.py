@@ -2,11 +2,13 @@ import bpy
 from . import mesh
 from . import obj
 
+from . import custom
+
 
 class Custom(bpy.types.PropertyGroup):
     location: bpy.props.FloatVectorProperty(name="Location", default=(0, 0, 0), subtype='XYZ')
     normal: bpy.props.FloatVectorProperty(name="Normal", default=(0, 0, 1), subtype='XYZ')
-    angle: bpy.props.FloatProperty(name="Direction", default=0.0, subtype='ANGLE')
+    direction: bpy.props.FloatVectorProperty(name="Direction", default=(1, 0, 0), subtype='XYZ')
 
 
 class Align(bpy.types.PropertyGroup):
@@ -16,7 +18,8 @@ class Align(bpy.types.PropertyGroup):
         items=[('FACE', 'Face', 'Align the mesh to the face'),
                ('VIEW', 'View', 'Align the mesh to the viewport'),
                ('CUSTOM', 'Custom', 'Align the mesh to a custom plane')],
-        default='FACE')
+        default='FACE',
+        update=custom.redraw)
     view: bpy.props.EnumProperty(
         name="Orientation",
         description="View Orientation",
@@ -27,7 +30,7 @@ class Align(bpy.types.PropertyGroup):
     face: bpy.props.EnumProperty(
         name="Orientation",
         description="Face Orientation",
-        items=[('CLOSEST', 'Closest Edge', 'Orient drawing plane tusing the closest edge of the face'),
+        items=[('CLOSEST', 'Closest Edge', 'Orient drawing plane using the closest edge of the face'),
                ('LONGEST', 'Longest Edge', 'Orient drawing plane using the longest edge of the face'),
                ('PLANAR', 'Planar', 'Orient drawing plane using the face normal and viewport up vector')],
         default='CLOSEST')
@@ -60,7 +63,6 @@ types_classes = (
     Pref,
     Scene,
 )
-
 
 classes = (
     *obj.classes,

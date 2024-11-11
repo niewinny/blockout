@@ -169,7 +169,6 @@ class Sketch(bpy.types.Operator):
 
         created_mesh = self._draw_invoke(context)
         if not created_mesh:
-            self.report({'ERROR'}, 'Failed to create mesh data')
             return {'CANCELLED'}
 
         self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
@@ -398,14 +397,16 @@ class Sketch(bpy.types.Operator):
             return direction_world, plane_world
 
         def get_custom_orientation():
-            location = self.config.align.custom.location
-            normal = self.config.align.custom.normal
-            axis = self.config.align.custom.angle
+            custom_location = self.config.align.custom.location
+            custom_normal = self.config.align.custom.normal
+            custom_direction = self.config.align.custom.direction
 
-            custom = Custom(location, normal, axis)
-            direction_world, plane_world = orientation.direction_from_custom(context, custom, self.mouse.init)
+            custom_plane = (custom_location, custom_normal)
+            location_world = view3d.region_2d_to_plane_3d(context.region, context.region_data, self.mouse.init, custom_plane)
 
-            return direction_world, plane_world
+            plane_world = (location_world, custom_normal)
+
+            return custom_direction, plane_world
 
         if self.config.align.mode == 'FACE' and self.ray.hit:
             direction, plane = get_face_orientation()
@@ -434,6 +435,10 @@ class Sketch(bpy.types.Operator):
         if self.data.is_local:
             direction = orientation.direction_local(obj, direction)
             plane = orientation.plane_local(obj, plane)
+
+        if plane is None:
+            self.report({'ERROR'}, 'Failed to detect drawing plane')
+            return False
 
         self.data.draw.plane = plane
         self.data.draw.direction = direction
