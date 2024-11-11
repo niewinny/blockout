@@ -1,7 +1,9 @@
 import bpy
 from . tools.sketch import custom
+from bpy.app.handlers import persistent
 
 
+@persistent
 def bout_depsgraph_handler(scene, depsgraph):
     '''Handler called after the dependency graph is updated'''
     custom.update(bpy.context)
