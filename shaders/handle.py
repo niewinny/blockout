@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import bpy
-from .draw import DrawLine, DrawGradient, DrawPolyline, DrawPlane, DrawFace
+from .draw import DrawLine, DrawGradient, DrawPolyline, DrawPlane, DrawFace, DrawGrid, DrawBMeshFaces
 
 
 @dataclass
@@ -42,6 +42,18 @@ class Plane(Handle):
 class Face(Handle):
     '''Dataclass for the face data.'''
     callback: DrawFace = None
+
+
+@dataclass
+class Grid(Handle):
+    '''Dataclass for the grid data.'''
+    callback: DrawGrid = None
+
+
+@dataclass
+class BMeshFaces(Handle):
+    '''Dataclass for the bmesh face data.'''
+    callback: DrawBMeshFaces = None
 
 
 @dataclass

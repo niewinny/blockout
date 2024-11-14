@@ -4,7 +4,7 @@ import bmesh
 
 from mathutils import Vector, Matrix
 from ...shaders import handle
-from ...shaders.draw import DrawLine
+from ...shaders.draw import DrawLine, DrawBMeshFaces
 from ...utils import addon, scene, infobar, view3d
 from ...bmeshutils import orientation, rectangle, facet, circle
 
@@ -93,6 +93,7 @@ class DrawUI(handle.Common):
     xaxis: handle.Line = field(default_factory=handle.Line)
     yaxis: handle.Line = field(default_factory=handle.Line)
     zaxis: handle.Line = field(default_factory=handle.Line)
+    faces: handle.BMeshFaces = field(default_factory=handle.BMeshFaces)
 
 
 class Rectangle(bpy.types.PropertyGroup):
@@ -170,8 +171,6 @@ class Sketch(bpy.types.Operator):
         created_mesh = self._draw_invoke(context)
         if not created_mesh:
             return {'CANCELLED'}
-
-        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
         context.window.cursor_set('SCROLL_XY')
         self._header(context)
@@ -349,6 +348,8 @@ class Sketch(bpy.types.Operator):
         self.ui.xaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.xaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
         self.ui.yaxis.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=color.y, depth=False)
         self.ui.yaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.yaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
+        self.ui.faces.callback = DrawBMeshFaces(faces=[], color=(1.0, 0.6, 0.0, 0.7))
+        self.ui.faces.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.faces.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
 
     def _get_orientation(self, context):
         def get_view_orientation():
@@ -432,6 +433,11 @@ class Sketch(bpy.types.Operator):
             self.ui.xaxis.callback.update_batch((world_origin, x_axis_point))
             self.ui.yaxis.callback.update_batch((world_origin, y_axis_point))
 
+        if self.config.align.grid.enable:
+            increments = self.config.align.grid.spacing
+            custom_plane = self.config.align.custom.location, self.config.align.custom.normal
+            plane = orientation.snap_plane(plane, custom_plane, direction, increments)
+
         if self.data.is_local:
             direction = orientation.direction_local(obj, direction)
             plane = orientation.plane_local(obj, plane)
@@ -449,6 +455,9 @@ class Sketch(bpy.types.Operator):
             case 'BOX': self.data.draw.face = rectangle.create(self.data.bm, plane)
             case 'CIRCLE': self.data.draw.face = circle.create(self.data.bm, plane, verts_number=self.shapes.circle.verts)
             case 'CYLINDER': self.data.draw.face = circle.create(self.data.bm, plane, verts_number=self.shapes.circle.verts)
+        
+        self.data.draw.face.hide_set(True)
+        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
         return True
 
@@ -467,16 +476,23 @@ class Sketch(bpy.types.Operator):
             return
 
         shape = self.config.shape
+        if self.config.align.grid.enable:
+            increments = self.config.align.grid.spacing
+        else:
+            increments = self.config.form.increments
+
         match shape:
-            case 'RECTANGLE': self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
-            case 'BOX': self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=self.config.form.increments)
-            case 'CIRCLE': self.shapes.circle.radius, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, snap_value=self.config.form.increments)
-            case 'CYLINDER': self.shapes.circle.radius, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, snap_value=self.config.form.increments)
+            case 'RECTANGLE': self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=increments)
+            case 'BOX': self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=increments)
+            case 'CIRCLE': self.shapes.circle.radius, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, snap_value=increments)
+            case 'CYLINDER': self.shapes.circle.radius, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, snap_value=increments)
 
         self.data.extrude.plane = (matrix_world @ point, matrix_world.to_3x3() @ direction)
 
         self.data.draw.verts = [v.co.copy() for v in self.data.draw.face.verts]
         self.update_bmesh(self.data.obj, self.data.bm)
+
+        self.ui.faces.callback.update_batch([self.data.draw.face])
 
     def _extrude_invoke(self):
         '''Extrude the mesh'''

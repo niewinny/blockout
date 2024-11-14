@@ -157,3 +157,49 @@ def offset_plane(context, obj, loc, plane, offset):
     new_location = view3d.region2d_to_plane3d(region, re3d, loc, plane_offset, matrix=matrix)
 
     return new_location, normal
+
+
+def snap_plane(plane, snap_plane, direction, snap_value):
+    '''
+    Snap a point onto a plane and then onto a grid in that plane along the given direction
+    and its perpendicular direction.
+
+    Parameters:
+    - point: Vector, the point to be snapped.
+    - plane: Tuple (origin, normal), defining the plane.
+    - direction: Vector, a direction vector lying in the plane.
+    - snap_value: Float, the grid spacing to snap to.
+
+    Returns:
+    - snapped_point: Vector, the snapped point on the plane.
+    '''
+
+    if plane[0] is None:
+        return plane
+
+    origin, normal = snap_plane
+    point, _ = plane
+    normal = normal.normalized()
+    u = direction.normalized()
+    v = normal.cross(u).normalized()
+
+    # Project the point onto the plane
+    vec = point - origin
+    distance = vec.dot(normal)
+    projected_point = point - distance * normal
+
+    # Vector from plane origin to the projected point
+    vec_in_plane = projected_point - origin
+
+    # Coordinates in the plane along u and v
+    s = vec_in_plane.dot(u)
+    t = vec_in_plane.dot(v)
+
+    # Snap s and t to the nearest multiple of snap_value
+    s_snapped = round(s / snap_value) * snap_value
+    t_snapped = round(t / snap_value) * snap_value
+
+    # Reconstruct the snapped point
+    snapped_point = origin + s_snapped * u + t_snapped * v
+
+    return snapped_point, plane[1]

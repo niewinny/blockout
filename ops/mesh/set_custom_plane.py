@@ -51,6 +51,9 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
             location = matrix @ face.calc_center_median()
             normal = matrix.to_3x3() @ face.normal.copy()
             direction = matrix.to_3x3() @ face.calc_tangent_edge()
+            length = direction.length + 0.1
+
+            addon.pref().tools.sketch.align.grid.size = length
 
         # If not, check if exactly one edge is selected
         elif len(selected_edges) == 1:
@@ -67,9 +70,12 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
 
             # Use direction from v1 to v2 as edge direction
             direction = matrix @ edge.verts[1].co - matrix @ edge.verts[0].co
+            length = location.length + 0.1
             direction_y = sum_normal.cross(direction)
 
             normal = direction.cross(direction_y)
+            addon.pref().tools.sketch.align.grid.size = length
+
 
         # If not, check if exactly one vertex is selected
         elif len(selected_verts) == 1:
@@ -80,6 +86,7 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
 
             # Use direction_from_normal to compute direction
             direction = matrix.to_3x3() @ direction_from_normal(normal)
+            addon.pref().tools.sketch.align.grid.size = 1
 
         else:
             self.report({'ERROR'}, "Please select exactly one face, edge, or vertex")

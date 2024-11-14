@@ -1,6 +1,6 @@
 import bpy
 
-from ...shaders.draw import DrawLine
+from ...shaders.draw import DrawLine, DrawGrid
 from ...utils import addon
 
 
@@ -29,6 +29,15 @@ def add_draw_handlers(context):
     draw_handlers.append((x_handler, 'WINDOW'))
     draw_handlers.append((y_handler, 'WINDOW'))
 
+    grid_props = addon.pref().tools.sketch.align.grid
+    if grid_props.enable:
+        spacing = grid_props.spacing
+        size = grid_props.size
+
+        grid = DrawGrid(origin=location_world, normal=normal_world, direction=direction_world, spacing=spacing, size=size, color=(0.2, 0.2, 0.2, 0.5))
+        grid_handler = bpy.types.SpaceView3D.draw_handler_add(grid.draw, (context,), 'WINDOW', 'POST_VIEW')
+        draw_handlers.append((grid_handler, 'WINDOW'))
+
     # Redraw the area
     for area in bpy.context.window.screen.areas:
         if area.type == 'VIEW_3D':
@@ -52,13 +61,17 @@ def update(context):
     active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
     tool = active_tool and active_tool.idname in {'bout.sketch_obj', 'bout.sketch'}
 
+    clear_draw_handlers()
+
     if tool and addon.pref().tools.sketch.align.mode == 'CUSTOM':
-        if not draw_handlers:
-            add_draw_handlers(context)
-    else:
-        clear_draw_handlers()
+        add_draw_handlers(context)
 
 
 def redraw(cls, context):
     '''Redraw the custom plane axes'''
     update(context)
+    
+    # Redraw the area
+    for area in bpy.context.window.screen.areas:
+        if area.type == 'VIEW_3D':
+            area.tag_redraw()

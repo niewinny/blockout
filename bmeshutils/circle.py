@@ -29,7 +29,6 @@ def create(bm, plane, verts_number):
         matrix=matrix
     )
     vert = result['verts'][0]
-    print(vert)
     face = vert.link_faces[0]
     face.normal_update()
     face.select_set(True)

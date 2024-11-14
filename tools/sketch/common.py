@@ -19,6 +19,14 @@ def draw_align(layout, sketch):
         col.prop(sketch.align.custom, 'location')
         col.prop(sketch.align.custom, 'normal')
         col.prop(sketch.align.custom, 'direction')
+        layout.separator()
+        col = layout.column(align=True, heading='Grid')
+        col.use_property_decorate = True
+        col.prop(sketch.align.grid, 'enable', text='')
+        col2 = col.column(align=True)
+        col2.enabled = sketch.align.grid.enable
+        col2.prop(sketch.align.grid, 'spacing')
+        col2.prop(sketch.align.grid, 'size')
 
 
 def draw_type(layout, sketch):

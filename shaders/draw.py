@@ -242,3 +242,114 @@ class DrawFace(BaseDraw):
 
     def uniforms(self):
         self.shader.uniform_float('color', self.color)
+
+
+class DrawGrid(BaseDraw):
+    def __init__(self, origin, normal, direction, spacing, size, color=(1.0, 1.0, 1.0, 1.0)):
+        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        self.origin = Vector(origin)
+        self.normal = Vector(normal).normalized()
+        self.direction = Vector(direction).normalized()
+        self.spacing = spacing
+        self.size = size  # Half-size of the grid extent
+        self.color = color
+        self.batch = self.create_batch()
+
+    def create_batch(self):
+        # Find two orthogonal vectors on the plane
+        normal = self.normal
+        direction = self.direction
+        u = direction.normalized()
+        v = normal.cross(u).normalized()
+
+        # Calculate grid lines
+        extent = self.size
+        spacing = self.spacing
+
+        # Calculate the number of lines in each direction from the origin
+        num_lines = int(extent / spacing) + 1
+
+        vertices = []
+
+        # Generate lines parallel to u (varying along v) in both directions
+        for i in range(-num_lines, num_lines + 1):
+            offset = i * spacing
+            line_start = self.origin + (v * offset) - (u * extent)
+            line_end = self.origin + (v * offset) + (u * extent)
+            vertices.extend([line_start, line_end])
+
+        # Generate lines parallel to v (varying along u) in both directions
+        for i in range(-num_lines, num_lines + 1):
+            offset = i * spacing
+            line_start = self.origin + (u * offset) - (v * extent)
+            line_end = self.origin + (u * offset) + (v * extent)
+            vertices.extend([line_start, line_end])
+
+        # Create indices for the batch
+        indices = [(i, i + 1) for i in range(0, len(vertices), 2)]
+
+        # Create and return the batch
+        return batch_for_shader(self.shader, 'LINES', {"pos": vertices}, indices=indices)
+
+    def update_batch(self, origin=None, normal=None, spacing=None, size=None, color=None):
+        if origin:
+            self.origin = Vector(origin)
+        if normal:
+            self.normal = Vector(normal).normalized()
+        if spacing:
+            self.spacing = spacing
+        if size:
+            self.size = size
+        if color:
+            self.color = color
+        self.batch = self.create_batch()
+
+    def uniforms(self):
+        self.shader.uniform_float('color', self.color)
+
+
+class DrawBMeshFaces(BaseDraw):
+    def __init__(self, faces, color=(1.0, 1.0, 1.0, 1.0)):
+        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        self.color = color
+        self.faces = faces
+        self.batch = self.create_batch()
+
+    def create_batch(self):
+        vertices = []
+        indices = []
+
+        vert_index_map = {}
+        vert_count = 0
+
+        for face in self.faces:
+            face_indices = []
+            for loop in face.loops:
+                vert = loop.vert
+                co = Vector(vert.co)
+                if vert not in vert_index_map:
+                    vert_index_map[vert] = vert_count
+                    vertices.append(co)
+                    face_indices.append(vert_count)
+                    vert_count += 1
+                else:
+                    face_indices.append(vert_index_map[vert])
+
+            # Triangulate the face by creating triangle indices from the loop indices
+            for i in range(1, len(face_indices) - 1):
+                indices.append((face_indices[0], face_indices[i], face_indices[i + 1]))
+
+        return batch_for_shader(self.shader, 'TRIS', {"pos": vertices}, indices=indices)
+
+    def update_batch(self, bmesh_faces, color=None):
+        self.faces = bmesh_faces
+        if color is not None:
+            self.color = color
+        self.batch = self.create_batch()
+
+    def clear(self):
+        self.faces = []
+        self.batch = self.create_batch()
+
+    def uniforms(self):
+        self.shader.uniform_float('color', self.color)

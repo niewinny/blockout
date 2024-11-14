@@ -1,14 +1,19 @@
 import bpy
 from . import mesh
 from . import obj
-
 from . import custom
 
 
 class Custom(bpy.types.PropertyGroup):
-    location: bpy.props.FloatVectorProperty(name="Location", default=(0, 0, 0), subtype='XYZ')
-    normal: bpy.props.FloatVectorProperty(name="Normal", default=(0, 0, 1), subtype='XYZ')
-    direction: bpy.props.FloatVectorProperty(name="Direction", default=(1, 0, 0), subtype='XYZ')
+    location: bpy.props.FloatVectorProperty(name="Location", default=(0, 0, 0), subtype='XYZ', update=custom.redraw)
+    normal: bpy.props.FloatVectorProperty(name="Normal", default=(0, 0, 1), subtype='XYZ', update=custom.redraw)
+    direction: bpy.props.FloatVectorProperty(name="Direction", default=(1, 0, 0), subtype='XYZ', update=custom.redraw)
+
+
+class Grid(bpy.types.PropertyGroup):
+    enable: bpy.props.BoolProperty(name="Enable", default=False, update=custom.redraw)
+    spacing: bpy.props.FloatProperty(name="Spacing", default=0.1, min=0.001, subtype='DISTANCE', update=custom.redraw)
+    size: bpy.props.FloatProperty(name="Size", default=4, min=0, subtype='DISTANCE', update=custom.redraw)
 
 
 class Align(bpy.types.PropertyGroup):
@@ -35,6 +40,7 @@ class Align(bpy.types.PropertyGroup):
                ('PLANAR', 'Planar', 'Orient drawing plane using the face normal and viewport up vector')],
         default='CLOSEST')
     custom: bpy.props.PointerProperty(type=Custom)
+    grid: bpy.props.PointerProperty(type=Grid)
     offset: bpy.props.FloatProperty(name="Offset", description="Offset the mesh above the drawing plane", default=0.0, subtype='DISTANCE')
 
 
@@ -56,6 +62,7 @@ class Pref(bpy.types.PropertyGroup):
 
 types_classes = (
     Custom,
+    Grid,
     Align,
     Form,
     *mesh.types_classes,
