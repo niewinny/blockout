@@ -9,12 +9,19 @@ def create(bm, plane):
     v2 = bm.verts.new(location)
     v3 = bm.verts.new(location)
     v4 = bm.verts.new(location)
+
+    bm.verts.ensure_lookup_table()
+    bm.verts.index_update()
+    
     face = bm.faces.new((v1, v2, v3, v4))
     face.normal = normal
     face.select_set(True)
     bm.select_flush(True)
 
-    return face
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()
+
+    return face.index
 
 
 def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):

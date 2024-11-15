@@ -35,6 +35,7 @@ class BOUT_OT_SketchObjTool(Sketch):
         config.form = addon.pref().tools.sketch.form
         config.align = addon.pref().tools.sketch.align
         config.pick = addon.pref().tools.sketch.obj.pick
+        config.mode = addon.pref().tools.sketch.obj.mode
         return config
 
     def build_bmesh(self, context):

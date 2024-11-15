@@ -15,7 +15,6 @@ def extrude(bm, face, plane, dz):
 
     # Get the new vertices and faces
     new_verts = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMVert)]
-    # new_edges = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMEdge)]
     new_faces = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMFace)]
 
     # Move the new vertices along the direction vector by dz
@@ -47,10 +46,18 @@ def extrude(bm, face, plane, dz):
     for f in connected_faces:
         f.select_set(True)
 
+    for v in connected_faces[0].verts:
+        for f in v.link_faces:
+            if f not in connected_faces:
+                if f != extruded_face:
+                    draw_face = f
+
+    connected_faces_indexes = [f.index for f in connected_faces]
+
     if extruded_face:
         extruded_face.select_set(True)
 
-    return extruded_face, connected_faces
+    return draw_face.index, extruded_face.index, connected_faces_indexes
 
 
 def set_z(face, normal, dz, verts=None, snap_value=0):

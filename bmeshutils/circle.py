@@ -34,7 +34,7 @@ def create(bm, plane, verts_number):
     face.select_set(True)
     bm.select_flush(True)
 
-    return face
+    return face.index
 
 
 def set_xy(face, plane, loc=None, radius=None, local_space=False, snap_value=0):

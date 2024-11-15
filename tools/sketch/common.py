@@ -40,7 +40,6 @@ def draw_type(layout, sketch):
     layout.separator()
     layout.use_property_split = True
     layout.prop(sketch, 'geomety')
-    layout.prop(sketch, 'increments')
     layout.use_property_split = True
     col = layout.column(align=True)
     if sketch.geomety == 'MESH':

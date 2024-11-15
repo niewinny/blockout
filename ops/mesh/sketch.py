@@ -37,6 +37,7 @@ class Form:
 class Config:
     '''Dataclass for storing options'''
     shape: str = 'RECTANGLE'
+    mode: str = 'CREATE'
     form: str = field(default_factory=Form)
     align: Align = field(default_factory=Align)
     pick: str = 'SELECTED'
@@ -48,17 +49,16 @@ class Draw:
     '''Dataclass for storing options'''
     plane: tuple = (Vector(), Vector())
     direction: Vector = Vector((0, 1, 0))
-    face: bmesh.types.BMFace = None
-    verts: list = field(default_factory=list)
+    face: int = -1
 
 
 @dataclass
 class Extrude:
     '''Dataclass for storing options'''
     plane: tuple = (Vector(), Vector())
-    face: bmesh.types.BMFace = None
-    faces: list = field(default_factory=list)
-    verts: list = field(default_factory=list)
+    face: int = -1
+    faces: list = field(default_factory=list)  # indexes
+    verts: list = field(default_factory=list)  # v.co
     value: float = 0.0
 
 
@@ -67,6 +67,7 @@ class CreatedData:
     '''Dataclass for storing'''
     obj: bpy.types.Object = None
     bm: bmesh.types.BMesh = None
+    copy: bpy.types.Mesh = None
     extrude: Extrude = field(default_factory=Extrude)
     draw: Draw = field(default_factory=Draw)
     is_local: bool = False
@@ -113,6 +114,7 @@ class Plane(bpy.types.PropertyGroup):
 class Pref(bpy.types.PropertyGroup):
     extrusion: bpy.props.FloatProperty(name="Z", description="Z coordinates", default=0.0, subtype='DISTANCE')
     shape: bpy.props.StringProperty(name="Shape", description="Shape", default='RECTANGLE')
+    mode: bpy.props.StringProperty(name="Mode", description="Mode", default='CREATE')
 
     offset: bpy.props.FloatProperty(name="Offset", description="Offset", default=0.0, subtype='DISTANCE')
 
@@ -213,17 +215,29 @@ class Sketch(bpy.types.Operator):
         self.pref.offset = self.config.align.offset
         self.pref.extrusion = self.data.extrude.value
         self.pref.shape = self.config.shape
+        self.pref.mode = self.config.mode
 
     def set_offset(self):
         '''Set the offset'''
         bm = self.data.bm
         obj = self.data.obj
-        face = self.data.draw.face
+        face = self.data.bm.faces[self.data.draw.face]
         normal = self.data.draw.plane[1]
         offset = self.config.align.offset
 
         facet.set_z(face, normal, offset)
+
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+
+    def _set_copy(self):
+        self.data.obj.update_from_editmode()
+        self.data.copy = self.data.obj.data.copy()
+
+    def _get_copy(self):
+        self.data.bm.clear()
+        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
+        self.data.bm.from_mesh(self.data.copy)
+        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
     def execute(self, context):
         offset = self.pref.offset
@@ -238,18 +252,26 @@ class Sketch(bpy.types.Operator):
         shape = self.pref.shape
         match shape:
             case 'RECTANGLE':
-                face = rectangle.create(bm, plane)
+                face_index = rectangle.create(bm, plane)
+                bm.faces.ensure_lookup_table()
+                face = bm.faces[face_index]
                 rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True)
             case 'BOX':
-                face = rectangle.create(bm, plane)
+                face_index = rectangle.create(bm, plane)
+                bm.faces.ensure_lookup_table()
+                face = bm.faces[face_index]
                 rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True)
                 facet.extrude(bm, face, plane, extrusion)
                 self._recalculate_normals(bm)
             case 'CIRCLE':
-                face = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+                face_index = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+                bm.faces.ensure_lookup_table()
+                face = bm.faces[face_index]
                 circle.set_xy(face, plane, radius=self.shapes.circle.radius, local_space=True)
             case 'CYLINDER':
-                face = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+                face_index = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+                bm.faces.ensure_lookup_table()
+                face = bm.faces[face_index]
                 circle.set_xy(face, plane, radius=self.shapes.circle.radius, local_space=True)
                 facet.extrude(bm, face, plane, extrusion)
                 self._recalculate_normals(bm)
@@ -257,8 +279,10 @@ class Sketch(bpy.types.Operator):
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 
         facet.set_z(face, normal, offset)
-
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+
+        if self.pref.mode != 'CREATE':
+            self._boolean(obj, bm)
 
         return {'FINISHED'}
 
@@ -286,6 +310,7 @@ class Sketch(bpy.types.Operator):
                     self._extrude_invoke()
                 self.set_offset()
                 if self.mode == 'EXTRUDE':
+                    self._set_copy()
                     return {'RUNNING_MODAL'}
 
             if self.mode == 'EXTRUDE':
@@ -304,6 +329,9 @@ class Sketch(bpy.types.Operator):
 
     def _end(self, context):
         '''End the operator'''
+
+        if self.data.copy:
+            bpy.data.meshes.remove(self.data.copy)
 
         self.mouse = None
         self.ray = None
@@ -348,7 +376,7 @@ class Sketch(bpy.types.Operator):
         self.ui.xaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.xaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
         self.ui.yaxis.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=color.y, depth=False)
         self.ui.yaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.yaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
-        self.ui.faces.callback = DrawBMeshFaces(faces=[], color=(1.0, 0.6, 0.0, 0.7))
+        self.ui.faces.callback = DrawBMeshFaces(faces=[], color=(1.0, 0.6, 0.0, 0.4))
         self.ui.faces.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.faces.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
 
     def _get_orientation(self, context):
@@ -455,10 +483,8 @@ class Sketch(bpy.types.Operator):
             case 'BOX': self.data.draw.face = rectangle.create(self.data.bm, plane)
             case 'CIRCLE': self.data.draw.face = circle.create(self.data.bm, plane, verts_number=self.shapes.circle.verts)
             case 'CYLINDER': self.data.draw.face = circle.create(self.data.bm, plane, verts_number=self.shapes.circle.verts)
-        
-        self.data.draw.face.hide_set(True)
-        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
+        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
         return True
 
     def _draw_modal(self, context):
@@ -469,6 +495,7 @@ class Sketch(bpy.types.Operator):
         plane = self.data.draw.plane
         direction = self.data.draw.direction
         matrix_world = obj.matrix_world
+        face = self.data.bm.faces[self.data.draw.face]
 
         mouse_point_on_plane = view3d.region_2d_to_plane_3d(region, re3d, self.mouse.co, plane, matrix=matrix_world)
         if mouse_point_on_plane is None:
@@ -482,28 +509,34 @@ class Sketch(bpy.types.Operator):
             increments = self.config.form.increments
 
         match shape:
-            case 'RECTANGLE': self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=increments)
-            case 'BOX': self.shapes.rectangle.co, point = rectangle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, direction, snap_value=increments)
-            case 'CIRCLE': self.shapes.circle.radius, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, snap_value=increments)
-            case 'CYLINDER': self.shapes.circle.radius, point = circle.set_xy(self.data.draw.face, plane, mouse_point_on_plane, snap_value=increments)
+            case 'RECTANGLE': self.shapes.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments)
+            case 'BOX': self.shapes.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments)
+            case 'CIRCLE': self.shapes.circle.radius, point = circle.set_xy(face, plane, mouse_point_on_plane, snap_value=increments)
+            case 'CYLINDER': self.shapes.circle.radius, point = circle.set_xy(face, plane, mouse_point_on_plane, snap_value=increments)
+
+        self.update_bmesh(self.data.obj, self.data.bm)
 
         self.data.extrude.plane = (matrix_world @ point, matrix_world.to_3x3() @ direction)
 
-        self.data.draw.verts = [v.co.copy() for v in self.data.draw.face.verts]
-        self.update_bmesh(self.data.obj, self.data.bm)
-
-        self.ui.faces.callback.update_batch([self.data.draw.face])
+        if self.config.mode != 'CREATE':
+            self.ui.faces.callback.update_batch([face])
 
     def _extrude_invoke(self):
         '''Extrude the mesh'''
 
-        face = self.data.draw.face
-        face.normal_flip()
+        self.data.bm.faces.ensure_lookup_table()
+        self.data.bm.faces.index_update()
+        draw_face = self.data.bm.faces[self.data.draw.face]
+        draw_face.normal_flip()
         plane = self.data.draw.plane
 
         # Get both the extruded face and all faces involved
-        self.data.extrude.face, self.data.extrude.faces = facet.extrude(self.data.bm, face, plane, 0.0)
-        self.data.extrude.verts = [v.co.copy() for v in self.data.extrude.face.verts]
+        self.data.bm.faces.ensure_lookup_table()
+        self.data.bm.faces.index_update()
+        self.data.draw.face, self.data.extrude.face, self.data.extrude.faces = facet.extrude(self.data.bm, draw_face, plane, 0.0)
+        
+        extrude_face = self.data.bm.faces[self.data.extrude.face]
+        self.data.extrude.verts = [v.co.copy() for v in extrude_face.verts]
 
         self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
@@ -513,11 +546,16 @@ class Sketch(bpy.types.Operator):
     def _extrude_modal(self, context):
         '''Set the extrusion'''
 
+        self._get_copy()
+
         obj = self.data.obj
         matrix_world = obj.matrix_world
-        face = self.data.extrude.face
-        plane = self.data.draw.plane  # This plane is in object local space
-        normal = -plane[1]  # Local space normal, negated
+
+        self.data.bm.faces.ensure_lookup_table()
+        self.data.bm.faces.index_update()
+        face = self.data.bm.faces[self.data.extrude.face]
+        plane = self.data.draw.plane
+        normal = -plane[1]
         verts = self.data.extrude.verts
 
         region = context.region
@@ -562,7 +600,18 @@ class Sketch(bpy.types.Operator):
 
         # Update the bmesh
         self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
+        
+        if self.config.mode != 'CREATE':
+            draw_face = self.data.bm.faces[self.data.draw.face]
+            extrude_faces = [self.data.bm.faces[index] for index in self.data.extrude.faces]
+            faces = [draw_face] + [face] + extrude_faces
+            self.ui.faces.callback.update_batch(faces)
 
+            self._boolean(self.data.obj, self.data.bm)
+
+    def _boolean(self, obj, bm):
+        bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
+        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
 class BOUT_OT_SketchMeshTool(Sketch):
     bl_idname = 'bout.sketch_mesh_tool'
@@ -595,6 +644,7 @@ class BOUT_OT_SketchMeshTool(Sketch):
         config.form = addon.pref().tools.sketch.form
         config.align = addon.pref().tools.sketch.align
         config.pick = addon.pref().tools.sketch.mesh.pick
+        config.mode = addon.pref().tools.sketch.mesh.mode
         self.data.is_local = True
 
         return config
