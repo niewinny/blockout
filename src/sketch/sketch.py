@@ -33,8 +33,8 @@ class Draw:
 @dataclass
 class Bevel:
     '''Dataclass for storing options'''
-    created: bool = False
     offset: float = 0.0
+    delta: float = 0.0
     type: str = '2D'
     mode: str = 'OFFSET'
     verts: list = field(default_factory=list)  # v.co
@@ -282,9 +282,9 @@ class Sketch(bpy.types.Operator):
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
         if self.pref.mode != 'CREATE':
-            self._boolean(obj, bm)
+            self._boolean_invoke(obj, bm)
 
-        addon.pref().tools.sketch.form.segments = self.pref.bevel.segments
+        self.save_props()
 
         return {'FINISHED'}
 
@@ -303,10 +303,9 @@ class Sketch(bpy.types.Operator):
                 case 'BEVEL':
                     self._bevel_modal(context)
 
-            if self.shapes.volume == '3D':
-                if self.config.mode != 'CREATE':
-                    self._recalculate_normals(self.data.bm, self.data.extrude.faces)
-                    self._boolean(self.data.obj, self.data.bm)
+            if self.config.mode != 'CREATE':
+                self._recalculate_normals(self.data.bm, self.data.extrude.faces)
+                self._boolean_invoke(self.data.obj, self.data.bm)
 
             self._header(context)
 
@@ -332,7 +331,8 @@ class Sketch(bpy.types.Operator):
         elif event.type == 'B':
             if event.value == 'PRESS':
                 self._bevel_invoke()
-                return {'RUNNING_MODAL'}
+                if self.config.mode != 'CREATE':
+                    self._boolean_invoke(self.data.obj, self.data.bm)
 
         elif event.type == 'S':
             if event.value == 'PRESS':
@@ -641,27 +641,28 @@ class Sketch(bpy.types.Operator):
 
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
-    def _boolean(self, obj, bm):
+    def _boolean_invoke(self, obj, bm):
         '''Boolean operation'''
-        raise NotImplementedError("Subclasses must implement the _boolean method")
+        raise NotImplementedError("Subclasses must implement the _boolean_invoke method")
 
     def _bevel_invoke(self):
         '''Bevel the mesh'''
+
+        if self.data.bevel.mode != 'OFFSET':
+            self.data.bevel.mode = 'OFFSET'
+            return
 
         if self.mode == 'BEVEL':
             if self.shapes.volume == '3D':
                 self.data.bevel.type = '3D' if self.data.bevel.type == '2D' else '2D'
             return
 
-        if not self.data.bevel.created:
-            volume = self.shapes.volume
-            self.data.bevel.type = volume
-            self.mouse.bevel = self.mouse.co
-
+        volume = self.shapes.volume
+        self.data.bevel.type = volume
+        self.mouse.bevel = self.mouse.co
         self.ui.zaxis.callback.clear()
 
         self.mode = 'BEVEL'
-        self.data.bevel.created = True
 
     def _bevel_modal(self, context):
         '''Bevel the mesh'''
@@ -669,15 +670,21 @@ class Sketch(bpy.types.Operator):
         rv3d = context.region_data
 
         point = sum(self.data.bevel.verts, Vector()) / len(self.data.bevel.verts)
+        point2d = view3d.location_3d_to_region_2d(region, rv3d, point)
         mouse_store_co_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.bevel, point)
         mouse_co_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.co, point)
 
         delta = (point - mouse_store_co_3d).length
 
         if self.data.bevel.mode == 'SEGMENTS':
-            self.pref.bevel.segments = int(round(delta, 1))
+            length = int((self.mouse.bevel - self.mouse.co).length)
+            self.pref.bevel.segments = length
         else:
-            self.data.bevel.offset = (point - mouse_co_3d).length - delta
+            if self.shapes.volume == '2D':
+                self.data.bevel.offset = (point - mouse_co_3d).length - delta
+                self.data.bevel.delta = self.data.bevel.offset
+            else:
+                self.data.bevel.offset = (point - mouse_co_3d).length - delta + self.data.bevel.delta
         self.ui.guid.callback.update_batch([(point, mouse_co_3d)])
 
 

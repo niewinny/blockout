@@ -65,9 +65,10 @@ class BOUT_OT_SketchMeshTool(Sketch):
             get_copy(self.data.obj, self.data.bm, self.data.copy.extrude)
         super()._extrude_modal(context, event)
 
-    def _boolean(self, obj, bm):
-        bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
-        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+    def _boolean_invoke(self, obj, bm):
+        if self.shapes.volume == '3D':
+            bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
+            self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     def build_geometry(self, obj, bm):
 
@@ -126,8 +127,7 @@ class BOUT_OT_SketchMeshTool(Sketch):
 
         return face_index
 
-    def _bevel_modal(self, context):
-        super()._bevel_modal(context)
+    def _bevel(self):
         get_copy(self.data.obj, self.data.bm, self.data.copy.init)
 
         obj = self.data.obj
@@ -137,6 +137,14 @@ class BOUT_OT_SketchMeshTool(Sketch):
         face_index = self.build_geometry(obj, bm)
         self.data.draw.face = face_index
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+
+    def _bevel_invoke(self):
+        super()._bevel_invoke()
+        self._bevel()
+
+    def _bevel_modal(self, context):
+        super()._bevel_modal(context)
+        self._bevel()
 
 
 classes = (
