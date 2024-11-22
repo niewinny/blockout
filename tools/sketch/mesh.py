@@ -13,6 +13,7 @@ class BOUT_MT_Sketch(bpy.types.WorkSpaceTool):
     bl_description = 'Tool for blocking out a mesh'
     bl_icon = 'ops.generic.select_circle'
     bl_options = {'KEYMAP_FALLBACK'}
+    bl_widget = 'BOUT_GGT_Blockout'
     bl_keymap = (
         ('bout.sketch_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
         ('bout.set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': []}),
@@ -84,19 +85,6 @@ class Pref(bpy.types.PropertyGroup):
                ('CREATE', 'Create', 'Create'),
                ('SLICE', 'Slice', 'Slice')],
         default='CREATE')
-    geomety: bpy.props.EnumProperty(
-        name="Geometry",
-        description="Geometry",
-        items=[('OBJECT', 'Object', 'Object'),
-                ('MESH', 'Mesh', 'Mesh')],
-        default='MESH')
-    origin: bpy.props.EnumProperty(
-        name="Origin",
-        description="Origin",
-        items=[('CENTER', 'Center', 'Center'),
-               ('CORNER', 'Corner', 'Corner'),
-               ('PARENT', 'Parent', 'Parent')],
-        default='CENTER')
     pick: bpy.props.EnumProperty(
         name="Pick",
         description="Pick objects",

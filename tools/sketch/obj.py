@@ -66,6 +66,7 @@ class BOUT_PT_TypeObj(bpy.types.Panel):
         draw_type(layout, obj)
         form = sketch.form
         draw_form(layout, form)
+        layout.prop(form, 'origin')
 
 
 class Pref(bpy.types.PropertyGroup):
@@ -84,19 +85,6 @@ class Pref(bpy.types.PropertyGroup):
                ('CREATE', 'Create', 'Create'),
                ('SLICE', 'Slice', 'Slice')],
         default='CREATE')
-    geomety: bpy.props.EnumProperty(
-        name="Geometry",
-        description="Geometry",
-        items=[('OBJECT', 'Object', 'Object'),
-                ('MESH', 'Mesh', 'Mesh')],
-        default='OBJECT')
-    origin: bpy.props.EnumProperty(
-        name="Origin",
-        description="Origin",
-        items=[('CENTER', 'Center', 'Center'),
-               ('CORNER', 'Corner', 'Corner'),
-               ('PARENT', 'Parent', 'Parent')],
-        default='CENTER')
     pick: bpy.props.EnumProperty(
         name="Pick",
         description="Pick objects",

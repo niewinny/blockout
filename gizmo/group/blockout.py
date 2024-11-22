@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import bpy
 import bmesh
-from mathutils import Matrix, Vector, Quaternion
+from mathutils import Matrix, Vector
 from ..types import move, arrow
 
 
@@ -28,7 +28,7 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
     @classmethod
     def poll(cls, context):
         active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-        blockout_tool = active_tool and active_tool.idname == 'bout.blockout'
+        blockout_tool = active_tool and (active_tool.idname == 'bout.blockout' or active_tool.idname == 'bout.sketch')
         return (context.space_data.show_gizmo_tool and
                 context.edit_object and
                 blockout_tool)
@@ -43,7 +43,7 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
     def refresh(self, context):
         '''Refresh the gizmos.'''
         modals = context.window.modal_operators
-        if any(modal.bl_idname.startswith('MESH') for modal in modals):
+        if any(modal.bl_idname for modal in modals):
             self.remove_gizmos()
             return
         self.update_extrude_gizmo(context)
@@ -149,6 +149,8 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
         me = obj.data
         bm = bmesh.from_edit_mesh(me)
 
+        bm.faces.ensure_lookup_table()
+
         # Get selected faces
         selected_faces = [f for f in bm.faces if f.select]
         if not selected_faces:
@@ -196,6 +198,8 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
         obj = context.edit_object
         me = obj.data
         bm = bmesh.from_edit_mesh(me)
+
+        bm.edges.ensure_lookup_table()
 
         # Get selected edges
         selected_edges = [e for e in bm.edges if e.select]
@@ -249,6 +253,8 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
         obj = context.edit_object
         me = obj.data
         bm = bmesh.from_edit_mesh(me)
+
+        bm.edges.ensure_lookup_table()
 
         # Get selected vertices
         selected_verts = [v for v in bm.verts if v.select]

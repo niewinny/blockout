@@ -309,10 +309,11 @@ class DrawGrid(BaseDraw):
 
 
 class DrawBMeshFaces(BaseDraw):
-    def __init__(self, faces, color=(1.0, 1.0, 1.0, 1.0)):
+    def __init__(self, obj, faces, color=(1.0, 1.0, 1.0, 1.0)):
         self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
         self.color = color
         self.faces = faces
+        self.obj = obj
         self.batch = self.create_batch()
 
     def create_batch(self):
@@ -322,11 +323,13 @@ class DrawBMeshFaces(BaseDraw):
         vert_index_map = {}
         vert_count = 0
 
+        matrix = self.obj.matrix_world
+
         for face in self.faces:
             face_indices = []
             for loop in face.loops:
                 vert = loop.vert
-                co = Vector(vert.co)
+                co = matrix @ Vector(vert.co)
                 if vert not in vert_index_map:
                     vert_index_map[vert] = vert_count
                     vertices.append(co)

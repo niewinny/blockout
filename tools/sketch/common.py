@@ -37,14 +37,6 @@ def draw_type(layout, sketch):
     row.scale_y = 0.8
     row.scale_x = 0.8
     row.prop(sketch, 'mode', expand=True)
-    layout.separator()
-    layout.use_property_split = True
-    layout.prop(sketch, 'geomety')
-    layout.use_property_split = True
-    col = layout.column(align=True)
-    if sketch.geomety == 'MESH':
-        col.enabled = False
-    col.prop(sketch, 'origin')
 
 
 def draw_form(layout, form):

@@ -18,9 +18,8 @@ def register():
     for cls in classes:
         register_class(cls)
 
-    register_tool(tools.blockout.BOUT_MT_Blockout, group=True, separator=True)
-    register_tool(tools.block2d.BOUT_MT_Mesh_Block2D, group=False, separator=False, after={'bout.blockout'})
-    register_tool(tools.sketch.mesh.BOUT_MT_Sketch, group=False, separator=False, after={'bout.block2d'})
+    register_tool(tools.sketch.mesh.BOUT_MT_Sketch, group=True, separator=True)
+    register_tool(tools.block2d.BOUT_MT_Mesh_Block2D, group=False, separator=False, after={'bout.sketch'})
 
     register_tool(tools.sketch.obj.BOUT_MT_SketchObj, group=True, separator=True)
 
@@ -37,7 +36,6 @@ def unregister():
     unregister_tool(tools.sketch.obj.BOUT_MT_SketchObj)
 
     unregister_tool(tools.sketch.mesh.BOUT_MT_Sketch)
-    unregister_tool(tools.blockout.BOUT_MT_Blockout)
     unregister_tool(tools.block2d.BOUT_MT_Mesh_Block2D)
 
     for cls in reversed(classes):

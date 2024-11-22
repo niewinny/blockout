@@ -28,6 +28,13 @@ def create(bm, plane, verts_number):
         segments=verts_number,
         matrix=matrix
     )
+
+    bm.verts.ensure_lookup_table()
+    bm.verts.index_update()
+
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()
+
     vert = result['verts'][0]
     face = vert.link_faces[0]
     face.normal_update()

@@ -1,4 +1,6 @@
+import bmesh
 from mathutils import Matrix, Vector
+from . import facet
 
 
 def create(bm, plane):
@@ -12,7 +14,7 @@ def create(bm, plane):
 
     bm.verts.ensure_lookup_table()
     bm.verts.index_update()
-    
+
     face = bm.faces.new((v1, v2, v3, v4))
     face.normal = normal
     face.select_set(True)
@@ -120,3 +122,28 @@ def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
 
     # Return dx, dy (2D location), and point_3d (3D point)
     return (dx, dy), point_3d
+
+
+def create_box(bm, plane, loc, direction, extrusion, local_space=False, snap_value=0):
+    '''Set the box from face'''
+
+    face_index = create(bm, plane)
+    bm.faces.ensure_lookup_table()
+    face = bm.faces[face_index]
+    set_xy(face, plane, loc, direction, local_space=True)
+    draw_face, _extrude_face, _extrude_faces = facet.extrude(bm, face, plane, extrusion)
+
+    face = bm.faces[draw_face]
+    extrude_face = bm.faces[_extrude_face]
+    extrude_faces = [bm.faces[index] for index in _extrude_faces]
+
+    box_faces = [face, extrude_face] + extrude_faces
+
+    bmesh.ops.recalc_face_normals(bm, faces=box_faces)
+
+    box_edges = [e for f in box_faces for e in f.edges]
+    bevel_edges = set(box_edges) - set(face.edges)
+
+    edges = list(bevel_edges)
+
+    return face, edges

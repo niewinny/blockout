@@ -1,7 +1,7 @@
 import bpy
 import bmesh
 
-from ..mesh.sketch import Sketch, Config
+from ...src.sketch import Sketch, Config
 from ...utils import addon, scene
 
 
@@ -36,12 +36,16 @@ class BOUT_OT_SketchObjTool(Sketch):
         config.align = addon.pref().tools.sketch.align
         config.pick = addon.pref().tools.sketch.obj.pick
         config.mode = addon.pref().tools.sketch.obj.mode
+        config.type = 'OBJECT'
+
         return config
 
     def build_bmesh(self, context):
 
         new_mesh = bpy.data.meshes.new('BlockOut')
         new_obj = bpy.data.objects.new('BlockOut', new_mesh)
+        if addon.pref().tools.sketch.obj.mode != 'CREATE':
+            new_obj.display_type = 'WIRE'
         context.collection.objects.link(new_obj)
 
         bm = bmesh.new()
@@ -51,14 +55,9 @@ class BOUT_OT_SketchObjTool(Sketch):
         mesh = obj.data
         bm.to_mesh(mesh)
 
+    def _boolean(self, obj, bm):
+        pass
 
-class Theme(bpy.types.PropertyGroup):
-    face: bpy.props.FloatVectorProperty(name="Face", description="Face indicator color", default=(1.0, 0.6, 0.0, 0.3), subtype='COLOR', size=4, min=0.0, max=1.0)
-
-
-types_classes = (
-    Theme,
-)
 
 classes = (
     BOUT_OT_SketchObjTool,

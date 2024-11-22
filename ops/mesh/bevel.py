@@ -423,16 +423,16 @@ class BOUT_OT_Bevel(bpy.types.Operator):
             new_segments = base_segments + delta_segments if distance > 0 else base_segments - delta_segments
             self.segments = max(1, new_segments)  # Ensure segments do not fall below 1
 
-
     def _calculate_distance(self):
         '''Calculate the distance based on the initial and current mouse position'''
         intersect_point = self.mouse.co
+        distance_fixed = 0.0
         if intersect_point:
             delta_init = (self.mouse.median - self.mouse.init).length
             distance = (self.mouse.median - intersect_point).length
             distance_fixed = distance - delta_init
 
-            return distance_fixed
+        return distance_fixed
 
     def _get_intersect_point(self, context, event, plane_co):
         '''Calculate the intersection point on the plane defined by the plane_co and plane_no'''

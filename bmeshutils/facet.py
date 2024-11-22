@@ -1,63 +1,62 @@
 import bmesh
 
 
-def extrude(bm, face, plane, dz):
-    '''Extrude the face along the given direction by dz units'''
-
-    # Normalize the direction vector
+def extrude(bm, face, plane, dz,):
+    """
+    Manually extrude the face along the given direction by dz units, creating new geometry
+    without using bmesh.ops.extrude_face_region.
+    """
+    # Get the normal from the plane and normalize it
     _, normal = plane
+    normal = normal.normalized()
 
-    # Extrude the face region
-    result = bmesh.ops.extrude_face_region(bm, geom=[face])
+    face.normal_flip()
 
-    # Collect the new geometry
-    geom_extruded = result['geom']
+    # Get the original vertices of the face in order
+    orig_verts = [v for v in face.verts]
 
-    # Get the new vertices and faces
-    new_verts = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMVert)]
-    new_faces = [ele for ele in geom_extruded if isinstance(ele, bmesh.types.BMFace)]
+    # Create new vertices by duplicating original vertices and moving them along the normal
+    new_verts = []
+    for v in orig_verts:
+        new_co = v.co + normal * dz
+        new_v = bm.verts.new(new_co)
+        new_verts.append(new_v)
 
-    # Move the new vertices along the direction vector by dz
-    move_vector = -normal * dz
-    for v in new_verts:
-        v.co += move_vector
+    # Create side faces between original and new vertices
+    num_verts = len(orig_verts)
+    side_faces = []
+    for i in range(num_verts):
+        v1 = orig_verts[i]
+        v2 = orig_verts[(i + 1) % num_verts]
+        v3 = new_verts[(i + 1) % num_verts]
+        v4 = new_verts[i]
+        # Correct vertex order to ensure normals point outward
+        face_verts = [v1, v2, v3, v4]
+        side_face = bm.faces.new(face_verts)
+        side_face.select_set(True)
+        side_faces.append(side_face)
 
-    # Recalculate normals for the new faces
-    bmesh.ops.recalc_face_normals(bm, faces=new_faces)
+    # Create the top face from the new vertices
 
-    # Select the top face if needed
-    extruded_face = None
-    for f in new_faces:
-        if all(v in new_verts for v in f.verts):
-            extruded_face = f
-            break
+    top_face_verts = new_verts
+    top_face = bm.faces.new(top_face_verts)
+    top_face.select_set(True)
 
-    # set of faces linked to new_verts
-    connected_faces = []
-    for v in new_verts:
-        for f in v.link_faces:
-            if f == extruded_face:
-                continue
-            if f in connected_faces:
-                continue
-            if f not in connected_faces:
-                connected_faces.append(f)
+    # Optionally flip the bottom face if needed
+    face.normal_flip()
 
-    for f in connected_faces:
-        f.select_set(True)
+    # Recalculate normals
+    bm.normal_update()
+    bm.verts.ensure_lookup_table()
+    bm.verts.index_update()
+    bm.edges.ensure_lookup_table()
+    bm.edges.index_update()
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()
 
-    for v in connected_faces[0].verts:
-        for f in v.link_faces:
-            if f not in connected_faces:
-                if f != extruded_face:
-                    draw_face = f
-
-    connected_faces_indexes = [f.index for f in connected_faces]
-
-    if extruded_face:
-        extruded_face.select_set(True)
-
-    return draw_face.index, extruded_face.index, connected_faces_indexes
+    # Return the indices of the new faces
+    new_faces = [face.index] + [f.index for f in side_faces] + [top_face.index]
+    return new_faces
 
 
 def set_z(face, normal, dz, verts=None, snap_value=0):
@@ -81,3 +80,32 @@ def set_z(face, normal, dz, verts=None, snap_value=0):
             v.co = v.co + normal * dz
 
     return dz
+
+
+def bevel(bm, face, bevel_offset=0.0, bevel_segments=1):
+    '''Bevel the face region'''
+
+    if bevel_offset != 0.0:
+        rectangle_verts = [v for v in face.verts]
+
+        result = bmesh.ops.bevel(bm, geom=rectangle_verts, offset=bevel_offset, profile=0.5, offset_type='OFFSET', affect='VERTICES', clamp_overlap=True, segments=bevel_segments)
+
+        for v in result['verts']:
+            v.select = True
+        for e in result['edges']:
+            e.select = True
+        for f in result['faces']:
+            f.select = True
+        bm.select_flush(True)
+
+        if result['verts']:
+            face = result['verts'][0].link_faces[0]
+
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+        bm.edges.ensure_lookup_table()
+        bm.edges.index_update()
+        bm.faces.ensure_lookup_table()
+        bm.faces.index_update()
+
+    return face.index
