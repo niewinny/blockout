@@ -1,62 +1,77 @@
 import bmesh
 
 
-def extrude(bm, face, plane, dz,):
+def extrude(bm, face, plane, dz):
     """
-    Manually extrude the face along the given direction by dz units, creating new geometry
-    without using bmesh.ops.extrude_face_region.
+    Extrude the face along the given direction by dz units using bmesh.ops.extrude_face_region.
+    Returns the indices of the faces in the following order:
+    [index of the starting face (after extrusion), indices of side faces, index of the top face]
     """
+
     # Get the normal from the plane and normalize it
     _, normal = plane
     normal = normal.normalized()
 
+    print('extrude face', face.index)
+
     face.normal_flip()
+    # Perform the extrusion
+    result = bmesh.ops.extrude_face_region(bm, geom=[face])
 
-    # Get the original vertices of the face in order
-    orig_verts = [v for v in face.verts]
-
-    # Create new vertices by duplicating original vertices and moving them along the normal
-    new_verts = []
-    for v in orig_verts:
-        new_co = v.co + normal * dz
-        new_v = bm.verts.new(new_co)
-        new_verts.append(new_v)
-
-    # Create side faces between original and new vertices
-    num_verts = len(orig_verts)
-    side_faces = []
-    for i in range(num_verts):
-        v1 = orig_verts[i]
-        v2 = orig_verts[(i + 1) % num_verts]
-        v3 = new_verts[(i + 1) % num_verts]
-        v4 = new_verts[i]
-        # Correct vertex order to ensure normals point outward
-        face_verts = [v1, v2, v3, v4]
-        side_face = bm.faces.new(face_verts)
-        side_face.select_set(True)
-        side_faces.append(side_face)
-
-    # Create the top face from the new vertices
-
-    top_face_verts = new_verts
-    top_face = bm.faces.new(top_face_verts)
-    top_face.select_set(True)
-
-    # Optionally flip the bottom face if needed
-    face.normal_flip()
+    # Move the new vertices along the normal by dz units
+    new_geom = result['geom']
+    new_verts = [elem for elem in new_geom if isinstance(elem, bmesh.types.BMVert)]
+    for v in new_verts:
+        v.co += normal * dz
 
     # Recalculate normals
     bm.normal_update()
+
+    # Update indices and lookup tables
     bm.verts.ensure_lookup_table()
-    bm.verts.index_update()
     bm.edges.ensure_lookup_table()
-    bm.edges.index_update()
     bm.faces.ensure_lookup_table()
+    bm.verts.index_update()
+    bm.edges.index_update()
     bm.faces.index_update()
 
-    # Return the indices of the new faces
-    new_faces = [face.index] + [f.index for f in side_faces] + [top_face.index]
-    return new_faces
+    # Identify the top face (the new face created at the extrusion end)
+    new_faces = [elem for elem in new_geom if isinstance(elem, bmesh.types.BMFace)]
+    if not new_faces:
+        raise ValueError("No new faces created during extrusion.")
+    top_face = new_faces[0]
+    top_face.select_set(True)
+
+    # Identify side faces connected to the top face
+    side_faces = []
+    for edge in top_face.edges:
+        for linked_face in edge.link_faces:
+            if linked_face != top_face and linked_face not in side_faces:
+                linked_face.select_set(True)
+                side_faces.append(linked_face)
+
+    # Identify the bottom face (starting face)
+    bot_face = None
+    for side_face in side_faces:
+        for edge in side_face.edges:
+            for linked_face in edge.link_faces:
+                if (linked_face != top_face and linked_face != side_face and
+                    linked_face not in side_faces):
+                    bot_face = linked_face
+                    bot_face.select_set(True)
+                    break
+            if bot_face is not None:
+                break
+        if bot_face is not None:
+            break
+    if bot_face is None:
+        raise ValueError("Bottom face not found after extrusion.")
+
+    # Collect the indices in the desired order
+    new_face_indices = [bot_face.index] + [f.index for f in side_faces] + [top_face.index]
+    print('new faces', new_face_indices)
+
+    return new_face_indices
 
 
 def set_z(face, normal, dz, verts=None, snap_value=0):

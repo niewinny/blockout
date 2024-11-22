@@ -145,25 +145,32 @@ class DrawPolylineDotted(BaseDraw):
 
 
 class DrawPolyline(BaseDraw):
-    def __init__(self, edge_points, width, color):
+    def __init__(self, points, width, color):
         self.shader = gpu.shader.from_builtin('POLYLINE_FLAT_COLOR')
         self.width = width
         self.color = color
-        self.edge_points = edge_points
+        self.points = points
         self.batch = self.create_batch()
 
     def create_batch(self):
-        vertices = [point for edge in self.edge_points for point in edge]
+        '''Create a batch for the shader'''
+        vertices = [point for edge in self.points for point in edge]
         indices = [(i, i + 1) for i in range(0, len(vertices), 2)]
         return batch_for_shader(self.shader, 'LINES', {"pos": vertices, "color": [self.color]*len(vertices)}, indices=indices)
 
-    def update_batch(self, edge_points, color=None, width=None):
-        self.edge_points = edge_points
+    def update_batch(self, points, color=None, width=None):
+        '''Update the batch with new points'''
+        self.points = points
         if color:
             self.color = color
         if width:
             self.width = width
         self.batch = self.create_batch()
+
+    def clear(self):
+        '''Clear the points list'''
+        points = []
+        self.update_batch(points)
 
     def line_width(self, width):
         self.shader.uniform_float('lineWidth', width)

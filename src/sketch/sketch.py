@@ -33,6 +33,7 @@ class Draw:
 @dataclass
 class Bevel:
     '''Dataclass for storing options'''
+    created: bool = False
     offset: float = 0.0
     type: str = '2D'
     mode: str = 'OFFSET'
@@ -80,7 +81,8 @@ class Objects:
 class Mouse:
     """Dataclass for tracking mouse positions."""
     init: Vector = Vector()
-    store: Vector = Vector()
+    extrude: Vector = Vector()
+    bevel: Vector = Vector()
     co: Vector = Vector()
 
 
@@ -123,7 +125,6 @@ class Pref(bpy.types.PropertyGroup):
     extrusion: bpy.props.FloatProperty(name="Z", description="Z coordinates", default=0.0, subtype='DISTANCE')
     shape: bpy.props.StringProperty(name="Shape", description="Shape", default='RECTANGLE')
     mode: bpy.props.StringProperty(name="Mode", description="Mode", default='CREATE')
-    volume: bpy.props.StringProperty(name="Volume", description="Volume", default='2D')
 
     offset: bpy.props.FloatProperty(name="Offset", description="Offset", default=0.0, subtype='DISTANCE')
 
@@ -134,6 +135,7 @@ class Pref(bpy.types.PropertyGroup):
 
 
 class Shapes(bpy.types.PropertyGroup):
+    volume: bpy.props.StringProperty(name="Volume", description="Volume", default='2D')
     rectangle: bpy.props.PointerProperty(type=Rectangle)
     circle: bpy.props.PointerProperty(type=Circle)
 
@@ -238,6 +240,7 @@ class Sketch(bpy.types.Operator):
                 layout.prop(self.pref, 'offset', text="Offset")
 
     def _recalculate_normals(self, bm, faces_indexes):
+        '''Recalculate the normals'''
         faces = [bm.faces[index] for index in faces_indexes]
         bmesh.ops.recalc_face_normals(bm, faces=faces)
 
@@ -251,7 +254,6 @@ class Sketch(bpy.types.Operator):
         self.pref.mode = self.config.mode
         self.pref.bevel.offset = self.data.bevel.offset
         self.pref.bevel.type = self.data.bevel.type
-        self.pref.volume = self.data.volume
         if self.config.mode != 'CREATE':
             self.pref.offset = self.config.align.offset
 
@@ -301,7 +303,7 @@ class Sketch(bpy.types.Operator):
                 case 'BEVEL':
                     self._bevel_modal(context)
 
-            if self.data.volume == '3D':
+            if self.shapes.volume == '3D':
                 if self.config.mode != 'CREATE':
                     self._recalculate_normals(self.data.bm, self.data.extrude.faces)
                     self._boolean(self.data.obj, self.data.bm)
@@ -318,7 +320,8 @@ class Sketch(bpy.types.Operator):
                 self.set_offset()
 
             if self.mode == 'EXTRUDE':
-                self._recalculate_normals(self.data.bm, self.data.extrude.faces)
+                if self.config.mode == 'CREATE':
+                    self._recalculate_normals(self.data.bm, self.data.extrude.faces)
                 self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
             self.store_props()
@@ -328,10 +331,7 @@ class Sketch(bpy.types.Operator):
 
         elif event.type == 'B':
             if event.value == 'PRESS':
-                if self.mode != 'BEVEL':
-                    self._bevel_invoke()
-                if self.data.volume == '3D':
-                    self.data.bevel.type = '3D' if self.data.bevel.type == '2D' else '2D'
+                self._bevel_invoke()
                 return {'RUNNING_MODAL'}
 
         elif event.type == 'S':
@@ -403,7 +403,7 @@ class Sketch(bpy.types.Operator):
         obj = self.data.obj
         self.ui.faces.callback = DrawBMeshFaces(obj=obj, faces=[], color=face_color)
         self.ui.faces.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.faces.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
-        self.ui.guid.callback = DrawPolyline(edge_points=[], width=1.6, color=color.guid)
+        self.ui.guid.callback = DrawPolyline(points=[], width=1.6, color=color.guid)
         self.ui.guid.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.guid.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
 
     def _get_orientation(self, context):
@@ -483,10 +483,7 @@ class Sketch(bpy.types.Operator):
         world_origin, world_normal = plane
 
         if self.config.mode != 'CREATE':
-            selected_verts = [v for v in bm.verts if v.select]
-            for v in selected_verts:
-                v.select = False
-            bm.select_flush(False)
+            bpy.ops.mesh.select_all(action='DESELECT')
 
         if self.config.align.mode != 'CUSTOM':
             x_axis_point = world_origin + direction
@@ -561,9 +558,10 @@ class Sketch(bpy.types.Operator):
 
     def _extrude_invoke(self, context):
         '''Extrude the mesh'''
+
         self.mode = 'EXTRUDE'
-        self.data.volume = '3D'
-        self.mouse.store = self.mouse.co
+        self.shapes.volume = '3D'
+        self.mouse.extrude = self.mouse.co
 
         region = context.region
         rv3d = context.region_data
@@ -585,11 +583,12 @@ class Sketch(bpy.types.Operator):
 
         self.ui.xaxis.callback.clear()
         self.ui.yaxis.callback.clear()
+        self.ui.guid.callback.clear()
 
         self.set_offset()
 
         plane_world = (obj.matrix_world @ plane[0], obj.matrix_world.to_3x3() @ plane[1])
-        line_origin = view3d.region_2d_to_plane_3d(region, rv3d, self.mouse.store, plane_world)
+        line_origin = view3d.region_2d_to_plane_3d(region, rv3d, self.mouse.extrude, plane_world)
         self.data.extrude.origin = line_origin
         point1 = line_origin
         point2 = line_origin + plane_world[1]
@@ -642,8 +641,6 @@ class Sketch(bpy.types.Operator):
 
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
-        self._recalculate_normals(self.data.bm, self.data.extrude.faces)
-
     def _boolean(self, obj, bm):
         '''Boolean operation'''
         raise NotImplementedError("Subclasses must implement the _boolean method")
@@ -651,12 +648,20 @@ class Sketch(bpy.types.Operator):
     def _bevel_invoke(self):
         '''Bevel the mesh'''
 
-        if self.data.volume == '3D':
-            self.data.bevel.type = '3D'
+        if self.mode == 'BEVEL':
+            if self.shapes.volume == '3D':
+                self.data.bevel.type = '3D' if self.data.bevel.type == '2D' else '2D'
+            return
+
+        if not self.data.bevel.created:
+            volume = self.shapes.volume
+            self.data.bevel.type = volume
+            self.mouse.bevel = self.mouse.co
+
+        self.ui.zaxis.callback.clear()
 
         self.mode = 'BEVEL'
-        self.mouse.store = self.mouse.co
-        self.ui.zaxis.callback.clear()
+        self.data.bevel.created = True
 
     def _bevel_modal(self, context):
         '''Bevel the mesh'''
@@ -664,7 +669,7 @@ class Sketch(bpy.types.Operator):
         rv3d = context.region_data
 
         point = sum(self.data.bevel.verts, Vector()) / len(self.data.bevel.verts)
-        mouse_store_co_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.store, point)
+        mouse_store_co_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.bevel, point)
         mouse_co_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.co, point)
 
         delta = (point - mouse_store_co_3d).length

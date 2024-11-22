@@ -53,7 +53,7 @@ class BOUT_OT_SketchMeshTool(Sketch):
     def update_bmesh(self, obj, bm, loop_triangles=False, destructive=False):
         mesh = obj.data
         bm.normal_update()
-        bmesh.update_edit_mesh(mesh, loop_triangles=loop_triangles, destructive=True)
+        bmesh.update_edit_mesh(mesh, loop_triangles=loop_triangles, destructive=destructive)
 
     def _extrude_invoke(self, context):
         super()._extrude_invoke(context)
@@ -83,10 +83,7 @@ class BOUT_OT_SketchMeshTool(Sketch):
         shape = self.pref.shape
 
         if self.pref.mode != 'CREATE':
-            selected_verts = [v for v in bm.verts if v.select]
-            for v in selected_verts:
-                v.select = False
-            bm.select_flush(False)
+            bpy.ops.mesh.select_all(action='DESELECT')
 
         match shape:
             case 'RECTANGLE':
@@ -107,7 +104,7 @@ class BOUT_OT_SketchMeshTool(Sketch):
                 else:
                     face_index = facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
                     face = bmeshface.from_index(bm, face_index)
-                    if self.pref.volume == '3D':
+                    if self.shapes.volume == '3D':
                         extruded_faces = facet.extrude(bm, face, plane, extrusion)
                         self._recalculate_normals(bm, extruded_faces)
                         facet.set_z(face, normal, offset)
@@ -127,6 +124,8 @@ class BOUT_OT_SketchMeshTool(Sketch):
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 
+        return face_index
+
     def _bevel_modal(self, context):
         super()._bevel_modal(context)
         get_copy(self.data.obj, self.data.bm, self.data.copy.init)
@@ -135,7 +134,8 @@ class BOUT_OT_SketchMeshTool(Sketch):
         bm = self.data.bm
 
         self.store_props()
-        self.build_geometry(obj, bm)
+        face_index = self.build_geometry(obj, bm)
+        self.data.draw.face = face_index
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
 
