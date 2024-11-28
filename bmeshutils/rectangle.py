@@ -26,12 +26,16 @@ def create(bm, plane):
     return face.index
 
 
-def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
+def set_xy(face, plane, loc, direction, local_space=False, snap_value=0, symmetry=(False, False)):
     '''
     Expand the rectangle face. The `loc` parameter is always provided.
     If `local_space` is True, `loc` is given in the plane's local coordinate system.
     If `local_space` is False, `loc` is given in global coordinate system and will be transformed.
+    If `symy` or `symx` is True, the rectangle will be symmetric along the x-axis or y-axis of the plane's local coordinate system.
     '''
+
+    symx, symy = symmetry
+
     # Unpack plane data
     location, normal = plane
 
@@ -51,13 +55,12 @@ def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
     matrix_inv = matrix.inverted_safe()
 
     # In plane local space, the initial point is at the origin
-    x0, y0 = 0, 0
-
+    # Adjust x0 and y0 based on symmetry
     if local_space:
-        # Use loc directly as it is in local plane space
+        # Use loc directly as it is in plane's local space
         x1, y1 = loc.x, loc.y
     else:
-        # Transform loc from object local space to plane local space
+        # Transform loc from object local space to plane's local space
         mouse_local = matrix_inv @ loc
         x1, y1 = mouse_local.x, mouse_local.y
 
@@ -65,6 +68,10 @@ def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
     if snap_value != 0:
         x1 = round(x1 / snap_value) * snap_value
         y1 = round(y1 / snap_value) * snap_value
+
+    # Adjust x0 and y0 based on symmetry
+    x0 = -x1 if symy else 0
+    y0 = -y1 if symx else 0
 
     dx = x1 - x0
     dy = y1 - y0
@@ -116,34 +123,14 @@ def set_xy(face, plane, loc, direction, local_space=False, snap_value=0):
     v3.co = matrix @ v3_local
     v4.co = matrix @ v4_local
 
-    # Compute the 3D point corresponding to (x1, y1, 0) in plane local space
+    # Compute the 3D point corresponding to (x1, y1, 0) in plane's local space
     point_local = Vector((x1, y1, 0))
     point_3d = matrix @ point_local
 
     # Return dx, dy (2D location), and point_3d (3D point)
+    if symx:
+        dy = dy / 2
+    if symy:
+        dx = dx / 2
+
     return (dx, dy), point_3d
-
-
-def create_box(bm, plane, loc, direction, extrusion, local_space=False, snap_value=0):
-    '''Set the box from face'''
-
-    face_index = create(bm, plane)
-    bm.faces.ensure_lookup_table()
-    face = bm.faces[face_index]
-    set_xy(face, plane, loc, direction, local_space=True)
-    draw_face, _extrude_face, _extrude_faces = facet.extrude(bm, face, plane, extrusion)
-
-    face = bm.faces[draw_face]
-    extrude_face = bm.faces[_extrude_face]
-    extrude_faces = [bm.faces[index] for index in _extrude_faces]
-
-    box_faces = [face, extrude_face] + extrude_faces
-
-    bmesh.ops.recalc_face_normals(bm, faces=box_faces)
-
-    box_edges = [e for f in box_faces for e in f.edges]
-    bevel_edges = set(box_edges) - set(face.edges)
-
-    edges = list(bevel_edges)
-
-    return face, edges

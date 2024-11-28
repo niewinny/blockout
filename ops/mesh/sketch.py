@@ -80,6 +80,8 @@ class BOUT_OT_SketchMeshTool(Sketch):
         plane = (location, normal)
         direction = self.pref.direction
         extrusion = self.pref.extrusion
+        symmetry_extrude = self.pref.symmetry_extrude
+        symmetry_draw = self.pref.symmetry_draw
 
         shape = self.pref.shape
 
@@ -90,13 +92,15 @@ class BOUT_OT_SketchMeshTool(Sketch):
             case 'RECTANGLE':
                 face_index = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, face_index)
-                rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True)
+                rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 facet.set_z(face, normal, offset)
                 facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
             case 'BOX':
                 face_index = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, face_index)
-                rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True)
+                if symmetry_extrude:
+                    offset = -extrusion
+                rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 if self.pref.bevel.type == '3D':
                     extrusion = extrusion + offset
                     box_faces_indexes = facet.extrude(bm, face, plane, extrusion)
@@ -138,8 +142,8 @@ class BOUT_OT_SketchMeshTool(Sketch):
         self.data.draw.face = face_index
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
-    def _bevel_invoke(self):
-        super()._bevel_invoke()
+    def _bevel_invoke(self, context):
+        super()._bevel_invoke(context)
         self._bevel()
 
     def _bevel_modal(self, context):

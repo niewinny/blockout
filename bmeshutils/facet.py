@@ -12,8 +12,6 @@ def extrude(bm, face, plane, dz):
     _, normal = plane
     normal = normal.normalized()
 
-    print('extrude face', face.index)
-
     face.normal_flip()
     # Perform the extrusion
     result = bmesh.ops.extrude_face_region(bm, geom=[face])
@@ -55,8 +53,7 @@ def extrude(bm, face, plane, dz):
     for side_face in side_faces:
         for edge in side_face.edges:
             for linked_face in edge.link_faces:
-                if (linked_face != top_face and linked_face != side_face and
-                    linked_face not in side_faces):
+                if (linked_face != top_face and linked_face != side_face and linked_face not in side_faces):
                     bot_face = linked_face
                     bot_face.select_set(True)
                     break
@@ -69,7 +66,6 @@ def extrude(bm, face, plane, dz):
 
     # Collect the indices in the desired order
     new_face_indices = [bot_face.index] + [f.index for f in side_faces] + [top_face.index]
-    print('new faces', new_face_indices)
 
     return new_face_indices
 

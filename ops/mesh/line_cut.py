@@ -6,9 +6,7 @@ import bmesh
 
 from mathutils import Vector
 
-from ...shaders.draw import DrawGradient, DrawLine, DrawPolyline
 from ...shaders import handle
-
 from ...utils import view3d, addon, infobar
 
 
@@ -26,6 +24,9 @@ class DrawUI(handle.Common):
     polyline: handle.Polyline = field(default_factory=handle.Polyline)
     gradient: handle.Gradient = field(default_factory=handle.Gradient)
     gradient_flip: handle.Gradient = field(default_factory=handle.Gradient)
+
+    def __post_init__(self):
+        self.clear_all()
 
 
 class Bisect(bpy.types.Operator):
@@ -162,23 +163,10 @@ class Bisect(bpy.types.Operator):
         """Setup the drawing handlers based on the current mode."""
         color = addon.pref().theme.ops.mesh.line_cut
 
-        # Setup Line
-        self.ui.line.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=color.line if self.mode == 'CUT' else color.slice_line, depth=True)
-        self.ui.line.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.line.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
-
-        # Setup Polyline
-        self.ui.polyline.callback = DrawPolyline([], width=1, color=color.slice_line)
-        self.ui.polyline.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.polyline.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
-
-        # Setup Gradient
-        gradient_color = color.gradient if self.mode == 'CUT' else color.slice_gradient
-        self.ui.gradient.callback = DrawGradient(points=[(0, 0), (0, 0), (0, 0), (0, 0)], colors=[gradient_color, gradient_color, (0, 0, 0, 0), (0, 0, 0, 0)])
-        self.ui.gradient.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.gradient.callback.draw, (context,), 'WINDOW', 'POST_PIXEL')
-
-        # Setup Gradient Flip
-        gradient_flip_color = color.slice_gradient
-        self.ui.gradient_flip.callback = DrawGradient(points=[(0, 0), (0, 0), (0, 0), (0, 0)], colors=[gradient_flip_color] * 4)
-        self.ui.gradient_flip.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.gradient_flip.callback.draw, (context,), 'WINDOW', 'POST_PIXEL')
+        self.ui.line.create(context, width=1.6, color=color.line if self.mode == 'CUT' else color.slice_line, depth=True)
+        self.ui.polyline.create(context, width=1.6, color=color.line)
+        self.ui.gradient.create(context)
+        self.ui.gradient_flip.create(context)
 
     def _update_drawing(self, context):
         """Update the drawing elements based on the current mode and mouse position."""

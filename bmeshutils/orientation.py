@@ -203,3 +203,35 @@ def snap_plane(plane, snap_plane, direction, snap_value):
     snapped_point = origin + s_snapped * u + t_snapped * v
 
     return snapped_point, plane[1]
+
+
+
+def point_on_axis(plane, direction, point, distance):
+    '''Get the closest point on the plane along the given axis within the given distance'''
+    location, normal = plane
+    x_axis = direction.normalized()
+    z_axis = normal.normalized()
+    y_axis = z_axis.cross(x_axis).normalized()
+
+    vec = point - location
+    proj_length = vec.dot(y_axis)
+    proj_vec_y = proj_length * y_axis
+    proj_vec_x = vec - proj_vec_y
+
+    length_x = proj_vec_x.length
+    length_y = proj_vec_y.length
+
+    if length_x <= distance and length_y <= distance:
+        axis = (True, True)
+        closest_point = location
+    elif length_x <= distance and (length_x <= length_y or length_y > distance):
+        axis = (False, True)
+        closest_point = location + proj_vec_y
+    elif length_y <= distance and (length_y < length_x or length_x > distance):
+        axis = (True, False)
+        closest_point = location + proj_vec_x
+    else:
+        axis = (False, False)
+        closest_point = point
+
+    return closest_point, axis

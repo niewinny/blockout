@@ -135,6 +135,23 @@ def region_2d_to_nearest_point_on_line_3d(region, rv3d, point, vector, normal):
 
 
 def region_2d_to_plane_3d(region, re3d, point, plane, matrix=None):
+    '''
+    Return the 3D point on a plane in world space from a 2D point in the region.
+
+    :param region: The region.
+    :type region: :class:`bpy.types.Region`
+    :param re3d: The region's 3D view.
+    :type re3d: :class:`bpy.types.RegionView3D`
+    :param point: The 2D point.
+    :type point: :class:`mathutils.Vector`
+    :param plane: The plane in world space.
+    :type plane: tuple of :class:`mathutils.Vector`
+    :param matrix: (Optional) The matrix to apply to the plane.
+    :type matrix: :class:`mathutils.Matrix`
+    :return: The 3D point on the plane.
+    :rtype: :class:`mathutils.Vector`
+    '''
+
     # Get mouse origin and direction in world space
     location, normal = plane
 

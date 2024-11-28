@@ -4,11 +4,10 @@ import bmesh
 
 from mathutils import Vector
 
-from ...shaders import handle
-from ...shaders.draw import DrawLine, DrawBMeshFaces, DrawPolyline
-from ...utils import addon, scene, infobar, view3d
-from ...bmeshutils import bmeshface, orientation, rectangle, facet, circle, box
-from ...bmeshutils.mesh import set_copy
+from ..shaders import handle
+from ..utils import addon, scene, infobar, view3d
+from ..bmeshutils import orientation, rectangle, facet, circle
+from ..bmeshutils.mesh import set_copy
 
 
 @dataclass
@@ -28,16 +27,20 @@ class Draw:
     plane: tuple = (Vector(), Vector())
     direction: Vector = Vector((0, 1, 0))
     face: int = -1
+    verts: list = field(default_factory=list)  # v.co
+    symmetry: tuple = (False, False)
 
 
 @dataclass
 class Bevel:
     '''Dataclass for storing options'''
+    origin: Vector = Vector()
     offset: float = 0.0
-    delta: float = 0.0
+    offset_stored: float = 0.0
+    segments: int = 0
+    segments_stored: int = 0
     type: str = '2D'
     mode: str = 'OFFSET'
-    verts: list = field(default_factory=list)  # v.co
 
 
 @dataclass
@@ -49,6 +52,7 @@ class Extrude:
     verts: list = field(default_factory=list)  # v.co
     value: float = 0.0
     sign: int = -1
+    symmetry: bool = False
 
 
 @dataclass
@@ -83,6 +87,7 @@ class Mouse:
     init: Vector = Vector()
     extrude: Vector = Vector()
     bevel: Vector = Vector()
+    segment: Vector = Vector()
     co: Vector = Vector()
 
 
@@ -94,6 +99,9 @@ class DrawUI(handle.Common):
     zaxis: handle.Line = field(default_factory=handle.Line)
     faces: handle.BMeshFaces = field(default_factory=handle.BMeshFaces)
     guid: handle.Polyline = field(default_factory=handle.Polyline)
+
+    def __post_init__(self):
+        self.clear_all()
 
 
 class Rectangle(bpy.types.PropertyGroup):
@@ -123,6 +131,9 @@ class BevelPref(bpy.types.PropertyGroup):
 class Pref(bpy.types.PropertyGroup):
     '''PropertyGroup for storing preferences'''
     extrusion: bpy.props.FloatProperty(name="Z", description="Z coordinates", default=0.0, subtype='DISTANCE')
+    symmetry_extrude: bpy.props.BoolProperty(name="Symmetry", description="Symmetry", default=False)
+    symmetry_draw: bpy.props.BoolVectorProperty(name="Symmetry", description="Symmetry", default=(False, False), size=2)
+
     shape: bpy.props.StringProperty(name="Shape", description="Shape", default='RECTANGLE')
     mode: bpy.props.StringProperty(name="Mode", description="Mode", default='CREATE')
 
@@ -202,9 +213,41 @@ class Sketch(bpy.types.Operator):
 
         context.window.cursor_set('SCROLL_XY')
         self._header(context)
-        infobar.draw(context, event, None)
+        infobar.draw(context, event, self._infobar, blank=True)
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
+
+    def _infobar(self, layout, _context, _event):
+        '''Draw the infobar hotkeys'''
+
+        row = layout.row(align=True)
+        row.label(text='', icon='MOUSE_MOVE')
+        if self.mode == 'DRAW':
+            row.label(text='Draw')
+        elif self.mode == 'EXTRUDE':
+            row.label(text='Extrude')
+        elif self.mode == 'BEVEL':
+            row.label(text='Bevel')
+        row.separator(factor=6.0)
+        row.label(text='', icon='MOUSE_LMB')
+        if self.mode == 'DRAW':
+            row.label(text='Extrude')
+        elif self.mode == 'EXTRUDE':
+            row.label(text='Finish')
+        row.separator(factor=6.0)
+        row.label(text='', icon='MOUSE_RMB')
+        row.label(text='Cancel')
+        row.separator(factor=6.0)
+        row.label(text='', icon='EVENT_B')
+        if self.mode == 'BEVEL':
+            row.label(text='Offset')
+        else:
+            row.label(text='Bevel')
+        row.separator(factor=6.0)
+        if self.mode == 'BEVEL':
+            row.label(text='', icon='EVENT_S')
+            row.label(text='Segments')
+            row.separator(factor=6.0)
 
     def draw(self, context):
         layout = self.layout
@@ -250,10 +293,13 @@ class Sketch(bpy.types.Operator):
         self.pref.plane.normal = self.data.draw.plane[1]
         self.pref.direction = self.data.draw.direction
         self.pref.extrusion = self.data.extrude.value
+        self.pref.symmetry_extrude = self.data.extrude.symmetry
+        self.pref.symmetry_draw = self.data.draw.symmetry
         self.pref.shape = self.config.shape
         self.pref.mode = self.config.mode
         self.pref.bevel.offset = self.data.bevel.offset
         self.pref.bevel.type = self.data.bevel.type
+        self.pref.bevel.segments = self.data.bevel.segments
         if self.config.mode != 'CREATE':
             self.pref.offset = self.config.align.offset
 
@@ -304,7 +350,6 @@ class Sketch(bpy.types.Operator):
                     self._bevel_modal(context)
 
             if self.config.mode != 'CREATE':
-                self._recalculate_normals(self.data.bm, self.data.extrude.faces)
                 self._boolean_invoke(self.data.obj, self.data.bm)
 
             self._header(context)
@@ -330,15 +375,25 @@ class Sketch(bpy.types.Operator):
 
         elif event.type == 'B':
             if event.value == 'PRESS':
-                self._bevel_invoke()
-                if self.config.mode != 'CREATE':
-                    self._boolean_invoke(self.data.obj, self.data.bm)
+                if self.config.shape in {'RECTANGLE', 'BOX', 'CYLINDER'}:
+                    self.data.bevel.mode = 'OFFSET'
+                    if self.mode == 'BEVEL' and self.shapes.volume == '3D':
+                        self.data.bevel.type = '2D' if self.data.bevel.type == '3D' else '3D'
+                    self._bevel_invoke(context)
+                    if self.config.mode != 'CREATE':
+                        self._boolean_invoke(self.data.obj, self.data.bm)
 
         elif event.type == 'S':
             if event.value == 'PRESS':
                 if self.mode == 'BEVEL':
-                    self.data.bevel.mode = 'OFFSET' if self.data.bevel.mode == 'SEGMENTS' else 'SEGMENTS'
-                    return {'RUNNING_MODAL'}
+                    self.data.bevel.mode = 'SEGMENTS'
+                    self._bevel_invoke(context)
+                    if self.config.mode != 'CREATE':
+                        self._boolean_invoke(self.data.obj, self.data.bm)
+
+        elif event.type == 'Z':
+            if event.value == 'PRESS':
+                self.data.extrude.symmetry = not self.data.extrude.symmetry
 
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
             self._end(context)
@@ -392,19 +447,14 @@ class Sketch(bpy.types.Operator):
     def _setup_drawing(self, context):
 
         color = addon.pref().theme.axis
-        self.ui.zaxis.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=color.z, depth=False)
-        self.ui.zaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.zaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
-        self.ui.xaxis.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=color.x, depth=False)
-        self.ui.xaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.xaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
-        self.ui.yaxis.callback = DrawLine(points=(Vector((0, 0, 0)), Vector((0, 0, 0))), width=1.6, color=color.y, depth=False)
-        self.ui.yaxis.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.yaxis.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
+        self.ui.zaxis.create(context, color=color.z)
+        self.ui.xaxis.create(context, color=color.x)
+        self.ui.yaxis.create(context, color=color.y)
         color = addon.pref().theme.src.sketch
         face_color = color.cut if self.config.mode == 'CUT' else color.slice
         obj = self.data.obj
-        self.ui.faces.callback = DrawBMeshFaces(obj=obj, faces=[], color=face_color)
-        self.ui.faces.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.faces.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
-        self.ui.guid.callback = DrawPolyline(points=[], width=1.6, color=color.guid)
-        self.ui.guid.handle = bpy.types.SpaceView3D.draw_handler_add(self.ui.guid.callback.draw, (context,), 'WINDOW', 'POST_VIEW')
+        self.ui.faces.create(context, obj=obj, color=face_color)
+        self.ui.guid.create(context, color=color.guid)
 
     def _get_orientation(self, context):
         def get_view_orientation():
@@ -458,7 +508,12 @@ class Sketch(bpy.types.Operator):
             custom_direction = self.config.align.custom.direction
 
             custom_plane = (custom_location, custom_normal)
+
+            # Get a point on the plane by projecting mouse.init onto the plane
             location_world = view3d.region_2d_to_plane_3d(context.region, context.region_data, self.mouse.init, custom_plane)
+            location_world, detected_axis = orientation.point_on_axis(custom_plane, custom_direction, location_world, distance=0.1)
+
+            self.data.draw.symmetry = detected_axis
 
             plane_world = (location_world, custom_normal)
 
@@ -529,7 +584,8 @@ class Sketch(bpy.types.Operator):
         matrix_world = obj.matrix_world
         face = bm.faces[self.data.draw.face]
 
-        self.data.bevel.verts = [obj.matrix_world @ v.co.copy() for v in face.verts]
+        bevel_verts = [obj.matrix_world @ v.co.copy() for v in face.verts]
+        self.data.bevel.origin = sum(bevel_verts, Vector()) / len(bevel_verts)
 
         mouse_point_on_plane = view3d.region_2d_to_plane_3d(region, rv3d, self.mouse.co, plane, matrix=matrix_world)
         if mouse_point_on_plane is None:
@@ -543,9 +599,11 @@ class Sketch(bpy.types.Operator):
         else:
             increments = self.config.form.increments if event.ctrl else 0.0
 
+        symmetry = self.data.draw.symmetry
+
         match shape:
-            case 'RECTANGLE': self.shapes.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments)
-            case 'BOX': self.shapes.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments)
+            case 'RECTANGLE': self.shapes.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
+            case 'BOX': self.shapes.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
             case 'CIRCLE': self.shapes.circle.radius, point = circle.set_xy(face, plane, mouse_point_on_plane, snap_value=increments)
             case 'CYLINDER': self.shapes.circle.radius, point = circle.set_xy(face, plane, mouse_point_on_plane, snap_value=increments)
 
@@ -578,6 +636,8 @@ class Sketch(bpy.types.Operator):
 
         extrude_face = bm.faces[self.data.extrude.faces[-1]]
         self.data.extrude.verts = [v.co.copy() for v in extrude_face.verts]
+        draw_face = bm.faces[self.data.draw.face]
+        self.data.draw.verts = [v.co.copy() for v in draw_face.verts]
 
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
@@ -628,11 +688,20 @@ class Sketch(bpy.types.Operator):
         increments = self.config.form.increments if event.ctrl else 0.0
         dz = facet.set_z(face, normal, extrude, verts, snap_value=increments)
 
+        draw_face = bm.faces[self.data.extrude.faces[0]]
+        draw_verts = self.data.draw.verts
+        if self.data.extrude.symmetry:
+            facet.set_z(draw_face, normal, -dz, draw_verts, snap_value=increments)
+        else:
+            offset = self.config.align.offset
+            facet.set_z(draw_face, normal, offset, draw_verts, snap_value=increments)
+
         # Update the extrusion value
         self.pref.extrusion = dz
         self.data.extrude.value = dz
 
-        self.data.bevel.verts = [obj.matrix_world @ v.co.copy() for v in face.verts]
+        bevel_verts = [obj.matrix_world @ v.co.copy() for v in face.verts]
+        self.data.bevel.origin = sum(bevel_verts, Vector()) / len(bevel_verts)
 
         extrude_faces = [bm.faces[index] for index in self.data.extrude.faces]
 
@@ -645,47 +714,40 @@ class Sketch(bpy.types.Operator):
         '''Boolean operation'''
         raise NotImplementedError("Subclasses must implement the _boolean_invoke method")
 
-    def _bevel_invoke(self):
+    def _bevel_invoke(self, context):
         '''Bevel the mesh'''
 
-        if self.data.bevel.mode != 'OFFSET':
-            self.data.bevel.mode = 'OFFSET'
-            return
-
-        if self.mode == 'BEVEL':
-            if self.shapes.volume == '3D':
-                self.data.bevel.type = '3D' if self.data.bevel.type == '2D' else '2D'
-            return
-
-        volume = self.shapes.volume
-        self.data.bevel.type = volume
+        self.data.bevel.segments_stored = self.data.bevel.segments
+        self.data.bevel.offset_stored = self.data.bevel.offset
         self.mouse.bevel = self.mouse.co
-        self.ui.zaxis.callback.clear()
 
-        self.mode = 'BEVEL'
+        if self.mode != 'BEVEL':
+            volume = self.shapes.volume
+            self.data.bevel.type = volume
+            self.ui.zaxis.callback.clear()
+            self.mode = 'BEVEL'
 
     def _bevel_modal(self, context):
         '''Bevel the mesh'''
         region = context.region
         rv3d = context.region_data
 
-        point = sum(self.data.bevel.verts, Vector()) / len(self.data.bevel.verts)
-        point2d = view3d.location_3d_to_region_2d(region, rv3d, point)
-        mouse_store_co_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.bevel, point)
-        mouse_co_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.co, point)
+        init_point = self.data.bevel.origin
 
-        delta = (point - mouse_store_co_3d).length
+        mouse_bevel_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.bevel, init_point)
+        mouse_co_3d = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.co, init_point)
+
+        point2d = view3d.location_3d_to_region_2d(region, rv3d, init_point)
+
+        if self.data.bevel.mode == 'OFFSET':
+            delta_3d = (init_point - mouse_co_3d).length - (init_point - mouse_bevel_3d).length
+            self.data.bevel.offset = self.data.bevel.offset_stored + delta_3d
 
         if self.data.bevel.mode == 'SEGMENTS':
-            length = int((self.mouse.bevel - self.mouse.co).length)
-            self.pref.bevel.segments = length
-        else:
-            if self.shapes.volume == '2D':
-                self.data.bevel.offset = (point - mouse_co_3d).length - delta
-                self.data.bevel.delta = self.data.bevel.offset
-            else:
-                self.data.bevel.offset = (point - mouse_co_3d).length - delta + self.data.bevel.delta
-        self.ui.guid.callback.update_batch([(point, mouse_co_3d)])
+            delta_2d = (point2d - self.mouse.co).length - (point2d - self.mouse.bevel).length
+            self.data.bevel.segments = max(1, int(self.data.bevel.segments_stored + delta_2d / 50))
+
+        self.ui.guid.callback.update_batch([(init_point, mouse_co_3d)])
 
 
 class Theme(bpy.types.PropertyGroup):

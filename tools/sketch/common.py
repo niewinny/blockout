@@ -35,7 +35,7 @@ def draw_type(layout, sketch):
     layout.use_property_split = False
     row = layout.row(align=True)
     row.scale_y = 0.8
-    row.scale_x = 0.8
+    row.scale_x = 0.
     row.prop(sketch, 'mode', expand=True)
 
 

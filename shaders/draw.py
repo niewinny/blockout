@@ -1,3 +1,4 @@
+import bpy
 from dataclasses import dataclass
 import gpu
 from mathutils import Vector
@@ -12,6 +13,7 @@ class BaseDraw:
     width = 1
 
     def draw(self, context):
+
         width = context.area.width
         height = context.area.height
         quad_view = context.space_data.region_quadviews
