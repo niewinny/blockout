@@ -3,7 +3,7 @@ import bmesh
 
 from ...src.sketch import Sketch, Config
 from ...utils import addon, scene
-from ...bmeshutils import bmeshface, rectangle, facet, box, circle
+from ...bmeshutils import bmeshface, rectangle, facet, box, circle, cylinder
 from ...bmeshutils.mesh import set_copy, get_copy
 
 
@@ -122,10 +122,11 @@ class BOUT_OT_SketchMeshTool(Sketch):
                 face_index = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
                 face = bmeshface.from_index(bm, face_index)
                 circle.set_xy(face, plane, radius=self.shapes.circle.radius, local_space=True)
-                extruded_faces = facet.extrude(bm, face, plane, extrusion)
-                face = bmeshface.from_index(bm, extruded_faces[0])
-                self._recalculate_normals(bm, extruded_faces)
+                cylinder_faces_indexes = facet.extrude(bm, face, plane, extrusion)
+                face = bmeshface.from_index(bm, cylinder_faces_indexes[0])
+                self._recalculate_normals(bm, cylinder_faces_indexes)
                 facet.set_z(face, normal, offset)
+                cylinder.bevel(bm, cylinder_faces_indexes, bevel_offset, bevel_segments=bevel_segments)
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 
