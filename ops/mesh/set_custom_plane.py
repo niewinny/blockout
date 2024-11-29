@@ -23,8 +23,8 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
         me = obj.data
         bm = bmesh.from_edit_mesh(me)
 
-        if addon.pref().tools.sketch.align.mode == 'CUSTOM':
-            addon.pref().tools.sketch.align.mode = 'FACE'
+        if addon.pref().tools.block.align.mode == 'CUSTOM':
+            addon.pref().tools.block.align.mode = 'FACE'
             self.report({'INFO'}, "Custom plane disabled")
             context.area.tag_redraw()
             return {'FINISHED'}
@@ -53,7 +53,7 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
             direction = matrix.to_3x3() @ face.calc_tangent_edge()
             length = direction.length + 0.1
 
-            addon.pref().tools.sketch.align.grid.size = length
+            addon.pref().tools.block.align.grid.size = length
 
         # If not, check if exactly one edge is selected
         elif len(selected_edges) == 1:
@@ -74,7 +74,7 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
             direction_y = sum_normal.cross(direction)
 
             normal = direction.cross(direction_y)
-            addon.pref().tools.sketch.align.grid.size = length
+            addon.pref().tools.block.align.grid.size = length
 
 
         # If not, check if exactly one vertex is selected
@@ -86,7 +86,7 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
 
             # Use direction_from_normal to compute direction
             direction = matrix.to_3x3() @ direction_from_normal(normal)
-            addon.pref().tools.sketch.align.grid.size = 1
+            addon.pref().tools.block.align.grid.size = 1
 
         else:
             self.report({'ERROR'}, "Please select exactly one face, edge, or vertex")
@@ -96,13 +96,13 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
         direction.normalize()
 
         # Set the custom plane's values
-        custom = addon.pref().tools.sketch.align.custom
+        custom = addon.pref().tools.block.align.custom
 
         custom.location = location
         custom.normal = normal
         custom.direction = direction
 
-        addon.pref().tools.sketch.align.mode = 'CUSTOM'
+        addon.pref().tools.block.align.mode = 'CUSTOM'
         self.report({'INFO'}, "Custom plane set based on selection")
 
         context.area.tag_redraw()

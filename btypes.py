@@ -4,7 +4,7 @@ from . import ops, tools, src
 
 class Tools(bpy.types.PropertyGroup):
     block2d: bpy.props.PointerProperty(type=tools.block2d.Pref)
-    sketch: bpy.props.PointerProperty(type=tools.sketch.Pref)
+    block: bpy.props.PointerProperty(type=tools.block.Pref)
 
 
 class Scene(bpy.types.PropertyGroup):

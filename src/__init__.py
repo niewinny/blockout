@@ -1,12 +1,12 @@
 import bpy
-from . import sketch
+from . import block
 
 
 class Theme(bpy.types.PropertyGroup):
-    sketch: bpy.props.PointerProperty(type=sketch.Theme)
+    block: bpy.props.PointerProperty(type=block.Theme)
 
 
 types_classes = (
-    *sketch.types_classes,
+    *block.types_classes,
     Theme,
 )

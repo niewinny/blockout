@@ -10,7 +10,7 @@ depsgraph_handler = None
 
 def add_draw_handlers(context):
     '''Add draw handlers for the custom plane axes'''
-    custom = addon.pref().tools.sketch.align.custom
+    custom = addon.pref().tools.block.align.custom
 
     location_world = custom.location
     direction_world = custom.direction
@@ -29,7 +29,7 @@ def add_draw_handlers(context):
     draw_handlers.append((x_handler, 'WINDOW'))
     draw_handlers.append((y_handler, 'WINDOW'))
 
-    grid_props = addon.pref().tools.sketch.align.grid
+    grid_props = addon.pref().tools.block.align.grid
     if grid_props.enable:
         spacing = grid_props.spacing
         size = grid_props.size
@@ -59,11 +59,11 @@ def clear_draw_handlers():
 def update(context):
     '''Update drawing handlers based on current conditions'''
     active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-    tool = active_tool and active_tool.idname in {'bout.sketch_obj', 'bout.sketch'}
+    tool = active_tool and active_tool.idname in {'bout.block_obj', 'bout.block'}
 
     clear_draw_handlers()
 
-    if tool and addon.pref().tools.sketch.align.mode == 'CUSTOM':
+    if tool and addon.pref().tools.block.align.mode == 'CUSTOM':
         add_draw_handlers(context)
 
 

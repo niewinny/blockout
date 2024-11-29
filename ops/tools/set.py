@@ -12,7 +12,7 @@ class BOUT_OT_SetActiveToolOperator(bpy.types.Operator):
         tools = [
             'bout.blockout',
             'bout.block2d',
-            'bout.sketch'
+            'bout.block'
         ]
 
         if active_edit_mode_tool not in tools:
@@ -20,7 +20,7 @@ class BOUT_OT_SetActiveToolOperator(bpy.types.Operator):
         elif active_edit_mode_tool == 'bout.blockout':
             bpy.ops.wm.tool_set_by_id(name="bout.block2d")
         elif active_edit_mode_tool == 'bout.block2d':
-            bpy.ops.wm.tool_set_by_id(name="bout.sketch")
+            bpy.ops.wm.tool_set_by_id(name="bout.block")
         else:
             bpy.ops.wm.tool_set_by_id(name="bout.blockout")
 

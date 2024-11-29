@@ -1,13 +1,13 @@
 import bpy
 import bmesh
 
-from ...src.sketch import Sketch, Config
+from ...src.block import Block, Config
 from ...utils import addon, scene
 
 
-class BOUT_OT_SketchObjTool(Sketch):
-    bl_idname = 'bout.sketch_obj_tool'
-    bl_label = 'Blockout Sketch'
+class BOUT_OT_BlockObjTool(Block):
+    bl_idname = 'bout.block_obj_tool'
+    bl_label = 'Blockout Block'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Tool for drawing a mesh"
 
@@ -24,18 +24,18 @@ class BOUT_OT_SketchObjTool(Sketch):
 
     def _header_text(self):
         '''Set the header text'''
-        pref = addon.pref().tools.sketch.obj
+        pref = addon.pref().tools.block.obj
         text = f"Shape: {pref.shape.capitalize()}"
 
         return text
 
     def set_config(self, context):
         config = Config()
-        config.shape = addon.pref().tools.sketch.obj.shape
-        config.form = addon.pref().tools.sketch.form
-        config.align = addon.pref().tools.sketch.align
-        config.pick = addon.pref().tools.sketch.obj.pick
-        config.mode = addon.pref().tools.sketch.obj.mode
+        config.shape = addon.pref().tools.block.obj.shape
+        config.form = addon.pref().tools.block.form
+        config.align = addon.pref().tools.block.align
+        config.pick = addon.pref().tools.block.obj.pick
+        config.mode = addon.pref().tools.block.obj.mode
         config.type = 'OBJECT'
 
         return config
@@ -44,7 +44,7 @@ class BOUT_OT_SketchObjTool(Sketch):
 
         new_mesh = bpy.data.meshes.new('BlockOut')
         new_obj = bpy.data.objects.new('BlockOut', new_mesh)
-        if addon.pref().tools.sketch.obj.mode != 'CREATE':
+        if addon.pref().tools.block.obj.mode != 'CREATE':
             new_obj.display_type = 'WIRE'
         context.collection.objects.link(new_obj)
 
@@ -60,5 +60,5 @@ class BOUT_OT_SketchObjTool(Sketch):
 
 
 classes = (
-    BOUT_OT_SketchObjTool,
+    BOUT_OT_BlockObjTool,
 )

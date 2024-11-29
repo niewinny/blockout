@@ -1,42 +1,42 @@
-def draw_align(layout, sketch):
+def draw_align(layout, block):
     '''Draw align properties'''
 
     layout.use_property_split = False
     row = layout.row(align=True)
     row.scale_y = 0.8
     row.scale_x = 0.8
-    row.prop(sketch.align, 'mode', expand=True)
+    row.prop(block.align, 'mode', expand=True)
     layout.separator()
     layout.use_property_split = True
-    layout.prop(sketch.align, 'offset')
+    layout.prop(block.align, 'offset')
     layout.use_property_split = True
     col = layout.column(align=True)
-    if sketch.align.mode == 'FACE':
-        col.prop(sketch.align, 'face')
-    if sketch.align.mode == 'VIEW':
-        col.prop(sketch.align, 'view')
-    if sketch.align.mode == 'CUSTOM':
-        col.prop(sketch.align.custom, 'location')
-        col.prop(sketch.align.custom, 'normal')
-        col.prop(sketch.align.custom, 'direction')
+    if block.align.mode == 'FACE':
+        col.prop(block.align, 'face')
+    if block.align.mode == 'VIEW':
+        col.prop(block.align, 'view')
+    if block.align.mode == 'CUSTOM':
+        col.prop(block.align.custom, 'location')
+        col.prop(block.align.custom, 'normal')
+        col.prop(block.align.custom, 'direction')
         layout.separator()
         col = layout.column(align=True, heading='Grid')
         col.use_property_decorate = True
-        col.prop(sketch.align.grid, 'enable', text='')
+        col.prop(block.align.grid, 'enable', text='')
         col2 = col.column(align=True)
-        col2.enabled = sketch.align.grid.enable
-        col2.prop(sketch.align.grid, 'spacing')
-        col2.prop(sketch.align.grid, 'size')
+        col2.enabled = block.align.grid.enable
+        col2.prop(block.align.grid, 'spacing')
+        col2.prop(block.align.grid, 'size')
 
 
-def draw_type(layout, sketch):
+def draw_type(layout, block):
     '''Draw type properties'''
 
     layout.use_property_split = False
     row = layout.row(align=True)
     row.scale_y = 0.8
     row.scale_x = 0.
-    row.prop(sketch, 'mode', expand=True)
+    row.prop(block, 'mode', expand=True)
 
 
 def draw_form(layout, form):

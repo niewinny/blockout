@@ -19,7 +19,7 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
     bl_space_type = 'VIEW_3D'
     bl_context_mode = 'EDIT_MESH'
     bl_region_type = 'WINDOW'
-    bl_options = {'3D', 'PERSISTENT'}
+    bl_options = {'3D'}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -28,7 +28,7 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
     @classmethod
     def poll(cls, context):
         active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-        blockout_tool = active_tool and (active_tool.idname == 'bout.blockout' or active_tool.idname == 'bout.sketch')
+        blockout_tool = active_tool and (active_tool.idname == 'bout.blockout' or active_tool.idname == 'bout.block')
         return (context.space_data.show_gizmo_tool and
                 context.edit_object and
                 blockout_tool)

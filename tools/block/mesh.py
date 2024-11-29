@@ -5,25 +5,24 @@ from ...utils import gizmo, addon
 from .common import draw_align, draw_type, draw_form
 
 
-class BOUT_MT_Sketch(bpy.types.WorkSpaceTool):
+class BOUT_MT_Block(bpy.types.WorkSpaceTool):
     bl_space_type = 'VIEW_3D'
     bl_context_mode = 'EDIT_MESH'
-    bl_idname = 'bout.sketch'
-    bl_label = 'Sketch'
+    bl_idname = 'bout.block'
+    bl_label = 'Block'
     bl_description = 'Tool for blocking out a mesh'
     bl_icon = 'ops.generic.select_circle'
     bl_options = {'KEYMAP_FALLBACK'}
-    bl_widget = 'BOUT_GGT_Blockout'
     bl_keymap = (
-        ('bout.sketch_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
+        ('bout.block_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
         ('bout.set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': []}),
     )
 
     def draw_settings(context, layout, tool):
-        sketch = addon.pref().tools.sketch
-        layout.prop(sketch.mesh, 'shape')
+        block = addon.pref().tools.block
+        layout.prop(block.mesh, 'shape')
         label = "None  "
-        _type = sketch.mesh.mode
+        _type = block.mesh.mode
         match _type:
             case 'CUT': label = "Cut"
             case 'CREATE': label = "Create"
@@ -32,7 +31,7 @@ class BOUT_MT_Sketch(bpy.types.WorkSpaceTool):
         layout.popover('BOUT_PT_TypeMesh', text=label)
         layout.label(text="Align:")
         label = "None"
-        mode = sketch.align.mode
+        mode = block.align.mode
         match mode:
             case 'VIEW': label = "View"
             case 'FACE': label = "Face"
@@ -48,10 +47,10 @@ class BOUT_PT_AlignMesh(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        sketch = addon.pref().tools.sketch
-        draw_align(layout, sketch)
-        if sketch.align.mode == 'FACE':
-            layout.prop(sketch.mesh, 'pick')
+        block = addon.pref().tools.block
+        draw_align(layout, block)
+        if block.align.mode == 'FACE':
+            layout.prop(block.mesh, 'pick')
 
 
 class BOUT_PT_TypeMesh(bpy.types.Panel):
@@ -62,10 +61,10 @@ class BOUT_PT_TypeMesh(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        sketch = addon.pref().tools.sketch
-        mesh = sketch.mesh
+        block = addon.pref().tools.block
+        mesh = block.mesh
         draw_type(layout, mesh)
-        form = sketch.form
+        form = block.form
         draw_form(layout, form)
 
 

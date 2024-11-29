@@ -205,7 +205,6 @@ def snap_plane(plane, snap_plane, direction, snap_value):
     return snapped_point, plane[1]
 
 
-
 def point_on_axis(plane, direction, point, distance):
     '''Get the closest point on the plane along the given axis within the given distance'''
     location, normal = plane

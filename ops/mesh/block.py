@@ -1,15 +1,15 @@
 import bpy
 import bmesh
 
-from ...src.sketch import Sketch, Config
+from ...src.block import Block, Config
 from ...utils import addon, scene
 from ...bmeshutils import bmeshface, rectangle, facet, box, circle, cylinder
 from ...bmeshutils.mesh import set_copy, get_copy
 
 
-class BOUT_OT_SketchMeshTool(Sketch):
-    bl_idname = 'bout.sketch_mesh_tool'
-    bl_label = 'Blockout Sketch'
+class BOUT_OT_BlockMeshTool(Block):
+    bl_idname = 'bout.block_mesh_tool'
+    bl_label = 'Blockout Block'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Tool for drawing a mesh"
 
@@ -27,18 +27,18 @@ class BOUT_OT_SketchMeshTool(Sketch):
 
     def _header_text(self):
         '''Set the header text'''
-        pref = addon.pref().tools.sketch.mesh
+        pref = addon.pref().tools.block.mesh
         text = f"Shape: {pref.shape.capitalize()}"
 
         return text
 
     def set_config(self, context):
         config = Config()
-        config.shape = addon.pref().tools.sketch.mesh.shape
-        config.form = addon.pref().tools.sketch.form
-        config.align = addon.pref().tools.sketch.align
-        config.pick = addon.pref().tools.sketch.mesh.pick
-        config.mode = addon.pref().tools.sketch.mesh.mode
+        config.shape = addon.pref().tools.block.mesh.shape
+        config.form = addon.pref().tools.block.form
+        config.align = addon.pref().tools.block.align
+        config.pick = addon.pref().tools.block.mesh.pick
+        config.mode = addon.pref().tools.block.mesh.mode
         config.type = 'MESH'
 
         return config
@@ -153,5 +153,5 @@ class BOUT_OT_SketchMeshTool(Sketch):
 
 
 classes = (
-    BOUT_OT_SketchMeshTool,
+    BOUT_OT_BlockMeshTool,
 )

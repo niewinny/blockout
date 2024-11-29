@@ -18,10 +18,10 @@ def register():
     for cls in classes:
         register_class(cls)
 
-    register_tool(tools.sketch.mesh.BOUT_MT_Sketch, group=True, separator=True)
-    register_tool(tools.block2d.BOUT_MT_Mesh_Block2D, group=False, separator=False, after={'bout.sketch'})
+    register_tool(tools.block.mesh.BOUT_MT_Block, group=True, separator=True)
+    register_tool(tools.block2d.BOUT_MT_Mesh_Block2D, group=False, separator=False, after={'bout.block'})
 
-    register_tool(tools.sketch.obj.BOUT_MT_SketchObj, group=True, separator=True)
+    register_tool(tools.block.obj.BOUT_MT_BlockObj, group=True, separator=True)
 
     btypes.register()
     keymap.register()
@@ -33,9 +33,9 @@ def unregister():
     handlers.unregister()
     keymap.unregister()
 
-    unregister_tool(tools.sketch.obj.BOUT_MT_SketchObj)
+    unregister_tool(tools.block.obj.BOUT_MT_BlockObj)
 
-    unregister_tool(tools.sketch.mesh.BOUT_MT_Sketch)
+    unregister_tool(tools.block.mesh.BOUT_MT_Block)
     unregister_tool(tools.block2d.BOUT_MT_Mesh_Block2D)
 
     for cls in reversed(classes):

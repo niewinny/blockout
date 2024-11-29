@@ -42,7 +42,7 @@ class BOUT_Preference(bpy.types.AddonPreferences):
             self.theme_layout(flow, theme.ops.mesh.loop_bisect)
             self.theme_layout(flow, theme.ops.mesh.match_face)
             self.theme_layout(flow, theme.ops.mesh.line_cut)
-            self.theme_layout(flow, theme.src.sketch)
+            self.theme_layout(flow, theme.src.block)
 
     def theme_layout(self, layout, theme):
         '''Draw a theme layout'''

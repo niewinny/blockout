@@ -1,8 +1,8 @@
 import bpy
 
-from . import sketch
+from . import block
 
 
 classes = (
-    *sketch.classes,
+    *block.classes,
 )

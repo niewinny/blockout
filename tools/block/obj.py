@@ -5,24 +5,24 @@ from ...utils import gizmo, addon
 from .common import draw_align, draw_type, draw_form
 
 
-class BOUT_MT_SketchObj(bpy.types.WorkSpaceTool):
+class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
     bl_space_type = 'VIEW_3D'
     bl_context_mode = 'OBJECT'
-    bl_idname = 'bout.sketch_obj'
-    bl_label = 'Sketch'
+    bl_idname = 'bout.block_obj'
+    bl_label = 'Block'
     bl_description = 'Tool for blocking out a mesh'
     bl_icon = 'ops.generic.select_circle'
     bl_options = {'KEYMAP_FALLBACK'}
     bl_keymap = (
-        ('bout.sketch_obj_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
+        ('bout.block_obj_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
 
     )
 
     def draw_settings(context, layout, tool):
-        sketch = addon.pref().tools.sketch
-        layout.prop(sketch.obj, 'shape')
+        block = addon.pref().tools.block
+        layout.prop(block.obj, 'shape')
         label = "None  "
-        _type = sketch.obj.mode
+        _type = block.obj.mode
         match _type:
             case 'CUT': label = "Cut"
             case 'CREATE': label = "Create"
@@ -31,7 +31,7 @@ class BOUT_MT_SketchObj(bpy.types.WorkSpaceTool):
         layout.popover('BOUT_PT_TypeObj', text=label)
         layout.label(text="Align:")
         label = "None"
-        mode = sketch.align.mode
+        mode = block.align.mode
         match mode:
             case 'VIEW': label = "View"
             case 'FACE': label = "Face"
@@ -47,10 +47,10 @@ class BOUT_PT_AlignObj(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        sketch = addon.pref().tools.sketch
-        draw_align(layout, sketch)
-        if sketch.align.mode == 'FACE':
-            layout.prop(sketch.obj, 'pick')
+        block = addon.pref().tools.block
+        draw_align(layout, block)
+        if block.align.mode == 'FACE':
+            layout.prop(block.obj, 'pick')
 
 
 class BOUT_PT_TypeObj(bpy.types.Panel):
@@ -61,10 +61,10 @@ class BOUT_PT_TypeObj(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        sketch = addon.pref().tools.sketch
-        obj = sketch.obj
+        block = addon.pref().tools.block
+        obj = block.obj
         draw_type(layout, obj)
-        form = sketch.form
+        form = block.form
         draw_form(layout, form)
         layout.prop(form, 'origin')
 

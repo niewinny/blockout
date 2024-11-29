@@ -1,7 +1,7 @@
 import bpy
 
 from . import bevel
-from . import sketch
+from . import block
 from . import line_cut
 from . import edge_expand
 from . import loop_bisect
@@ -27,7 +27,7 @@ types_classes = (
 
 classes = (
     *bevel.classes,
-    *sketch.classes,
+    *block.classes,
     *line_cut.classes,
     *edge_expand.classes,
     *loop_bisect.classes,

@@ -1,5 +1,5 @@
 import bpy
-from . tools.sketch import custom
+from . tools.block import custom
 from bpy.app.handlers import persistent
 
 

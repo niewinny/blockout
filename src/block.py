@@ -151,7 +151,7 @@ class Shapes(bpy.types.PropertyGroup):
     circle: bpy.props.PointerProperty(type=Circle)
 
 
-class Sketch(bpy.types.Operator):
+class Block(bpy.types.Operator):
     pref: bpy.props.PointerProperty(type=Pref)
     shapes: bpy.props.PointerProperty(type=Shapes)
 
@@ -171,7 +171,7 @@ class Sketch(bpy.types.Operator):
 
     def get_tool_prpoerties(self):
         '''Get the tool properties'''
-        self.pref.bevel.segments = addon.pref().tools.sketch.form.segments
+        self.pref.bevel.segments = addon.pref().tools.block.form.segments
 
     def build_bmesh(self, context):
         '''Set the object data'''
@@ -305,7 +305,7 @@ class Sketch(bpy.types.Operator):
 
     def save_props(self):
         '''Store the properties'''
-        addon.pref().tools.sketch.form.segments = self.pref.bevel.segments
+        addon.pref().tools.block.form.segments = self.pref.bevel.segments
 
     def set_offset(self):
         '''Set the offset'''
@@ -376,6 +376,8 @@ class Sketch(bpy.types.Operator):
         elif event.type == 'B':
             if event.value == 'PRESS':
                 if self.config.shape in {'RECTANGLE', 'BOX', 'CYLINDER'}:
+                    if self.config.shape == 'CYLINDER' and self.shapes.volume == '2D':
+                        return {'RUNNING_MODAL'}
                     self.data.bevel.mode = 'OFFSET'
                     if self.mode == 'BEVEL' and self.shapes.volume == '3D':
                         self.data.bevel.type = '2D' if self.data.bevel.type == '3D' else '3D'
@@ -450,7 +452,7 @@ class Sketch(bpy.types.Operator):
         self.ui.zaxis.create(context, color=color.z)
         self.ui.xaxis.create(context, color=color.x)
         self.ui.yaxis.create(context, color=color.y)
-        color = addon.pref().theme.src.sketch
+        color = addon.pref().theme.src.block
         face_color = color.cut if self.config.mode == 'CUT' else color.slice
         obj = self.data.obj
         self.ui.faces.create(context, obj=obj, color=face_color)
