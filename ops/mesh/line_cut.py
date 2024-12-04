@@ -344,7 +344,7 @@ class BOUT_OT_Cut2D_TOOL(Bisect):
 
     def invoke(self, context, event):
         """Initialize tool-specific settings before invoking the operator."""
-        tool_prefs = addon.pref().tools.block2d
+        tool_prefs = addon.pref().tools.sketch
         self.mode = tool_prefs.mode
         return super().invoke(context, event)
 
