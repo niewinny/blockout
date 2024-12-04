@@ -3,7 +3,7 @@ from . import block
 
 
 class Theme(bpy.types.PropertyGroup):
-    block: bpy.props.PointerProperty(type=block.Theme)
+    block: bpy.props.PointerProperty(type=block.ui.Theme)
 
 
 types_classes = (

@@ -1,7 +1,8 @@
 import bpy
 import bmesh
 
-from ...src.block import Block, Config
+from ...src.block.operator import Block
+from ...src.block.data import Config
 from ...utils import addon, scene
 
 

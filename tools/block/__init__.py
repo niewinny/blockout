@@ -35,10 +35,9 @@ class Align(bpy.types.PropertyGroup):
     face: bpy.props.EnumProperty(
         name="Orientation",
         description="Face Orientation",
-        items=[('CLOSEST', 'Closest Edge', 'Orient drawing plane using the closest edge of the face'),
-               ('LONGEST', 'Longest Edge', 'Orient drawing plane using the longest edge of the face'),
+        items=[('EDGE', 'Edge', 'Orient drawing plane using the closest edge of the face'),
                ('PLANAR', 'Planar', 'Orient drawing plane using the face normal and viewport up vector')],
-        default='CLOSEST')
+        default='EDGE')
     custom: bpy.props.PointerProperty(type=Custom)
     grid: bpy.props.PointerProperty(type=Grid)
     offset: bpy.props.FloatProperty(name="Offset", description="Offset the mesh above the drawing plane", default=0.001, subtype='DISTANCE')

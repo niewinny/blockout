@@ -16,6 +16,7 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
     bl_keymap = (
         ('bout.block_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
         ('bout.set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': []}),
+        ('view3d.edit_mesh_extrude_manifold_normal', {'type': 'E', 'value': 'PRESS'}, {'properties': []}),
     )
 
     def draw_settings(context, layout, tool):
