@@ -15,6 +15,35 @@ class DrawUI(handle.Common):
     def __post_init__(self):
         self.clear_all()
 
+    def clear_higlight(self):
+        '''Clear axis highlight'''
+        axis = bpy.context.scene.bout.axis
+        axis.highlight.x, axis.highlight.y = (False, False)
+
+
+def hotkeys(self, layout, _context, _event):
+    '''Draw the infobar hotkeys'''
+
+    factor = 4.0
+    row = layout.row(align=True)
+    row.label(text=self.mode.capitalize(), icon='MOUSE_MOVE')
+    row.separator(factor=factor)
+    lmb = 'Extrude' if self.mode == 'DRAW' else 'Finish'
+    row.label(text=lmb, icon='MOUSE_LMB')
+    row.separator(factor=factor)
+    row.label(text='Cancel', icon='MOUSE_RMB')
+    row.separator(factor=factor)
+    row.label(text='Snap', icon='EVENT_CTRL')
+    row.separator(factor=factor)
+    row.label(text='Symmetry', icon='EVENT_Z')
+    row.separator(factor=factor)
+    bpress = 'Offset' if self.mode == 'BEVEL' else 'BEVEL'
+    row.label(text=bpress, icon='EVENT_B')
+    row.separator(factor=factor)
+    if self.mode == 'BEVEL':
+        row.label(text='Segments', icon='EVENT_S')
+        row.separator(factor=factor)
+
 
 class Theme(bpy.types.PropertyGroup):
     cut: bpy.props.FloatVectorProperty(

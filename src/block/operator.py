@@ -4,9 +4,8 @@ import bmesh
 from mathutils import Vector
 
 from .data import CreatedData, Config, Objects, Mouse, Pref, Shapes
-from .ui import DrawUI
 
-from . import bevel, draw, extrude
+from . import bevel, draw, extrude, ui
 
 from ...utils import addon, scene, infobar, view3d
 from ...bmeshutils import facet
@@ -19,7 +18,7 @@ class Block(bpy.types.Operator):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.ui = DrawUI()
+        self.ui = ui.DrawUI()
         self.ray = scene.ray_cast.Ray()
         self.mouse = Mouse()
         self.data = CreatedData()
@@ -79,37 +78,9 @@ class Block(bpy.types.Operator):
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}
 
-    def _infobar(self, layout, _context, _event):
+    def _infobar(self, layout, context, event):
         '''Draw the infobar hotkeys'''
-
-        row = layout.row(align=True)
-        row.label(text='', icon='MOUSE_MOVE')
-        if self.mode == 'DRAW':
-            row.label(text='Draw')
-        elif self.mode == 'EXTRUDE':
-            row.label(text='Extrude')
-        elif self.mode == 'BEVEL':
-            row.label(text='Bevel')
-        row.separator(factor=6.0)
-        row.label(text='', icon='MOUSE_LMB')
-        if self.mode == 'DRAW':
-            row.label(text='Extrude')
-        elif self.mode == 'EXTRUDE':
-            row.label(text='Finish')
-        row.separator(factor=6.0)
-        row.label(text='', icon='MOUSE_RMB')
-        row.label(text='Cancel')
-        row.separator(factor=6.0)
-        row.label(text='', icon='EVENT_B')
-        if self.mode == 'BEVEL':
-            row.label(text='Offset')
-        else:
-            row.label(text='Bevel')
-        row.separator(factor=6.0)
-        if self.mode == 'BEVEL':
-            row.label(text='', icon='EVENT_S')
-            row.label(text='Segments')
-            row.separator(factor=6.0)
+        ui.hotkeys(self, layout, context, event)
 
     def draw(self, context):
         layout = self.layout
@@ -270,8 +241,8 @@ class Block(bpy.types.Operator):
 
         if self.data.copy.init:
             bpy.data.meshes.remove(self.data.copy.init)
-        if self.data.copy.extrude:
-            bpy.data.meshes.remove(self.data.copy.extrude)
+        if self.data.copy.draw:
+            bpy.data.meshes.remove(self.data.copy.draw)
 
         self.mouse = None
         self.ray = None
@@ -280,6 +251,7 @@ class Block(bpy.types.Operator):
         self.objects = None
 
         self.ui.clear()
+        self.ui.clear_higlight()
 
         context.window.cursor_set('CROSSHAIR')
         context.area.header_text_set(text=None)
@@ -294,15 +266,20 @@ class Block(bpy.types.Operator):
         text = self._header_text()
 
         x_length, y_length = self.shapes.rectangle.co
-        z_length = self.pref.extrusion
+        z_length = self.data.extrude.value
         radius = self.shapes.circle.radius
+        dimentions = ''
 
         shape = self.config.shape
-        match shape:
-            case 'RECTANGLE': dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f}'
-            case 'CIRCLE': dimentions = f' Radius:{radius:.4f}'
-            case 'BOX': dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_length:.4f}'
-            case 'CYLINDER': dimentions = f' Radius:{radius:.4f},  Dz:{z_length:.4f}'
+        if self.mode == 'BEVEL':
+            text = 'Bevel'
+            dimentions = f'Type:{self.data.bevel.type}, Offset:{self.data.bevel.offset:.4f},  Segments:{self.data.bevel.segments}'
+        else:
+            match shape:
+                case 'RECTANGLE': dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f}'
+                case 'CIRCLE': dimentions = f' Radius:{radius:.4f}'
+                case 'BOX': dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_length:.4f}'
+                case 'CYLINDER': dimentions = f' Radius:{radius:.4f},  Dz:{z_length:.4f}'
 
         header = f'{text} {dimentions}'
         context.area.header_text_set(text=header)

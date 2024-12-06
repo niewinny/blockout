@@ -151,6 +151,9 @@ def _get_orientation(cls, context):
 
         cls.data.draw.symmetry = detected_axis
 
+        axis = context.scene.bout.axis
+        axis.highlight.x, axis.highlight.y = detected_axis
+
         plane_world = (location_world, custom_normal)
 
         return custom_direction, plane_world

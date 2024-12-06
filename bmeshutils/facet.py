@@ -120,3 +120,19 @@ def bevel(bm, face, bevel_offset=0.0, bevel_segments=1):
         bm.faces.index_update()
 
     return face.index
+
+
+def remove_doubles(bm, face):
+    '''Remove double vertices'''
+
+    verts = [v for v in face.verts]
+    bmesh.ops.remove_doubles(bm, verts=verts, dist=0.0001)
+
+    face.select_set(True)
+
+    bm.verts.ensure_lookup_table()
+    bm.verts.index_update()
+    bm.edges.ensure_lookup_table()
+    bm.edges.index_update()
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()

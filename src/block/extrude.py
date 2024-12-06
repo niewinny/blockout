@@ -70,7 +70,6 @@ def modal(self, context, event):
 
     if extrude is None:
         # Handle the case where the line and ray are parallel
-        self.pref.extrusion = 0.0
         self.data.extrude.value = 0.0
         return
 
@@ -87,7 +86,6 @@ def modal(self, context, event):
         facet.set_z(draw_face, normal, offset, draw_verts, snap_value=increments)
 
     # Update the extrusion value
-    self.pref.extrusion = dz
     self.data.extrude.value = dz
 
     bevel_verts = [obj.matrix_world @ v.co.copy() for v in face.verts]

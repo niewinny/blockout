@@ -55,7 +55,8 @@ class Extrude:
 class Copy:
     '''Dataclass for storing options'''
     init: bpy.types.Mesh = None
-    extrude: bpy.types.Mesh = None
+    draw: bpy.types.Mesh = None
+    boolean: bpy.types.Mesh = None
 
 
 @dataclass

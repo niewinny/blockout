@@ -59,17 +59,24 @@ class BOUT_OT_BlockMeshTool(Block):
     def _extrude_invoke(self, context):
         super()._extrude_invoke(context)
         if self.config.mode != 'CREATE':
-            self.data.copy.extrude = set_copy(self.data.obj)
+            self.data.copy.draw = set_copy(self.data.obj)
 
     def _extrude_modal(self, context, event):
         if self.config.mode != 'CREATE':
-            get_copy(self.data.obj, self.data.bm, self.data.copy.extrude)
+            get_copy(self.data.obj, self.data.bm, self.data.copy.draw)
         super()._extrude_modal(context, event)
 
     def _boolean_invoke(self, obj, bm):
         if self.shapes.volume == '3D':
             bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
             self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+            if self.config.mode == 'SLICE':
+                self.data.copy.boolean = set_copy(obj)
+
+                get_copy(obj, bm, self.data.copy.draw)
+
+                # bpy.ops.mesh.intersect_boolean(operation='INTERSECT', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     def build_geometry(self, obj, bm):
 
@@ -95,7 +102,9 @@ class BOUT_OT_BlockMeshTool(Block):
                 face = bmeshface.from_index(bm, face_index)
                 rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 facet.set_z(face, normal, offset)
-                facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
+                face_index = facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
+                face = bmeshface.from_index(bm, face_index)
+                facet.remove_doubles(bm, face)
             case 'BOX':
                 face_index = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, face_index)
@@ -110,6 +119,7 @@ class BOUT_OT_BlockMeshTool(Block):
                 else:
                     face_index = facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
                     face = bmeshface.from_index(bm, face_index)
+                    facet.remove_doubles(bm, face)
                     if self.shapes.volume == '3D':
                         extruded_faces = facet.extrude(bm, face, plane, extrusion)
                         self._recalculate_normals(bm, extruded_faces)

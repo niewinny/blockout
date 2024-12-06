@@ -7,8 +7,18 @@ class Tools(bpy.types.PropertyGroup):
     block: bpy.props.PointerProperty(type=tools.block.Pref)
 
 
+class Highlight(bpy.types.PropertyGroup):
+    x: bpy.props.BoolProperty(name="X", description="Highlight X axis", default=False)
+    y: bpy.props.BoolProperty(name="Y", description="Highlight Y axis", default=False)
+
+
+class SceneAxis(bpy.types.PropertyGroup):
+    highlight: bpy.props.PointerProperty(type=Highlight)
+
+
 class Scene(bpy.types.PropertyGroup):
     tools: bpy.props.PointerProperty(type=tools.Scene)
+    axis: bpy.props.PointerProperty(type=SceneAxis)
 
 
 class ThemeAxis(bpy.types.PropertyGroup):
@@ -28,6 +38,8 @@ classes = [
     *ops.types_classes,
     *tools.types_classes,
     Tools,
+    Highlight,
+    SceneAxis,
     Scene,
     ThemeAxis,
     Theme,
@@ -35,9 +47,9 @@ classes = [
 
 
 def register():
-    bpy.types.Scene.nsolve = bpy.props.PointerProperty(type=Scene)
+    bpy.types.Scene.bout = bpy.props.PointerProperty(type=Scene)
 
 
 def unregister():
 
-    del bpy.types.Scene.nsolve
+    del bpy.types.Scene.bout

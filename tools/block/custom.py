@@ -11,6 +11,7 @@ depsgraph_handler = None
 def add_draw_handlers(context):
     '''Add draw handlers for the custom plane axes'''
     custom = addon.pref().tools.block.align.custom
+    highlight = context.scene.bout.axis.highlight
 
     location_world = custom.location
     direction_world = custom.direction
@@ -21,9 +22,14 @@ def add_draw_handlers(context):
     point_y = location_world + direction_y
 
     color = addon.pref().theme.axis
-    x_axis = DrawLine(points=(location_world, point_x), width=1.6, color=color.x, depth=False)
+    # Brighten colors when highlighted (multiply RGB by 1.5, set alpha to 1)
+    value = 1.2
+    x_color = tuple(c * value if highlight.x else c for c in color.x[:3]) + (1,) if highlight.x else color.x
+    y_color = tuple(c * value if highlight.y else c for c in color.y[:3]) + (1,) if highlight.y else color.y
+    
+    x_axis = DrawLine(points=(location_world, point_x), width=1.6, color=x_color, depth=False)
     x_handler = bpy.types.SpaceView3D.draw_handler_add(x_axis.draw, (context,), 'WINDOW', 'POST_VIEW')
-    y_axis = DrawLine(points=(location_world, point_y), width=1.6, color=color.y, depth=False)
+    y_axis = DrawLine(points=(location_world, point_y), width=1.6, color=y_color, depth=False)
     y_handler = bpy.types.SpaceView3D.draw_handler_add(y_axis.draw, (context,), 'WINDOW', 'POST_VIEW')
 
     draw_handlers.append((x_handler, 'WINDOW'))
