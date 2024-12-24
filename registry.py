@@ -1,6 +1,6 @@
 import bpy
 from bpy.utils import register_class, unregister_class, register_tool, unregister_tool
-from . import btypes, ops, ui, preferences, tools, gizmo, keymap, handlers
+from . import btypes, ops, ui, preferences, tools, gizmo, keymap, handlers, assets
 
 
 classes = (
@@ -8,6 +8,7 @@ classes = (
     *preferences.classes,
     *ops.classes,
     *tools.classes,
+    *assets.classes,
     *gizmo.classes,
     *ui.classes,
 )

@@ -51,5 +51,4 @@ def register():
 
 
 def unregister():
-
     del bpy.types.Scene.bout
