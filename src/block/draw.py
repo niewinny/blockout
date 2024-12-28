@@ -146,8 +146,11 @@ def _get_orientation(cls, context):
         custom_plane = (custom_location, custom_normal)
 
         # Get a point on the plane by projecting mouse.init onto the plane
-        location_world = view3d.region_2d_to_plane_3d(context.region, context.region_data, cls.mouse.init, custom_plane)
-        location_world, detected_axis = orientation.point_on_axis(custom_plane, custom_direction, location_world, distance=0.2)
+        region = context.region
+        rv3d = context.region_data
+    
+        location_world = view3d.region_2d_to_plane_3d(region, rv3d, cls.mouse.init, custom_plane)
+        location_world, detected_axis = orientation.point_on_axis(region, rv3d, custom_plane, custom_direction, location_world, distance=30)
 
         cls.data.draw.symmetry = detected_axis
 

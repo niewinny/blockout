@@ -205,7 +205,7 @@ def snap_plane(plane, snap_plane, direction, snap_value):
     return snapped_point, plane[1]
 
 
-def point_on_axis(plane, direction, point, distance):
+def point_on_axis(region, rv3d, plane, direction, point, distance):
     '''Get the closest point on the plane along the given axis within the given distance'''
 
     if not point:
@@ -218,23 +218,36 @@ def point_on_axis(plane, direction, point, distance):
 
     vec = point - location
     proj_length = vec.dot(y_axis)
-    proj_vec_y = proj_length * y_axis
+    proj_vec_y = proj_length * y_axis 
     proj_vec_x = vec - proj_vec_y
 
     length_x = proj_vec_x.length
     length_y = proj_vec_y.length
 
-    if length_x <= distance and length_y <= distance:
-        axis = (True, True)
-        closest_point = location
-    elif length_x <= distance and (length_x <= length_y or length_y > distance):
-        axis = (False, True)
-        closest_point = location + proj_vec_y
-    elif length_y <= distance and (length_y < length_x or length_x > distance):
-        axis = (True, False)
-        closest_point = location + proj_vec_x
-    else:
-        axis = (False, False)
-        closest_point = point
+    point_2d = view3d.location_3d_to_region_2d(region, rv3d, point)
 
-    return closest_point, axis
+    # First check center point
+    if length_x <= 1 and length_y <= 1:
+        # Verify in 2D space
+        center_2d = view3d.location_3d_to_region_2d(region, rv3d, location)
+        if center_2d and point_2d:
+            if (center_2d - point_2d).length <= distance:
+                return location, (True, True)
+    
+    # If center point didn't work, check individual axes
+    if length_x <= 1:
+        projected_point = location + proj_vec_y
+        projected_2d = view3d.location_3d_to_region_2d(region, rv3d, projected_point)
+        if projected_2d and point_2d:
+            if (projected_2d - point_2d).length <= distance:
+                return projected_point, (False, True)
+    
+    if length_y <= 1:
+        projected_point = location + proj_vec_x
+        projected_2d = view3d.location_3d_to_region_2d(region, rv3d, projected_point)
+        if projected_2d and point_2d:
+            if (projected_2d - point_2d).length <= distance:
+                return projected_point, (True, False)
+    
+    # No valid snapping found
+    return point, (False, False)
