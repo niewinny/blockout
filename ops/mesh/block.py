@@ -5,7 +5,7 @@ from ...src.block.operator import Block
 from ...src.block.data import Config
 from ...utils import addon, scene
 from ...bmeshutils import bmeshface, rectangle, facet, box, circle, cylinder
-from ...bmeshutils.mesh import set_copy, get_copy
+from ...bmeshutils.mesh import set_copy, get_copy, merge_copy
 
 
 class BOUT_OT_BlockMeshTool(Block):
@@ -70,13 +70,6 @@ class BOUT_OT_BlockMeshTool(Block):
         if self.shapes.volume == '3D':
             bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
             self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-            if self.config.mode == 'SLICE':
-                self.data.copy.boolean = set_copy(obj)
-
-                get_copy(obj, bm, self.data.copy.draw)
-
-                # bpy.ops.mesh.intersect_boolean(operation='INTERSECT', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
-                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     def build_geometry(self, obj, bm):
 

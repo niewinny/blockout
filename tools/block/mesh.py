@@ -12,11 +12,11 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
     bl_label = 'Block'
     bl_description = 'Tool for blocking out a mesh'
     bl_icon = 'ops.generic.select_circle'
-    bl_options = {'KEYMAP_FALLBACK'}
     bl_keymap = (
         ('bout.block_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
         ('bout.set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': []}),
         ('view3d.edit_mesh_extrude_manifold_normal', {'type': 'E', 'value': 'PRESS'}, {'properties': []}),
+        ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG', 'shift': True}, {'properties': [('mode', 'ADD')]}),
     )
 
     def draw_settings(context, layout, tool):
@@ -27,7 +27,6 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
         match _type:
             case 'CUT': label = "Cut"
             case 'CREATE': label = "Create"
-            case 'SLICE':label = "Slice"
         layout.label(text="Form:")
         layout.popover('BOUT_PT_TypeMesh', text=label)
         layout.label(text="Align:")
@@ -82,8 +81,7 @@ class Pref(bpy.types.PropertyGroup):
         name="Mode",
         description="Mode",
         items=[('CUT', 'Cut', 'Cut'),
-               ('CREATE', 'Create', 'Create'),
-               ('SLICE', 'Slice', 'Slice')],
+               ('CREATE', 'Create', 'Create')],
         default='CREATE')
     pick: bpy.props.EnumProperty(
         name="Pick",

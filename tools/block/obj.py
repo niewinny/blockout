@@ -12,10 +12,9 @@ class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
     bl_label = 'Block'
     bl_description = 'Tool for blocking out a mesh'
     bl_icon = 'ops.generic.select_circle'
-    bl_options = {'KEYMAP_FALLBACK'}
     bl_keymap = (
         ('bout.block_obj_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
-
+        ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG', 'shift': True}, {'properties': [('mode', 'ADD')]}),
     )
 
     def draw_settings(context, layout, tool):
