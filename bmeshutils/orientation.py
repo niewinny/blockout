@@ -233,7 +233,7 @@ def point_on_axis(region, rv3d, plane, direction, point, distance):
         if center_2d and point_2d:
             if (center_2d - point_2d).length <= distance:
                 return location, (True, True)
-    
+
     # If center point didn't work, check individual axes
     if length_x <= 1:
         projected_point = location + proj_vec_y
@@ -241,13 +241,13 @@ def point_on_axis(region, rv3d, plane, direction, point, distance):
         if projected_2d and point_2d:
             if (projected_2d - point_2d).length <= distance:
                 return projected_point, (False, True)
-    
+
     if length_y <= 1:
         projected_point = location + proj_vec_x
         projected_2d = view3d.location_3d_to_region_2d(region, rv3d, projected_point)
         if projected_2d and point_2d:
             if (projected_2d - point_2d).length <= distance:
                 return projected_point, (True, False)
-    
+
     # No valid snapping found
     return point, (False, False)

@@ -1,5 +1,6 @@
 import bpy
 from . import ops, tools, src
+from .tools.block import custom
 
 
 class Tools(bpy.types.PropertyGroup):
@@ -8,8 +9,8 @@ class Tools(bpy.types.PropertyGroup):
 
 
 class Highlight(bpy.types.PropertyGroup):
-    x: bpy.props.BoolProperty(name="X", description="Highlight X axis", default=False)
-    y: bpy.props.BoolProperty(name="Y", description="Highlight Y axis", default=False)
+    x: bpy.props.BoolProperty(name="X", description="Highlight X axis", default=False, update=custom.redraw)
+    y: bpy.props.BoolProperty(name="Y", description="Highlight Y axis", default=False, update=custom.redraw)
 
 
 class SceneAxis(bpy.types.PropertyGroup):
