@@ -26,11 +26,11 @@ def add_draw_handlers(context):
     value = 1.2
     x_color = tuple(c * value if highlight.x else c for c in color.x[:3]) + (1,) if highlight.x else color.x
     y_color = tuple(c * value if highlight.y else c for c in color.y[:3]) + (1,) if highlight.y else color.y
-    
+
     x_axis = DrawLine(points=(location_world, point_x), width=1.6, color=x_color, depth=False)
-    x_handler = bpy.types.SpaceView3D.draw_handler_add(x_axis.draw, (context,), 'WINDOW', 'POST_VIEW')
+    x_handler = bpy.types.SpaceView3D.draw_handler_add(x_axis.draw_tool, (context,), 'WINDOW', 'POST_VIEW')
     y_axis = DrawLine(points=(location_world, point_y), width=1.6, color=y_color, depth=False)
-    y_handler = bpy.types.SpaceView3D.draw_handler_add(y_axis.draw, (context,), 'WINDOW', 'POST_VIEW')
+    y_handler = bpy.types.SpaceView3D.draw_handler_add(y_axis.draw_tool, (context,), 'WINDOW', 'POST_VIEW')
 
     draw_handlers.append((x_handler, 'WINDOW'))
     draw_handlers.append((y_handler, 'WINDOW'))
@@ -41,7 +41,7 @@ def add_draw_handlers(context):
         size = grid_props.size
 
         grid = DrawGrid(origin=location_world, normal=normal_world, direction=direction_world, spacing=spacing, size=size, color=(0.2, 0.2, 0.2, 0.5))
-        grid_handler = bpy.types.SpaceView3D.draw_handler_add(grid.draw, (context,), 'WINDOW', 'POST_VIEW')
+        grid_handler = bpy.types.SpaceView3D.draw_handler_add(grid.draw_tool, (context,), 'WINDOW', 'POST_VIEW')
         draw_handlers.append((grid_handler, 'WINDOW'))
 
     # Redraw the area
@@ -76,8 +76,13 @@ def update(context):
 def redraw(cls, context):
     '''Redraw the custom plane axes'''
     update(context)
-    
+
     # Redraw the area
     for area in bpy.context.window.screen.areas:
         if area.type == 'VIEW_3D':
             area.tag_redraw()
+
+
+def remove():
+    '''Remove the depsgraph handler'''
+    clear_draw_handlers()

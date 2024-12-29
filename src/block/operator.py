@@ -50,9 +50,17 @@ class Block(bpy.types.Operator):
         '''Ray cast the scene'''
         raise NotImplementedError("Subclasses must implement the ray_cast method")
 
+    def _hide_transform_gizmo(self, context):
+        self.pref.transform_gizmo = context.space_data.show_gizmo_context
+        context.space_data.show_gizmo_context = False
+
+    def _restore_transform_gizmo(self, context):
+        context.space_data.show_gizmo_context = self.pref.transform_gizmo
+
     def invoke(self, context, event):
         '''Start the operator'''
 
+        self._hide_transform_gizmo(context)
         self.config = self.set_config(context)
         self.get_tool_prpoerties()
 
@@ -238,6 +246,8 @@ class Block(bpy.types.Operator):
 
     def _end(self, context):
         '''End the operator'''
+
+        self._restore_transform_gizmo(context)
 
         if self.data.copy.init:
             bpy.data.meshes.remove(self.data.copy.init)

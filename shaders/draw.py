@@ -12,6 +12,11 @@ class BaseDraw:
     batch = None
     width = 1
 
+    def draw_tool(self, context):
+        tools_active = self.tool(context)
+        if tools_active:
+            self.draw(context)
+
     def draw(self, context):
 
         width = context.area.width
@@ -29,6 +34,11 @@ class BaseDraw:
         self.line_width(self.width)
         gpu.state.blend_set('ALPHA')
         self.batch.draw(self.shader)
+
+    def tool(self, context):
+        active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
+        bout_tools = active_tool and (active_tool.idname == 'bout.block_obj' or active_tool.idname == 'bout.block')
+        return bout_tools
 
     def uniforms(self):
         pass

@@ -128,6 +128,8 @@ class Pref(bpy.types.PropertyGroup):
     plane: bpy.props.PointerProperty(type=Plane)
     direction: bpy.props.FloatVectorProperty(name="Direction", description="Direction", default=(0, 1, 0), subtype='XYZ')
 
+    transform_gizmo: bpy.props.BoolProperty(name="Transform Gizmo", description="Transform Gizmo", default=False)
+
 
 class Shapes(bpy.types.PropertyGroup):
     volume: bpy.props.StringProperty(name="Volume", description="Volume", default='2D')

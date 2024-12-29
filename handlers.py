@@ -1,17 +1,15 @@
 import bpy
 from . tools.block import custom
-from bpy.app.handlers import persistent
 
 
-@persistent
-def bout_depsgraph_handler(scene, depsgraph):
-    '''Handler called after the dependency graph is updated'''
-    custom.update(bpy.context)
+def unregister_draw_handlers():
+    '''Handler called after loading a file'''
+    custom.remove()
 
 
 def register():
-    bpy.app.handlers.depsgraph_update_pre.append(bout_depsgraph_handler)
+    pass
 
 
 def unregister():
-    bpy.app.handlers.depsgraph_update_pre.remove(bout_depsgraph_handler)
+    unregister_draw_handlers()
