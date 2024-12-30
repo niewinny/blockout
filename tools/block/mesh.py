@@ -82,7 +82,7 @@ class Pref(bpy.types.PropertyGroup):
         description="Mode",
         items=[('CUT', 'Cut', 'Cut'),
                ('CREATE', 'Create', 'Create')],
-        default='CREATE')
+        default='CUT')
     pick: bpy.props.EnumProperty(
         name="Pick",
         description="Pick objects",

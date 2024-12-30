@@ -2,7 +2,7 @@ import bpy
 import bmesh
 from mathutils import Vector
 
-from ...bmeshutils.orientation import direction_from_normal
+from ...bmeshutils.orientation import direction_from_normal, face_bbox_center
 from ...utils import addon
 
 
@@ -48,8 +48,8 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
         if len(selected_faces) == 1:
             # Use the selected face
             face = selected_faces[0]
-            location = matrix @ face.calc_center_median()
             normal = matrix.to_3x3() @ face.normal.copy()
+            location = face_bbox_center(face, matrix)
             direction = matrix.to_3x3() @ face.calc_tangent_edge()
             length = direction.length + 0.1
 
@@ -75,7 +75,6 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
 
             normal = direction.cross(direction_y)
             addon.pref().tools.block.align.grid.size = length
-
 
         # If not, check if exactly one vertex is selected
         elif len(selected_verts) == 1:

@@ -251,3 +251,52 @@ def point_on_axis(region, rv3d, plane, direction, point, distance):
 
     # No valid snapping found
     return point, (False, False)
+
+
+def face_bbox_center(face, matrix):
+    """
+    Given a face, its matrix,
+    compute the axis-aligned bounding box (in that plane coordinate system)
+    and return its center in world space.
+    """
+
+    # 1. Convert normal and direction to world space if not already
+    normal_world = (matrix.to_3x3() @ face.normal).normalized()
+    location_world = matrix @ face.calc_center_median()
+    direction_world = (matrix.to_3x3() @ face.calc_tangent_edge()).normalized()
+
+    x_axis = direction_world.normalized()
+    y_axis = normal_world.cross(x_axis).normalized()
+
+    # 2. Gather the face's vertices in world space
+    verts_local = [v.co for v in face.verts]
+    verts_world = [matrix @ v for v in verts_local]
+
+    # 3. Project each vertex into (x_axis, y_axis) space, with origin = location_world
+    coords_2d = []
+    for p in verts_world:
+        rel = p - location_world
+        px = rel.dot(x_axis)
+        py = rel.dot(y_axis)
+        coords_2d.append((px, py))
+
+    # 4. Compute the axis-aligned bounding box in that 2D system
+    min_x = min(px for px, py in coords_2d)
+    max_x = max(px for px, py in coords_2d)
+    min_y = min(py for px, py in coords_2d)
+    max_y = max(py for px, py in coords_2d)
+
+    # 5. The bounding-box center in 2D coords
+    center_2d = (
+        0.5 * (min_x + max_x),
+        0.5 * (min_y + max_y),
+    )
+
+    # 6. Convert that center back into 3D world space
+    bbox_center_world = (
+        location_world +
+        center_2d[0] * x_axis +
+        center_2d[1] * y_axis
+    )
+
+    return bbox_center_world
