@@ -14,6 +14,7 @@ class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
     bl_icon = 'ops.generic.select_circle'
     bl_keymap = (
         ('bout.block_obj_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
+        ('bout.obj_set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': []}),
         ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG', 'shift': True}, {'properties': [('mode', 'ADD')]}),
     )
 

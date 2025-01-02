@@ -5,5 +5,4 @@ from . import blockout
 
 classes = (
     blockout.BOUT_GGT_Blockout,
-
 )

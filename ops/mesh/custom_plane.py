@@ -94,7 +94,6 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
         normal.normalize()
         direction.normalize()
 
-        # Set the custom plane's values
         custom = addon.pref().tools.block.align.custom
 
         custom.location = location
