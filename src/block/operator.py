@@ -50,6 +50,10 @@ class Block(bpy.types.Operator):
         '''Ray cast the scene'''
         raise NotImplementedError("Subclasses must implement the ray_cast method")
 
+    def draw(self, context):
+        '''Draw panel'''
+        raise NotImplementedError("Subclasses must implement the ray_cast method")
+
     def _hide_transform_gizmo(self, context):
         self.pref.transform_gizmo = context.space_data.show_gizmo_context
         context.space_data.show_gizmo_context = False
@@ -89,39 +93,6 @@ class Block(bpy.types.Operator):
     def _infobar(self, layout, context, event):
         '''Draw the infobar hotkeys'''
         ui.hotkeys(self, layout, context, event)
-
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        shape = self.pref.shape
-        match shape:
-            case 'RECTANGLE':
-                col = layout.column(align=True)
-                col.prop(self.shapes.rectangle, 'co', text="Dimensions")
-                layout.prop(self.pref, 'offset', text="Offset")
-                col = layout.column(align=True)
-                row = col.row(align=True)
-                row.prop(self.pref.bevel, 'offset', text="Bevel")
-                row.prop(self.pref.bevel, 'segments', text="")
-            case 'BOX':
-                col = layout.column(align=True)
-                col.prop(self.shapes.rectangle, 'co', text="Dimensions")
-                col.prop(self.pref, 'extrusion', text="Z")
-                layout.prop(self.pref, 'offset', text="Offset")
-                row = layout.row(align=True)
-                row.prop(self.pref.bevel, 'type', text="Bevel")
-                row.prop(self.pref.bevel, 'offset', text="")
-                row.prop(self.pref.bevel, 'segments', text="")
-            case 'CIRCLE':
-                layout.prop(self.shapes.circle, 'radius', text="Radius")
-                layout.prop(self.shapes.circle, 'verts', text="Verts")
-                layout.prop(self.pref, 'offset', text="Offset")
-            case 'CYLINDER':
-                layout.prop(self.shapes.circle, 'radius', text="Radius")
-                layout.prop(self.pref, 'extrusion', text="Dimensions Z")
-                layout.prop(self.shapes.circle, 'verts', text="Verts")
-                layout.prop(self.pref, 'offset', text="Offset")
 
     def _recalculate_normals(self, bm, faces_indexes):
         '''Recalculate the normals'''

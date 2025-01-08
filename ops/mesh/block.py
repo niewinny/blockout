@@ -5,7 +5,7 @@ from ...src.block.operator import Block
 from ...src.block.data import Config
 from ...utils import addon, scene
 from ...bmeshutils import bmeshface, rectangle, facet, box, circle, cylinder
-from ...bmeshutils.mesh import set_copy, get_copy, merge_copy
+from ...bmeshutils.mesh import set_copy, get_copy
 
 
 class BOUT_OT_BlockMeshTool(Block):
@@ -17,6 +17,39 @@ class BOUT_OT_BlockMeshTool(Block):
     @classmethod
     def poll(cls, context):
         return context.area.type == 'VIEW_3D' and context.mode == 'EDIT_MESH'
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+
+        shape = self.pref.shape
+        match shape:
+            case 'RECTANGLE':
+                col = layout.column(align=True)
+                col.prop(self.shapes.rectangle, 'co', text="Dimensions")
+                layout.prop(self.pref, 'offset', text="Offset")
+                col = layout.column(align=True)
+                row = col.row(align=True)
+                row.prop(self.pref.bevel, 'offset', text="Bevel")
+                row.prop(self.pref.bevel, 'segments', text="")
+            case 'BOX':
+                col = layout.column(align=True)
+                col.prop(self.shapes.rectangle, 'co', text="Dimensions")
+                col.prop(self.pref, 'extrusion', text="Z")
+                layout.prop(self.pref, 'offset', text="Offset")
+                row = layout.row(align=True)
+                row.prop(self.pref.bevel, 'type', text="Bevel")
+                row.prop(self.pref.bevel, 'offset', text="")
+                row.prop(self.pref.bevel, 'segments', text="")
+            case 'CIRCLE':
+                layout.prop(self.shapes.circle, 'radius', text="Radius")
+                layout.prop(self.shapes.circle, 'verts', text="Verts")
+                layout.prop(self.pref, 'offset', text="Offset")
+            case 'CYLINDER':
+                layout.prop(self.shapes.circle, 'radius', text="Radius")
+                layout.prop(self.pref, 'extrusion', text="Dimensions Z")
+                layout.prop(self.shapes.circle, 'verts', text="Verts")
+                layout.prop(self.pref, 'offset', text="Offset")
 
     def ray_cast(self, context):
         scene.set_active_object(context, self.mouse.init)
@@ -105,18 +138,17 @@ class BOUT_OT_BlockMeshTool(Block):
                     offset = -extrusion
                 rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 if self.pref.bevel.type == '3D':
-                    extrusion = extrusion + offset
-                    box_faces_indexes = facet.extrude(bm, face, plane, extrusion)
                     facet.set_z(face, normal, offset)
+                    box_faces_indexes = facet.extrude(bm, face, plane, extrusion)
                     box.bevel(bm, box_faces_indexes, bevel_offset, bevel_segments=bevel_segments)
                 else:
                     face_index = facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
                     if self.shapes.volume == '3D':
+                        facet.set_z(face, normal, offset)
                         extruded_faces = facet.extrude(bm, face, plane, extrusion)
                         self._recalculate_normals(bm, extruded_faces)
-                        facet.set_z(face, normal, offset)
             case 'CIRCLE':
                 face_index = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
                 face = bmeshface.from_index(bm, face_index)
