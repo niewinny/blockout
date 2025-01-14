@@ -50,7 +50,7 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
             edge_dir = edge_vec / edge_len
             v1_to_hit = local_hit - edge.verts[0].co
             proj_len = v1_to_hit.dot(edge_dir)
-            
+
             if 0 <= proj_len <= edge_len:
                 proj_point = edge.verts[0].co + edge_dir * proj_len
                 dist = (local_hit - proj_point).length

@@ -18,6 +18,7 @@ class SceneAxis(bpy.types.PropertyGroup):
 
 
 class Scene(bpy.types.PropertyGroup):
+    ops: bpy.props.PointerProperty(type=ops.Scene)
     tools: bpy.props.PointerProperty(type=tools.Scene)
     axis: bpy.props.PointerProperty(type=SceneAxis)
 

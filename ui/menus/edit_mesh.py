@@ -17,4 +17,3 @@ class BOUT_MT_Edit_Mesh(bpy.types.Menu):
         layout.operator("bout.sweep", text="Sweep")
 
         layout.separator()
-
