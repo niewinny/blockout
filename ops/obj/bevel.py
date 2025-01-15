@@ -75,7 +75,7 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
         ),
         default='ANGLE'
     )
-    angle_limit: bpy.props.FloatProperty(name='Angle', default=0.785398, min=0, max=3.14159, precision=3)
+    angle_limit: bpy.props.FloatProperty(name='Angle', default=0.523599, min=0, max=3.14159, precision=3)
     edge_weight: bpy.props.StringProperty(name='Edge Weight', default='bevel_weight_edge')
 
     def __init__(self, *args, **kwargs):
