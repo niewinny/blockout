@@ -82,9 +82,13 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
         hit_loc = ray.location
         face_idx = ray.index
 
-        # Create bmesh from object
+        # Create bmesh from evaluated mesh
+        depsgraph = context.evaluated_depsgraph_get()
+        obj_eval = obj.evaluated_get(depsgraph)
+        me_eval = obj_eval.to_mesh()
         bm = bmesh.new()
-        bm.from_mesh(obj.data)
+        bm.from_mesh(me_eval)
+        obj_eval.to_mesh_clear()
         bm.verts.ensure_lookup_table()
         bm.edges.ensure_lookup_table()
         bm.faces.ensure_lookup_table()
