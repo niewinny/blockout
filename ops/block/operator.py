@@ -278,7 +278,7 @@ class Block(bpy.types.Operator):
         self.ui.zaxis.create(context, color=color.z)
         self.ui.xaxis.create(context, color=color.x)
         self.ui.yaxis.create(context, color=color.y)
-        color = addon.pref().theme.src.block
+        color = addon.pref().theme.ops.block
         face_color = color.cut if self.config.mode == 'CUT' else color.slice
         obj = self.data.obj
         self.ui.faces.create(context, obj=obj, color=face_color)

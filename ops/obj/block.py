@@ -1,8 +1,8 @@
 import bpy
 import bmesh
 
-from ...src.block.operator import Block
-from ...src.block.data import Config
+from ..block.operator import Block
+from ..block.data import Config
 from ...utils import addon, scene
 
 from ...bmeshutils import bmeshface, rectangle, facet, circle

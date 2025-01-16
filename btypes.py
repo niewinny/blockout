@@ -1,5 +1,5 @@
 import bpy
-from . import ops, tools, src
+from . import ops, tools
 from .tools.block import custom
 
 
@@ -31,12 +31,10 @@ class ThemeAxis(bpy.types.PropertyGroup):
 
 class Theme(bpy.types.PropertyGroup):
     ops: bpy.props.PointerProperty(type=ops.Theme)
-    src: bpy.props.PointerProperty(type=src.Theme)
     axis: bpy.props.PointerProperty(type=ThemeAxis)
 
 
 classes = [
-    *src.types_classes,
     *ops.types_classes,
     *tools.types_classes,
     Tools,
