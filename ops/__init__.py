@@ -27,5 +27,6 @@ types_classes = (
 classes = (
     *mesh.classes,
     *obj.classes,
+    *block.classes,
     *tools.classes,
 )
