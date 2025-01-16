@@ -3,8 +3,6 @@ import bmesh
 from mathutils import Vector
 from dataclasses import dataclass, field
 
-from ...shaders import handle
-
 
 @dataclass
 class Config:

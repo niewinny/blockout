@@ -32,7 +32,7 @@ class Block(bpy.types.Operator):
 
     def get_tool_prpoerties(self):
         '''Get the tool properties'''
-        self.pref.bevel.segments = addon.pref().tools.block.form.segments
+        self.data.bevel.segments = addon.pref().tools.block.form.segments
 
     def build_bmesh(self, context):
         '''Set the object data'''
@@ -74,9 +74,7 @@ class Block(bpy.types.Operator):
 
         if not self.config.align.mode == 'CUSTOM':
             if not self.ray.hit:
-                self._end(context)
-                bpy.ops.bout.mesh_line_cut_tool('INVOKE_DEFAULT', release_confirm=True)
-                return {'CANCELLED'}
+                self.mode = 'BISECT'
 
         self.data.obj, self.data.bm = self.build_bmesh(context)
 
@@ -86,10 +84,11 @@ class Block(bpy.types.Operator):
         self.data.copy.init = set_copy(self.data.obj)
         self._setup_drawing(context)
 
-        created_mesh = self._draw_invoke(context)
-        if not created_mesh:
-            self._end(context)
-            return {'CANCELLED'}
+        if self.mode != 'BISECT':
+            created_mesh = self._draw_invoke(context)
+            if not created_mesh:
+                self._end(context)
+                return {'CANCELLED'}
 
         context.window.cursor_set('SCROLL_XY')
         self._header(context)
@@ -166,6 +165,8 @@ class Block(bpy.types.Operator):
                     self._extrude_modal(context, event)
                 case 'BEVEL':
                     self._bevel_modal(context)
+                case 'BISECT':
+                    pass
 
             if self.config.mode != 'CREATE':
                 self._boolean_invoke(self.data.obj, self.data.bm)
@@ -173,18 +174,21 @@ class Block(bpy.types.Operator):
             self._header(context)
 
         elif event.type in {'LEFTMOUSE', 'SPACE', 'RET', 'NUMPAD_ENTER'}:
-            if event.value == 'RELEASE':
 
-                if self.config.shape in {'BOX', 'CYLINDER'}:
-                    self._extrude_invoke(context)
-                    return {'RUNNING_MODAL'}
+            match self.mode:
+                case 'DRAW' | 'BEVEL':
+                    if event.value == 'RELEASE':
+                        if self.config.shape in {'BOX', 'CYLINDER'}:
+                            self._extrude_invoke(context)
+                            return {'RUNNING_MODAL'}
+                        self.set_offset()
 
-                self.set_offset()
-
-            if self.mode == 'EXTRUDE':
-                if self.config.mode == 'CREATE':
-                    self._recalculate_normals(self.data.bm, self.data.extrude.faces)
-                self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
+                case 'EXTRUDE':
+                    if self.config.mode == 'CREATE':
+                        self._recalculate_normals(self.data.bm, self.data.extrude.faces)
+                    self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
+                case 'BISECT':
+                    pass
 
             self.store_props()
             self.save_props()
@@ -227,10 +231,10 @@ class Block(bpy.types.Operator):
 
         self._restore_transform_gizmo(context)
 
-        if self.data.copy.init:
-            bpy.data.meshes.remove(self.data.copy.init)
-        if self.data.copy.draw:
-            bpy.data.meshes.remove(self.data.copy.draw)
+        for mesh_type in ('init', 'draw', 'boolean'):
+            mesh = getattr(self.data.copy, mesh_type, None)
+            if mesh:
+                bpy.data.meshes.remove(mesh)
 
         self.mouse = None
         self.ray = None
@@ -299,7 +303,6 @@ class Block(bpy.types.Operator):
 
     def _boolean_invoke(self, obj, bm):
         '''Boolean operation'''
-        raise NotImplementedError("Subclasses must implement the _boolean_invoke method")
 
     def _bevel_invoke(self, context):
         '''Bevel the mesh'''

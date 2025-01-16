@@ -1,5 +1,6 @@
 from ...utils import view3d
 
+
 def invoke(self, context):
     '''Bevel the mesh'''
 
@@ -12,6 +13,7 @@ def invoke(self, context):
         self.data.bevel.type = volume
         self.ui.zaxis.callback.clear()
         self.mode = 'BEVEL'
+
 
 def modal(self, context):
     '''Bevel the mesh'''
