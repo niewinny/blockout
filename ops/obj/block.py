@@ -5,7 +5,7 @@ from ...src.block.operator import Block
 from ...src.block.data import Config
 from ...utils import addon, scene
 
-from ...bmeshutils import bmeshface, rectangle, facet, box, circle, cylinder
+from ...bmeshutils import bmeshface, rectangle, facet, circle
 
 
 class BOUT_OT_BlockObjTool(Block):
@@ -78,7 +78,7 @@ class BOUT_OT_BlockObjTool(Block):
 
         bm = bmesh.new()
         return new_obj, bm
-    
+
     def build_geometry(self, obj, bm):
 
         offset = self.pref.offset

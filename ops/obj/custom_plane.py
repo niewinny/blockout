@@ -153,8 +153,8 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
             context.area.tag_redraw()
 
         finally:
-            # Always free the bmesh
             bm.free()
+            del obj_eval
 
         return {'FINISHED'}
 

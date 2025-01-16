@@ -161,10 +161,11 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
         for obj in selected_objects:
             mod = modifier.get(obj, 'BEVEL', -1)
             if not mod:
+                new = True
                 mod = modifier.add(obj, "Bevel", 'BEVEL')
                 self.width = 0.0
                 self._set_bevel_properties(mod)
-                new = True
+                mod.use_pin_to_last = True
             else:
                 self._get_bevel_properties(mod)
                 new = False

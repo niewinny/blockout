@@ -72,6 +72,12 @@ class Block(bpy.types.Operator):
         self.mouse.init = Vector((mouse_region_prev_x, mouse_region_prev_y))
         self.ray = self.ray_cast(context)
 
+        if not self.config.align.mode == 'CUSTOM':
+            if not self.ray.hit:
+                self._end(context)
+                bpy.ops.bout.mesh_line_cut_tool('INVOKE_DEFAULT', release_confirm=True)
+                return {'CANCELLED'}
+
         self.data.obj, self.data.bm = self.build_bmesh(context)
 
         self.objects.selected = context.selected_objects[:]
@@ -82,6 +88,7 @@ class Block(bpy.types.Operator):
 
         created_mesh = self._draw_invoke(context)
         if not created_mesh:
+            self._end(context)
             return {'CANCELLED'}
 
         context.window.cursor_set('SCROLL_XY')

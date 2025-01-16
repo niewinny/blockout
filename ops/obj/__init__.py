@@ -1,6 +1,7 @@
 import bpy
 from . import bevel
 from . import block
+from . import boolean
 from . import custom_plane
 
 
@@ -22,5 +23,6 @@ types_classes = (
 classes = (
     *bevel.classes,
     *block.classes,
+    *boolean.classes,
     *custom_plane.classes,
 )

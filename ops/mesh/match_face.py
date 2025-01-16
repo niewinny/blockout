@@ -128,8 +128,11 @@ class BOUT_OT_MatchFace(bpy.types.Operator):
             obj = self.ray.obj
 
             # Create a bmesh from the object's mesh data
+            depsgraph = context.evaluated_depsgraph_get()
+            obj_eval = obj.evaluated_get(depsgraph)
+            me_eval = obj_eval.to_mesh()
             bm = bmesh.new()
-            bm.from_mesh(obj.data)
+            bm.from_mesh(me_eval)
             bm.faces.ensure_lookup_table()
 
             ngon = bm.faces[self.ray.index]
