@@ -3,7 +3,7 @@ import bmesh
 
 from mathutils import Vector
 
-from .data import CreatedData, Config, Objects, Mouse, Pref, Shapes
+from .data import CreatedData, Config, Objects, Mouse, Pref, Shapes, Modifiers
 
 from . import bevel, draw, extrude, ui
 
@@ -24,6 +24,7 @@ class Block(bpy.types.Operator):
         self.data = CreatedData()
         self.config = Config()
         self.objects = Objects()
+        self.modifiers = Modifiers()
         self.mode = 'DRAW'
 
     def set_config(self, context):
@@ -34,7 +35,7 @@ class Block(bpy.types.Operator):
         '''Get the tool properties'''
         self.data.bevel.segments = addon.pref().tools.block.form.segments
 
-    def build_bmesh(self, context):
+    def build_bmesh(self, context, store_properties=True):
         '''Set the object data'''
         raise NotImplementedError("Subclasses must implement the set_object method")
 
@@ -60,41 +61,6 @@ class Block(bpy.types.Operator):
 
     def _restore_transform_gizmo(self, context):
         context.space_data.show_gizmo_context = self.pref.transform_gizmo
-
-    def invoke(self, context, event):
-        '''Start the operator'''
-
-        self._hide_transform_gizmo(context)
-        self.config = self.set_config(context)
-        self.get_tool_prpoerties()
-
-        mouse_region_prev_x, mouse_region_prev_y = view3d.get_mouse_region_prev(event)
-        self.mouse.init = Vector((mouse_region_prev_x, mouse_region_prev_y))
-        self.ray = self.ray_cast(context)
-
-        if not self.config.align.mode == 'CUSTOM':
-            if not self.ray.hit:
-                self.mode = 'BISECT'
-
-        self.data.obj, self.data.bm = self.build_bmesh(context)
-
-        self.objects.selected = context.selected_objects[:]
-        self.objects.active = context.active_object
-
-        self.data.copy.init = set_copy(self.data.obj)
-        self._setup_drawing(context)
-
-        if self.mode != 'BISECT':
-            created_mesh = self._draw_invoke(context)
-            if not created_mesh:
-                self._end(context)
-                return {'CANCELLED'}
-
-        context.window.cursor_set('SCROLL_XY')
-        self._header(context)
-        infobar.draw(context, event, self._infobar, blank=True)
-        context.window_manager.modal_handler_add(self)
-        return {'RUNNING_MODAL'}
 
     def _infobar(self, layout, context, event):
         '''Draw the infobar hotkeys'''
@@ -138,8 +104,42 @@ class Block(bpy.types.Operator):
 
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
+    def invoke(self, context, event):
+        '''Start the operator'''
+
+        self._hide_transform_gizmo(context)
+        self.config = self.set_config(context)
+        self.get_tool_prpoerties()
+
+        mouse_region_prev_x, mouse_region_prev_y = view3d.get_mouse_region_prev(event)
+        self.mouse.init = Vector((mouse_region_prev_x, mouse_region_prev_y))
+        self.ray = self.ray_cast(context)
+
+        self.objects.selected = context.selected_objects[:]
+        self.objects.active = context.active_object
+
+        if not self.config.align.mode == 'CUSTOM':
+            if not self.ray.hit:
+                self.mode = 'BISECT'
+
+        if self.mode != 'BISECT':
+            self.data.obj, self.data.bm = self.build_bmesh(context)
+            self.data.copy.init = set_copy(self.data.obj)
+            self._setup_drawing(context)
+
+            created_mesh = self._draw_invoke(context)
+            if not created_mesh:
+                self._end(context)
+                return {'CANCELLED'}
+
+        context.window.cursor_set('SCROLL_XY')
+        self._header(context)
+        infobar.draw(context, event, self._infobar, blank=True)
+        context.window_manager.modal_handler_add(self)
+        return {'RUNNING_MODAL'}
+
     def execute(self, context):
-        obj, bm = self.build_bmesh(context)
+        obj, bm = self.build_bmesh(context, store_properties=False)
 
         self.build_geometry(obj, bm)
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
@@ -179,7 +179,7 @@ class Block(bpy.types.Operator):
                 case 'DRAW' | 'BEVEL':
                     if event.value == 'RELEASE':
                         if self.config.shape in {'BOX', 'CYLINDER'}:
-                            self._extrude_invoke(context)
+                            self._extrude_invoke(context, event)
                             return {'RUNNING_MODAL'}
                         self.set_offset()
 
@@ -192,6 +192,7 @@ class Block(bpy.types.Operator):
 
             self.store_props()
             self.save_props()
+            self._finish(context)
             self._end(context)
             return {'FINISHED'}
 
@@ -203,7 +204,7 @@ class Block(bpy.types.Operator):
                     self.data.bevel.mode = 'OFFSET'
                     if self.mode == 'BEVEL' and self.shapes.volume == '3D':
                         self.data.bevel.type = '2D' if self.data.bevel.type == '3D' else '3D'
-                    self._bevel_invoke(context)
+                    self._bevel_invoke(context, event)
                     if self.config.mode != 'CREATE':
                         self._boolean_invoke(self.data.obj, self.data.bm)
 
@@ -211,7 +212,7 @@ class Block(bpy.types.Operator):
             if event.value == 'PRESS':
                 if self.mode == 'BEVEL':
                     self.data.bevel.mode = 'SEGMENTS'
-                    self._bevel_invoke(context)
+                    self._bevel_invoke(context, event)
                     if self.config.mode != 'CREATE':
                         self._boolean_invoke(self.data.obj, self.data.bm)
 
@@ -220,11 +221,23 @@ class Block(bpy.types.Operator):
                 self.data.extrude.symmetry = not self.data.extrude.symmetry
 
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
+            self._cancel(context)
             self._end(context)
             return {'CANCELLED'}
 
         context.area.tag_redraw()
         return {'RUNNING_MODAL'}
+
+    def _finish(self, context):
+        '''Finish the operator'''
+        self._bevel_execute(context)
+        return {'FINISHED'}
+
+    def _cancel(self, context):
+        if self.objects.created:
+            mesh = self.objects.created.data
+            bpy.data.objects.remove(self.objects.created)
+            bpy.data.meshes.remove(mesh)
 
     def _end(self, context):
         '''End the operator'''
@@ -241,6 +254,7 @@ class Block(bpy.types.Operator):
         self.data = None
         self.config = None
         self.objects = None
+        self.modifiers = None
 
         self.ui.clear()
         self.ui.clear_higlight()
@@ -295,8 +309,8 @@ class Block(bpy.types.Operator):
     def _draw_modal(self, context, event):
         draw.modal(self, context, event)
 
-    def _extrude_invoke(self, context):
-        extrude.invoke(self, context)
+    def _extrude_invoke(self, context, event):
+        extrude.invoke(self, context, event)
 
     def _extrude_modal(self, context, event):
         extrude.modal(self, context, event)
@@ -304,10 +318,13 @@ class Block(bpy.types.Operator):
     def _boolean_invoke(self, obj, bm):
         '''Boolean operation'''
 
-    def _bevel_invoke(self, context):
+    def _bevel_invoke(self, context, event):
         '''Bevel the mesh'''
-        bevel.invoke(self, context)
+        bevel.invoke(self, context, event)
 
     def _bevel_modal(self, context):
         '''Bevel the mesh'''
         bevel.modal(self, context)
+
+    def _bevel_execute(self, context):
+        '''Bevel the mesh'''

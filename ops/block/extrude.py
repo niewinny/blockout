@@ -1,9 +1,10 @@
 from ...utils import view3d
 from mathutils import Vector
 from ...bmeshutils import facet
+from .data import Vert, ExtrudeEdge
 
 
-def invoke(self, context):
+def invoke(self, context, event):
     '''Extrude the mesh'''
 
     self.mode = 'EXTRUDE'
@@ -24,9 +25,15 @@ def invoke(self, context):
     self.data.draw.face = extruded_faces[0]
 
     extrude_face = bm.faces[self.data.extrude.faces[-1]]
-    self.data.extrude.verts = [v.co.copy() for v in extrude_face.verts]
+    self.data.extrude.verts = [Vert(index=v.index, co=v.co.copy()) for v in extrude_face.verts]
     draw_face = bm.faces[self.data.draw.face]
-    self.data.draw.verts = [v.co.copy() for v in draw_face.verts]
+    self.data.draw.verts = [Vert(index=v.index, co=v.co.copy()) for v in draw_face.verts]
+
+    extrude_edges = [e.index for v in extrude_face.verts for e in v.link_edges]
+    extrude_face_edges = [e.index for e in extrude_face.edges]
+    extrude_edges = list(set(extrude_edges) - set(extrude_face_edges))
+
+    self.data.extrude.edges = [ExtrudeEdge(index=e, position='MID') for e in extrude_edges] + [ExtrudeEdge(index=e, position='END') for e in extrude_face_edges]
 
     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
@@ -34,7 +41,7 @@ def invoke(self, context):
     self.ui.yaxis.callback.clear()
     self.ui.guid.callback.clear()
 
-    self.set_offset()
+    # self.set_offset()
 
     plane_world = (obj.matrix_world @ plane[0], obj.matrix_world.to_3x3() @ plane[1])
     line_origin = view3d.region_2d_to_plane_3d(region, rv3d, self.mouse.extrude, plane_world)
@@ -54,7 +61,7 @@ def modal(self, context, event):
     face = bm.faces[self.data.extrude.faces[-1]]
     plane = self.data.draw.plane
     normal = plane[1]
-    verts = self.data.extrude.verts
+    verts = [v.co for v in self.data.extrude.verts]
 
     region = context.region
     rv3d = context.region_data
@@ -78,11 +85,11 @@ def modal(self, context, event):
     dz = facet.set_z(face, normal, extrude, verts, snap_value=increments)
 
     draw_face = bm.faces[self.data.extrude.faces[0]]
-    draw_verts = self.data.draw.verts
+    draw_verts = [v.co for v in self.data.draw.verts]
     if self.data.extrude.symmetry:
         facet.set_z(draw_face, normal, -dz, draw_verts, snap_value=increments)
     else:
-        offset = self.config.align.offset
+        offset = self.config.align.offset if self.config.mode != 'CREATE' else 0.0
         facet.set_z(draw_face, normal, offset, draw_verts, snap_value=increments)
 
     # Update the extrusion value

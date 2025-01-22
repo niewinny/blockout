@@ -23,7 +23,6 @@ class DrawUI(handle.Common):
 
 def hotkeys(self, layout, _context, _event):
     '''Draw the infobar hotkeys'''
-
     factor = 4.0
     row = layout.row(align=True)
     row.label(text=self.mode.capitalize(), icon='MOUSE_MOVE')

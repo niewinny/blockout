@@ -16,12 +16,19 @@ class Config:
 
 
 @dataclass
+class Vert:
+    '''Dataclass for storing options'''
+    index: int = -1
+    co: Vector = Vector()
+
+
+@dataclass
 class Draw:
     '''Dataclass for storing options'''
     plane: tuple = (Vector(), Vector())
     direction: Vector = Vector((0, 1, 0))
     face: int = -1
-    verts: list = field(default_factory=list)  # v.co
+    verts: list = field(default_factory=Vert)
     symmetry: tuple = (False, False)
 
 
@@ -38,12 +45,20 @@ class Bevel:
 
 
 @dataclass
+class ExtrudeEdge:
+    '''Dataclass for storing options'''
+    index: int = -1
+    position: str = 'MID'
+
+
+@dataclass
 class Extrude:
     '''Dataclass for storing options'''
     plane: tuple = (Vector(), Vector())
     origin: Vector = Vector()
-    faces: list = field(default_factory=list)  # indexes
-    verts: list = field(default_factory=list)  # v.co
+    verts: list = field(default_factory=Vert)
+    edges: list = field(default_factory=ExtrudeEdge)
+    faces: list = field(default_factory=list)  # f.index
     value: float = 0.0
     sign: int = -1
     symmetry: bool = False
@@ -74,6 +89,26 @@ class Objects:
     '''Dataclass for storing'''
     active: bpy.types.Object = None
     selected: list = field(default_factory=list)
+    created: bpy.types.Object = None
+
+
+@dataclass
+class BevelMod:
+    obj: bpy.types.Object = None
+    mod: bpy.types.Modifier = None
+
+
+@dataclass
+class BooleanMod:
+    obj: bpy.types.Object = None
+    mod: bpy.types.Modifier = None
+
+
+@dataclass
+class Modifiers:
+    '''Dataclass for storing'''
+    booleans: list = field(default_factory=list)
+    bevels: list = field(default_factory=list)
 
 
 @dataclass

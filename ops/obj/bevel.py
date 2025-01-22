@@ -182,7 +182,7 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
             if intersect_point:
                 self.mouse.co = intersect_point
                 if self.mode == 'OFFSET':
-                    self._set_offset()
+                    self._set_width()
                 elif self.mode == 'SEGMENTS':
                     self._set_segments(context, event)
 
@@ -270,7 +270,7 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
             offset_verts.extend(points)
         return offset_verts
 
-    def _set_offset(self):
+    def _set_width(self):
         '''Set the offset based on the initial and current mouse position'''
         distance = self._calculate_distance()
 

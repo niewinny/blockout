@@ -1,7 +1,7 @@
 from ...utils import view3d
 
 
-def invoke(self, context):
+def invoke(self, context, event):
     '''Bevel the mesh'''
 
     self.data.bevel.segments_stored = self.data.bevel.segments
@@ -36,3 +36,32 @@ def modal(self, context):
         self.data.bevel.segments = max(1, int(self.data.bevel.segments_stored + delta_2d / 50))
 
     self.ui.guid.callback.update_batch([(init_point, mouse_co_3d)])
+
+
+def set_edge_weight(bm, edges_indexes):
+    '''Set the edge weight'''
+
+    bw = bm.edges.layers.float.get('bout_bevel_weight_edge')
+    if not bw:
+        bw = bm.edges.layers.float.new('bout_bevel_weight_edge')
+    edges = [bm.edges[index] for index in edges_indexes]
+    for edge in edges:
+        edge[bw] = 1.0
+
+
+def clean_edge_weight(bm, edges_indexes):
+    '''Delete the edge weight'''
+
+    bw = bm.edges.layers.float.get('bout_bevel_weight_edge')
+    if not bw:
+        return
+    edges = [bm.edges[index] for index in edges_indexes]
+    for edge in edges:
+        edge[bw] = 0.0
+
+
+def del_edge_weight(bm):
+    '''Delete the edge weight'''
+
+    bw = bm.edges.layers.float.get('bout_bevel_weight_edge')
+    bm.edges.layers.float.remove(bw)
