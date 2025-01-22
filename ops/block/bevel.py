@@ -64,4 +64,5 @@ def del_edge_weight(bm):
     '''Delete the edge weight'''
 
     bw = bm.edges.layers.float.get('bout_bevel_weight_edge')
-    bm.edges.layers.float.remove(bw)
+    if bw:
+        bm.edges.layers.float.remove(bw)

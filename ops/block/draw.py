@@ -14,7 +14,7 @@ def invoke(self, context):
     direction, plane = _get_orientation(self, context)
     world_origin, world_normal = plane
 
-    if self.config.mode != 'CREATE':
+    if self.config.mode != 'CREATE' and self.op == 'EDIT_MESH':
         bpy.ops.mesh.select_all(action='DESELECT')
 
     if self.config.align.mode != 'CUSTOM':

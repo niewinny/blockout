@@ -18,6 +18,10 @@ class BOUT_OT_BlockMeshTool(Block):
     def poll(cls, context):
         return context.area.type == 'VIEW_3D' and context.mode == 'EDIT_MESH'
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.op = 'EDIT_MESH'
+
     def draw(self, context):
         layout = self.layout
         layout.use_property_split = True

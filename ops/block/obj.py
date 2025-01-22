@@ -14,10 +14,15 @@ class BOUT_OT_BlockObjTool(Block):
     bl_label = 'Blockout Block'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Tool for drawing a mesh"
+    
 
     @classmethod
     def poll(cls, context):
         return context.area.type == 'VIEW_3D'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.op = 'OBJECT'
 
     def draw(self, context):
         layout = self.layout
@@ -204,6 +209,7 @@ class BOUT_OT_BlockObjTool(Block):
                 modifier.remove(mod.obj, mod.mod)
 
             bevel.del_edge_weight(self.data.bm)
+            self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=False)
 
     def _bevel_modal(self, context):
         super()._bevel_modal(context)
