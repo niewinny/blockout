@@ -1,4 +1,4 @@
-from ...utils import view3d
+from ...utils import view3d, modifier
 
 
 def invoke(self, context, event):
@@ -9,13 +9,13 @@ def invoke(self, context, event):
     self.mouse.bevel = self.mouse.co
 
     if self.mode != 'BEVEL':
-        volume = self.shapes.volume
-        self.data.bevel.type = volume
+        # volume = self.shape.volume
+        # self.data.bevel.type = volume
         self.ui.zaxis.callback.clear()
         self.mode = 'BEVEL'
 
 
-def modal(self, context):
+def modal(self, context, event):
     '''Bevel the mesh'''
     region = context.region
     rv3d = context.region_data
@@ -29,7 +29,17 @@ def modal(self, context):
 
     if self.data.bevel.mode == 'OFFSET':
         delta_3d = (init_point - mouse_co_3d).length - (init_point - mouse_bevel_3d).length
-        self.data.bevel.offset = self.data.bevel.offset_stored + delta_3d
+
+        # Update stored offset and mouse position when shift state changes
+        if event.shift != self.data.bevel.precision:
+            self.data.bevel.offset_stored = self.data.bevel.offset
+            self.mouse.bevel = self.mouse.co
+            mouse_bevel_3d = mouse_co_3d
+            delta_3d = 0
+            self.data.bevel.precision = event.shift
+
+        adjustment_factor = 0.1 if event.shift else 1.0
+        self.data.bevel.offset = self.data.bevel.offset_stored + delta_3d * adjustment_factor
 
     if self.data.bevel.mode == 'SEGMENTS':
         delta_2d = (point2d - self.mouse.co).length - (point2d - self.mouse.bevel).length
@@ -66,3 +76,15 @@ def del_edge_weight(bm):
     bw = bm.edges.layers.float.get('bout_bevel_weight_edge')
     if bw:
         bm.edges.layers.float.remove(bw)
+
+
+def add_modifier(obj, width, segments):
+    '''Add the bevel modifier'''
+    mod = modifier.add(obj, "Bevel", 'BEVEL')
+    mod.width = width
+    mod.segments = segments
+    mod.use_pin_to_last = True
+    mod.limit_method = 'WEIGHT'
+    mod.edge_weight = "bout_bevel_weight_edge"
+
+    return mod

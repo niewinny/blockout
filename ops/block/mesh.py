@@ -30,7 +30,7 @@ class BOUT_OT_BlockMeshTool(Block):
         match shape:
             case 'RECTANGLE':
                 col = layout.column(align=True)
-                col.prop(self.shapes.rectangle, 'co', text="Dimensions")
+                col.prop(self.shape.rectangle, 'co', text="Dimensions")
                 layout.prop(self.pref, 'offset', text="Offset")
                 col = layout.column(align=True)
                 row = col.row(align=True)
@@ -38,7 +38,7 @@ class BOUT_OT_BlockMeshTool(Block):
                 row.prop(self.pref.bevel, 'segments', text="")
             case 'BOX':
                 col = layout.column(align=True)
-                col.prop(self.shapes.rectangle, 'co', text="Dimensions")
+                col.prop(self.shape.rectangle, 'co', text="Dimensions")
                 col.prop(self.pref, 'extrusion', text="Z")
                 layout.prop(self.pref, 'offset', text="Offset")
                 row = layout.row(align=True)
@@ -46,13 +46,13 @@ class BOUT_OT_BlockMeshTool(Block):
                 row.prop(self.pref.bevel, 'offset', text="")
                 row.prop(self.pref.bevel, 'segments', text="")
             case 'CIRCLE':
-                layout.prop(self.shapes.circle, 'radius', text="Radius")
-                layout.prop(self.shapes.circle, 'verts', text="Verts")
+                layout.prop(self.shape.circle, 'radius', text="Radius")
+                layout.prop(self.shape.circle, 'verts', text="Verts")
                 layout.prop(self.pref, 'offset', text="Offset")
             case 'CYLINDER':
-                layout.prop(self.shapes.circle, 'radius', text="Radius")
+                layout.prop(self.shape.circle, 'radius', text="Radius")
                 layout.prop(self.pref, 'extrusion', text="Dimensions Z")
-                layout.prop(self.shapes.circle, 'verts', text="Verts")
+                layout.prop(self.shape.circle, 'verts', text="Verts")
                 layout.prop(self.pref, 'offset', text="Offset")
 
     def ray_cast(self, context):
@@ -115,18 +115,19 @@ class BOUT_OT_BlockMeshTool(Block):
             case 'RECTANGLE':
                 face_index = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, face_index)
-                rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
+                rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 facet.set_z(face, normal, offset)
                 face_index = facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
                 face = bmeshface.from_index(bm, face_index)
                 facet.remove_doubles(bm, face)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
             case 'BOX':
                 face_index = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, face_index)
                 if symmetry_extrude:
                     offset = -extrusion
                 fixed_extrusion = extrusion - offset
-                rectangle.set_xy(face, plane, self.shapes.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
+                rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 if self.pref.bevel.type == '3D':
                     facet.set_z(face, normal, offset)
                     box_faces_indexes = facet.extrude(bm, face, plane, fixed_extrusion)
@@ -135,24 +136,29 @@ class BOUT_OT_BlockMeshTool(Block):
                     face_index = facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
-                    if self.shapes.volume == '3D':
+                    if self.shape.volume == '3D':
                         facet.set_z(face, normal, offset)
                         extruded_faces = facet.extrude(bm, face, plane, fixed_extrusion)
                         self._recalculate_normals(bm, extruded_faces)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                self._boolean(self.pref.mode, obj, bm)
             case 'CIRCLE':
-                face_index = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+                face_index = circle.create(bm, plane, verts_number=self.shape.circle.verts)
                 face = bmeshface.from_index(bm, face_index)
-                circle.set_xy(face, plane, radius=self.shapes.circle.radius, local_space=True)
+                circle.set_xy(face, plane, radius=self.shape.circle.radius, local_space=True)
                 facet.set_z(face, normal, offset)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
             case 'CYLINDER':
-                face_index = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+                face_index = circle.create(bm, plane, verts_number=self.shape.circle.verts)
                 face = bmeshface.from_index(bm, face_index)
-                circle.set_xy(face, plane, radius=self.shapes.circle.radius, local_space=True)
+                circle.set_xy(face, plane, radius=self.shape.circle.radius, local_space=True)
                 cylinder_faces_indexes = facet.extrude(bm, face, plane, extrusion)
                 face = bmeshface.from_index(bm, cylinder_faces_indexes[0])
                 self._recalculate_normals(bm, cylinder_faces_indexes)
                 facet.set_z(face, normal, offset)
                 cylinder.bevel(bm, cylinder_faces_indexes, bevel_offset, bevel_segments=bevel_segments)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                self._boolean(self.pref.mode, obj, bm)
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 
@@ -168,10 +174,12 @@ class BOUT_OT_BlockMeshTool(Block):
             get_copy(self.data.obj, self.data.bm, self.data.copy.draw)
         super()._extrude_modal(context, event)
 
-    def _boolean_invoke(self, obj, bm):
-        if self.shapes.volume == '3D':
-            bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
-            self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+    def _boolean(self, mode, obj, bm):
+        super()._boolean(mode, obj, bm)
+        if mode != 'CREATE':
+            if self.shape.volume == '3D':
+                bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     def _bevel(self):
         get_copy(self.data.obj, self.data.bm, self.data.copy.init)
@@ -188,8 +196,8 @@ class BOUT_OT_BlockMeshTool(Block):
         super()._bevel_invoke(context, event)
         self._bevel()
 
-    def _bevel_modal(self, context):
-        super()._bevel_modal(context)
+    def _bevel_modal(self, context, event):
+        super()._bevel_modal(context, event)
         self._bevel()
 
 

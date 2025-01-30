@@ -3,7 +3,7 @@ import bmesh
 
 from mathutils import Vector
 
-from .data import CreatedData, Config, Objects, Mouse, Pref, Shapes, Modifiers
+from .data import CreatedData, Config, Objects, Mouse, Pref, Shape, Modifiers
 
 from . import bevel, draw, extrude, ui
 
@@ -14,7 +14,7 @@ from ...bmeshutils.mesh import set_copy
 
 class Block(bpy.types.Operator):
     pref: bpy.props.PointerProperty(type=Pref)
-    shapes: bpy.props.PointerProperty(type=Shapes)
+    shape: bpy.props.PointerProperty(type=Shape)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -84,6 +84,7 @@ class Block(bpy.types.Operator):
         self.pref.bevel.offset = self.data.bevel.offset
         self.pref.bevel.type = self.data.bevel.type
         self.pref.bevel.segments = self.data.bevel.segments
+        self.pref.detected = self.objects.detected
         if self.config.mode != 'CREATE':
             self.pref.offset = self.config.align.offset
 
@@ -142,11 +143,6 @@ class Block(bpy.types.Operator):
         obj, bm = self.build_bmesh(context, store_properties=False)
 
         self.build_geometry(obj, bm)
-        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-
-        if self.pref.mode != 'CREATE':
-            self._boolean_invoke(obj, bm)
-
         self.save_props()
 
         return {'FINISHED'}
@@ -164,12 +160,11 @@ class Block(bpy.types.Operator):
                 case 'EXTRUDE':
                     self._extrude_modal(context, event)
                 case 'BEVEL':
-                    self._bevel_modal(context)
+                    self._bevel_modal(context, event)
                 case 'BISECT':
                     pass
 
-            if self.config.mode != 'CREATE':
-                self._boolean_invoke(self.data.obj, self.data.bm)
+            self._boolean(self.config.mode, self.data.obj, self.data.bm)
 
             self._header(context)
 
@@ -199,14 +194,14 @@ class Block(bpy.types.Operator):
         elif event.type == 'B':
             if event.value == 'PRESS':
                 if self.config.shape in {'RECTANGLE', 'BOX', 'CYLINDER'}:
-                    if self.config.shape == 'CYLINDER' and self.shapes.volume == '2D':
+                    if self.config.shape == 'CYLINDER' and self.shape.volume == '2D':
                         return {'RUNNING_MODAL'}
                     self.data.bevel.mode = 'OFFSET'
-                    if self.mode == 'BEVEL' and self.shapes.volume == '3D':
+                    if self.mode == 'BEVEL' and self.shape.volume == '3D':
                         self.data.bevel.type = '2D' if self.data.bevel.type == '3D' else '3D'
                     self._bevel_invoke(context, event)
                     if self.config.mode != 'CREATE':
-                        self._boolean_invoke(self.data.obj, self.data.bm)
+                        self._boolean(self.config.mode, self.data.obj, self.data.bm)
 
         elif event.type == 'S':
             if event.value == 'PRESS':
@@ -214,7 +209,7 @@ class Block(bpy.types.Operator):
                     self.data.bevel.mode = 'SEGMENTS'
                     self._bevel_invoke(context, event)
                     if self.config.mode != 'CREATE':
-                        self._boolean_invoke(self.data.obj, self.data.bm)
+                        self._boolean(self.config.mode, self.data.obj, self.data.bm)
 
         elif event.type == 'Z':
             if event.value == 'PRESS':
@@ -230,8 +225,6 @@ class Block(bpy.types.Operator):
 
     def _finish(self, context):
         '''Finish the operator'''
-        self._bevel_execute(context)
-        return {'FINISHED'}
 
     def _cancel(self, context):
         if self.objects.created:
@@ -271,9 +264,9 @@ class Block(bpy.types.Operator):
         '''Set the header text'''
         text = self._header_text()
 
-        x_length, y_length = self.shapes.rectangle.co
+        x_length, y_length = self.shape.rectangle.co
         z_length = self.data.extrude.value
-        radius = self.shapes.circle.radius
+        radius = self.shape.circle.radius
         dimentions = ''
 
         shape = self.config.shape
@@ -315,16 +308,13 @@ class Block(bpy.types.Operator):
     def _extrude_modal(self, context, event):
         extrude.modal(self, context, event)
 
-    def _boolean_invoke(self, obj, bm):
-        '''Boolean operation'''
+    def _boolean(self, mode, obj, bm):
+        '''Execute the boolean operation'''
 
     def _bevel_invoke(self, context, event):
         '''Bevel the mesh'''
         bevel.invoke(self, context, event)
 
-    def _bevel_modal(self, context):
+    def _bevel_modal(self, context, event):
         '''Bevel the mesh'''
-        bevel.modal(self, context)
-
-    def _bevel_execute(self, context):
-        '''Bevel the mesh'''
+        bevel.modal(self, context, event)

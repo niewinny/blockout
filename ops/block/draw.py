@@ -44,8 +44,8 @@ def invoke(self, context):
     match shape:
         case 'RECTANGLE': self.data.draw.face = rectangle.create(bm, plane)
         case 'BOX': self.data.draw.face = rectangle.create(bm, plane)
-        case 'CIRCLE': self.data.draw.face = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
-        case 'CYLINDER': self.data.draw.face = circle.create(bm, plane, verts_number=self.shapes.circle.verts)
+        case 'CIRCLE': self.data.draw.face = circle.create(bm, plane, verts_number=self.shape.circle.verts)
+        case 'CYLINDER': self.data.draw.face = circle.create(bm, plane, verts_number=self.shape.circle.verts)
 
     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
     return True
@@ -80,10 +80,10 @@ def modal(self, context, event):
     symmetry = self.data.draw.symmetry
 
     match shape:
-        case 'RECTANGLE': self.shapes.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
-        case 'BOX': self.shapes.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
-        case 'CIRCLE': self.shapes.circle.radius, point = circle.set_xy(face, plane, mouse_point_on_plane, snap_value=increments)
-        case 'CYLINDER': self.shapes.circle.radius, point = circle.set_xy(face, plane, mouse_point_on_plane, snap_value=increments)
+        case 'RECTANGLE': self.shape.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
+        case 'BOX': self.shape.rectangle.co, point = rectangle.set_xy(face, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
+        case 'CIRCLE': self.shape.circle.radius, point = circle.set_xy(face, plane, mouse_point_on_plane, snap_value=increments)
+        case 'CYLINDER': self.shape.circle.radius, point = circle.set_xy(face, plane, mouse_point_on_plane, snap_value=increments)
 
     self.update_bmesh(obj, bm)
 
@@ -98,7 +98,7 @@ def _get_orientation(cls, context):
         align_view = cls.config.align.view
         match align_view:
             case 'WORLD': depth = Vector((0, 0, 0))
-            case 'OBJECT': depth = cls.objects.active.location
+            case 'OBJECT': depth = Vector((0, 0, 0))
             case 'CURSOR': depth = context.scene.cursor.location
 
         direction_world = orientation.direction_from_view(context)
@@ -110,6 +110,7 @@ def _get_orientation(cls, context):
         return direction_world, plane_world
 
     def get_face_orientation():
+        cls.objects.detected = cls.ray.obj.name
         depsgraph = context.view_layer.depsgraph
         depsgraph.update()
         hit_obj = cls.ray.obj
@@ -139,6 +140,9 @@ def _get_orientation(cls, context):
         return direction_world, plane_world
 
     def get_custom_orientation():
+        active_obj = hasattr(cls.objects, 'active')
+        if not active_obj:
+            cls.objects.detected = cls.objects.active.name
         custom_location = cls.config.align.custom.location
         custom_normal = cls.config.align.custom.normal
         custom_direction = cls.config.align.custom.direction

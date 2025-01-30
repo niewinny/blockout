@@ -42,6 +42,7 @@ class Bevel:
     segments_stored: int = 0
     type: str = '2D'
     mode: str = 'OFFSET'
+    precision: bool = False
 
 
 @dataclass
@@ -76,7 +77,6 @@ class Copy:
 class CreatedData:
     '''Dataclass for storing'''
     obj: bpy.types.Object = None
-    volume: str = '2D'
     bm: bmesh.types.BMesh = None
     copy: Copy = field(default_factory=Copy)
     extrude: Extrude = field(default_factory=Extrude)
@@ -90,16 +90,11 @@ class Objects:
     active: bpy.types.Object = None
     selected: list = field(default_factory=list)
     created: bpy.types.Object = None
+    detected: str = ''
 
 
 @dataclass
-class BevelMod:
-    obj: bpy.types.Object = None
-    mod: bpy.types.Modifier = None
-
-
-@dataclass
-class BooleanMod:
+class Modifier:
     obj: bpy.types.Object = None
     mod: bpy.types.Modifier = None
 
@@ -140,7 +135,7 @@ class Plane(bpy.types.PropertyGroup):
 
 class BevelPref(bpy.types.PropertyGroup):
     '''PropertyGroup for storing bevel data'''
-    type: bpy.props.EnumProperty(name="Mode", description="Bevel Mode", items=[('3D', '3D', '3D'), ('2D', '2D', '2D')], default='3D')
+    type: bpy.props.EnumProperty(name="Mode", description="Bevel Mode", items=[('3D', '3D', '3D'), ('2D', '2D', '2D')], default='2D')
     offset: bpy.props.FloatProperty(name="Offset", description="Bevel Offset", default=0.0, min=0.0, subtype='DISTANCE')
     segments: bpy.props.IntProperty(name="Segments", description="Bevel Segments", default=1, min=1, max=32)
 
@@ -163,8 +158,10 @@ class Pref(bpy.types.PropertyGroup):
 
     transform_gizmo: bpy.props.BoolProperty(name="Transform Gizmo", description="Transform Gizmo", default=False)
 
+    detected: bpy.props.StringProperty(name="Detected", description="Detected", default='')
 
-class Shapes(bpy.types.PropertyGroup):
+
+class Shape(bpy.types.PropertyGroup):
     volume: bpy.props.StringProperty(name="Volume", description="Volume", default='2D')
     rectangle: bpy.props.PointerProperty(type=Rectangle)
     circle: bpy.props.PointerProperty(type=Circle)
@@ -175,6 +172,6 @@ classes = (
     Circle,
     Plane,
     BevelPref,
-    Shapes,
+    Shape,
     Pref,
 )

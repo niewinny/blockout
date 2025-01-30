@@ -8,7 +8,7 @@ def invoke(self, context, event):
     '''Extrude the mesh'''
 
     self.mode = 'EXTRUDE'
-    self.shapes.volume = '3D'
+    self.shape.volume = '3D'
     self.mouse.extrude = self.mouse.co
 
     region = context.region
