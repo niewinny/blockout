@@ -5,6 +5,7 @@ from mathutils import Vector
 from ...utils.scene import ray_cast
 from ...utils import addon
 from ...bmeshutils.orientation import direction_from_normal, face_bbox_center
+from ...utils.view3d import region_2d_to_origin_3d, region_2d_to_vector_3d
 
 
 class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
@@ -15,7 +16,7 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object is not None and context.mode == 'OBJECT'
+        return context.mode == 'OBJECT'
 
     def invoke(self, context, event):
         self.mouse_pos = (event.mouse_region_x, event.mouse_region_y)
@@ -74,8 +75,39 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
         ray = ray_cast.visible(context, self.mouse_pos)
 
         if not ray.hit:
-            self.report({'WARNING'}, "No object found under cursor")
-            return {'CANCELLED'}
+            possible_normals = [
+                Vector((1.0, 0.0, 0.0)),
+                Vector((0.0, 1.0, 0.0)),
+                Vector((0.0, 0.0, 1.0))
+            ]
+            hits = []
+            origin = region_2d_to_origin_3d(context.region, context.region_data, self.mouse_pos)
+            direction = region_2d_to_vector_3d(context.region, context.region_data, self.mouse_pos)
+
+            for n in possible_normals:
+                denom = direction.dot(n)
+                if abs(denom) > 1e-6:  # Avoid division by zero
+                    t = -origin.dot(n) / denom
+                    if t > 0:  # Only consider intersections in front of the ray
+                        hits.append((t, n))
+
+            if hits:
+                _, normal = min(hits, key=lambda x: x[0])
+                location = Vector((0.0, 0.0, 0.0))
+                direction = direction_from_normal(normal)
+            else:
+                self.report({'WARNING'}, "No object found under cursor, using default plane at (0,0,0)")
+                location = Vector((0.0, 0.0, 0.0))
+                normal = Vector((0.0, 0.0, 1.0))
+                direction = direction_from_normal(normal)
+
+            custom = addon.pref().tools.block.align.custom
+            custom.location = location
+            custom.normal = normal
+            custom.direction = direction
+            addon.pref().tools.block.align.mode = 'CUSTOM'
+            context.area.tag_redraw()
+            return {'FINISHED'}
 
         obj = ray.obj
         matrix = obj.matrix_world

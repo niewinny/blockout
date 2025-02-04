@@ -201,7 +201,8 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def _finish(self, context):
         super()._finish(context)
-        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
+        if self.mode != 'BISECT':
+            self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
 
 classes = (

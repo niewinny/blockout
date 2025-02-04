@@ -2,7 +2,7 @@ from pathlib import Path
 import bpy
 
 from ...utils import gizmo, addon
-from .common import draw_align, draw_type, draw_form
+from .common import draw_align, draw_type, draw_form, draw_shape
 
 
 class BOUT_MT_Block(bpy.types.WorkSpaceTool):
@@ -21,8 +21,20 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
 
     def draw_settings(context, layout, tool):
         block = addon.pref().tools.block
+
+        layout.label(text="Shape:")
         row = layout.row(align=True)
-        row.prop(block.mesh, 'shape')
+
+        label = "None  "
+        icon = 'MESH_CUBE'
+        _shape = block.mesh.shape
+        match _shape:
+            case 'RECTANGLE': (label, icon) = ("Rectangle", 'MESH_PLANE')
+            case 'BOX': (label, icon) = ("Box", 'MESH_CUBE')
+            case 'CIRCLE': (label, icon) = ("Circle", 'MESH_CIRCLE')
+            case 'CYLINDER': (label, icon) = ("Cylinder", 'MESH_CYLINDER')
+        row.popover('BOUT_PT_ShapeMesh', text=label, icon=icon)
+
         label = "None  "
         _type = block.mesh.mode
         match _type:
@@ -51,6 +63,19 @@ class BOUT_PT_AlignMesh(bpy.types.Panel):
         draw_align(layout, block)
         if block.align.mode == 'FACE':
             layout.prop(block.mesh, 'pick')
+
+
+class BOUT_PT_ShapeMesh(bpy.types.Panel):
+    bl_label = "Shape"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+    bl_context = 'editmesh'
+
+    def draw(self, context):
+        layout = self.layout
+        block = addon.pref().tools.block
+        mesh = block.mesh
+        draw_shape(layout, mesh)
 
 
 class BOUT_PT_TypeMesh(bpy.types.Panel):
@@ -100,6 +125,7 @@ types_classes = (
     Scene,
 )
 classes = (
+    BOUT_PT_ShapeMesh,
     BOUT_PT_AlignMesh,
     BOUT_PT_TypeMesh,
 )
