@@ -81,7 +81,7 @@ def modal(self, context, event):
         return
 
     # Update the mesh with the new extrusion value
-    increments = self.config.form.increments if event.ctrl else 0.0
+    increments = self.config.align.increments if event.ctrl else 0.0
     dz = facet.set_z(face, normal, extrude, verts, snap_value=increments)
 
     draw_face = bm.faces[self.data.extrude.faces[0]]

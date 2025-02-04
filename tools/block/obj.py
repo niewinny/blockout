@@ -2,7 +2,7 @@ from pathlib import Path
 import bpy
 
 from ...utils import gizmo, addon
-from .common import draw_align, draw_type, draw_form
+from .common import draw_align, draw_type, draw_form, draw_shape
 
 
 class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
@@ -21,15 +21,27 @@ class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
 
     def draw_settings(context, layout, tool):
         block = addon.pref().tools.block
-        layout.prop(block.obj, 'shape')
+        layout.label(text="Shape:")
+        row = layout.row(align=True)
+
+        label = "None  "
+        icon = 'MESH_CUBE'
+        _shape = block.obj.shape
+        match _shape:
+            case 'RECTANGLE': (label, icon) = ("Rectangle", 'MESH_PLANE')
+            case 'BOX': (label, icon) = ("Box", 'MESH_CUBE')
+            case 'CIRCLE': (label, icon) = ("Circle", 'MESH_CIRCLE')
+            case 'CYLINDER': (label, icon) = ("Cylinder", 'MESH_CYLINDER')
+        row.popover('BOUT_PT_ShapeObj', text=label, icon=icon)
+
         label = "None  "
         _type = block.obj.mode
         match _type:
             case 'CUT': label = "Cut"
             case 'CREATE': label = "Create"
             case 'SLICE':label = "Slice"
-        layout.label(text="Form:")
-        layout.popover('BOUT_PT_TypeObj', text=label)
+        row.popover('BOUT_PT_TypeObj', text=label)
+
         layout.label(text="Align:")
         label = "None"
         mode = block.align.mode
@@ -54,6 +66,19 @@ class BOUT_PT_AlignObj(bpy.types.Panel):
             layout.prop(block.obj, 'pick')
 
 
+class BOUT_PT_ShapeObj(bpy.types.Panel):
+    bl_label = "Shape"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+    bl_context = 'objectmode'
+
+    def draw(self, context):
+        layout = self.layout
+        block = addon.pref().tools.block
+        obj = block.obj
+        draw_shape(layout, obj)
+
+
 class BOUT_PT_TypeObj(bpy.types.Panel):
     bl_label = "Type"
     bl_space_type = 'VIEW_3D'
@@ -67,7 +92,6 @@ class BOUT_PT_TypeObj(bpy.types.Panel):
         draw_type(layout, obj)
         form = block.form
         draw_form(layout, form)
-        layout.prop(form, 'origin')
 
 
 class Pref(bpy.types.PropertyGroup):
@@ -104,6 +128,7 @@ types_classes = (
 )
 
 classes = (
+    BOUT_PT_ShapeObj,
     BOUT_PT_AlignObj,
     BOUT_PT_TypeObj,
 )

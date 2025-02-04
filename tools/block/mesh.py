@@ -21,14 +21,14 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
 
     def draw_settings(context, layout, tool):
         block = addon.pref().tools.block
-        layout.prop(block.mesh, 'shape')
+        row = layout.row(align=True)
+        row.prop(block.mesh, 'shape')
         label = "None  "
         _type = block.mesh.mode
         match _type:
             case 'CUT': label = "Cut"
             case 'CREATE': label = "Create"
-        layout.label(text="Form:")
-        layout.popover('BOUT_PT_TypeMesh', text=label)
+        row.popover('BOUT_PT_TypeMesh', text=label)
         layout.label(text="Align:")
         label = "None"
         mode = block.align.mode

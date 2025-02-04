@@ -20,7 +20,6 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.op = 'EDIT_MESH'
 
     def draw(self, context):
         layout = self.layout
@@ -67,7 +66,6 @@ class BOUT_OT_BlockMeshTool(Block):
         '''Set the header text'''
         pref = addon.pref().tools.block.mesh
         text = f"Shape: {pref.shape.capitalize()}"
-
         return text
 
     def set_config(self, context):
@@ -77,16 +75,17 @@ class BOUT_OT_BlockMeshTool(Block):
         config.align = addon.pref().tools.block.align
         config.pick = addon.pref().tools.block.mesh.pick
         config.mode = addon.pref().tools.block.mesh.mode
-        config.type = 'MESH'
-
+        config.type = 'EDIT_MESH'
         return config
 
-    def build_bmesh(self, context, store_properties=True):
+    def get_object(self, context, store_properties=True):
         obj = context.edit_object
+        return obj
+
+    def build_bmesh(self, obj):
         obj.update_from_editmode()
         bm = bmesh.from_edit_mesh(obj.data)
-
-        return obj, bm
+        return bm
 
     def update_bmesh(self, obj, bm, loop_triangles=False, destructive=False):
         mesh = obj.data
@@ -199,6 +198,10 @@ class BOUT_OT_BlockMeshTool(Block):
     def _bevel_modal(self, context, event):
         super()._bevel_modal(context, event)
         self._bevel()
+
+    def _finish(self, context):
+        super()._finish(context)
+        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
 
 classes = (

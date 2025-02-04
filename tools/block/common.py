@@ -9,6 +9,7 @@ def draw_align(layout, block):
     layout.separator()
     layout.use_property_split = True
     layout.prop(block.align, 'offset')
+    layout.prop(block.align, 'increments')
     layout.use_property_split = True
     col = layout.column(align=True)
     if block.align.mode == 'FACE':
@@ -33,14 +34,21 @@ def draw_type(layout, block):
     '''Draw type properties'''
 
     layout.use_property_split = False
-    row = layout.row(align=True)
-    row.scale_y = 0.8
-    row.scale_x = 0.
-    row.prop(block, 'mode', expand=True)
+    col = layout.column(align=True)
+    col.scale_y = 1.6
+    col.prop(block, 'mode', expand=True)
 
 
 def draw_form(layout, form):
     '''Draw type properties'''
 
     layout.use_property_split = True
-    layout.prop(form, 'increments')
+
+
+def draw_shape(layout, block):
+    '''Draw type properties'''
+
+    layout.use_property_split = False
+    col = layout.column(align=True)
+    col.scale_y = 1.6
+    col.prop(block, 'shape', expand=True)

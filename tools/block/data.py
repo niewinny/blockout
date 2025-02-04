@@ -39,17 +39,10 @@ class Align(bpy.types.PropertyGroup):
     custom: bpy.props.PointerProperty(type=Custom)
     grid: bpy.props.PointerProperty(type=Grid)
     offset: bpy.props.FloatProperty(name="Offset", description="Offset the mesh above the drawing plane", default=0.001, subtype='DISTANCE')
+    increments: bpy.props.FloatProperty(name="Increments", description="Round the values to the nearest increment", default=0.1, subtype='DISTANCE')
 
 
 class Form(bpy.types.PropertyGroup):
-    increments: bpy.props.FloatProperty(name="Increments", description="Round the values to the nearest increment", default=0.1, subtype='DISTANCE')
-    origin: bpy.props.EnumProperty(
-        name="Origin",
-        description="Origin",
-        items=[('CENTER', 'Center', 'Center'),
-                ('CORNER', 'Corner', 'Corner'),
-                ('PARENT', 'Parent', 'Parent')],
-        default='CENTER')
     segments: bpy.props.IntProperty(name="Bevel Segments", description="Number of bevel segments", default=1, min=1, max=32)
 
 

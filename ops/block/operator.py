@@ -5,7 +5,7 @@ from mathutils import Vector
 
 from .data import CreatedData, Config, Objects, Mouse, Pref, Shape, Modifiers
 
-from . import bevel, draw, extrude, ui
+from . import bevel, draw, extrude, ui, orientation
 
 from ...utils import addon, scene, infobar, view3d
 from ...bmeshutils import facet
@@ -35,9 +35,13 @@ class Block(bpy.types.Operator):
         '''Get the tool properties'''
         self.data.bevel.segments = addon.pref().tools.block.form.segments
 
-    def build_bmesh(self, context, store_properties=True):
+    def get_object(self, context, store_properties=True):
         '''Set the object data'''
-        raise NotImplementedError("Subclasses must implement the set_object method")
+        raise NotImplementedError("Subclasses must implement the get_object method")
+
+    def build_bmesh(self, obj):
+        '''Set the object data'''
+        raise NotImplementedError("Subclasses must implement the get_object method")
 
     def build_geometry(self, obj, bm):
         '''Build the geometry'''
@@ -119,14 +123,20 @@ class Block(bpy.types.Operator):
         self.objects.selected = context.selected_objects[:]
         self.objects.active = context.active_object
 
-        if not self.config.align.mode == 'CUSTOM':
-            if not self.ray.hit:
-                self.mode = 'BISECT'
+        if not self.config.align.mode == 'CUSTOM' and not self.ray.hit:
+            self.mode = 'BISECT'
 
         if self.mode != 'BISECT':
-            self.data.obj, self.data.bm = self.build_bmesh(context)
+            self.data.obj = self.get_object(context)
+            self.data.bm = self.build_bmesh(self.data.obj)
             self.data.copy.init = set_copy(self.data.obj)
-            self._setup_drawing(context)
+
+            orientation.build(self, context)
+
+            self._setup_ui(context)
+            self._update_ui()
+
+            orientation.make_local(self)
 
             created_mesh = self._draw_invoke(context)
             if not created_mesh:
@@ -140,7 +150,13 @@ class Block(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
-        obj, bm = self.build_bmesh(context, store_properties=False)
+        '''Execute the operator'''
+
+        depsgraph = context.view_layer.depsgraph
+        depsgraph.update()
+
+        obj = self.get_object(context, store_properties=False)
+        bm = self.build_bmesh(obj)
 
         self.build_geometry(obj, bm)
         self.save_props()
@@ -148,6 +164,8 @@ class Block(bpy.types.Operator):
         return {'FINISHED'}
 
     def modal(self, context, event):
+        '''Run the operator modal'''
+
         if event.type == 'MIDDLEMOUSE':
             return {'PASS_THROUGH'}
 
@@ -283,7 +301,7 @@ class Block(bpy.types.Operator):
         header = f'{text} {dimentions}'
         context.area.header_text_set(text=header)
 
-    def _setup_drawing(self, context):
+    def _setup_ui(self, context):
 
         color = addon.pref().theme.axis
         self.ui.zaxis.create(context, color=color.z)
@@ -294,6 +312,18 @@ class Block(bpy.types.Operator):
         obj = self.data.obj
         self.ui.faces.create(context, obj=obj, color=face_color)
         self.ui.guid.create(context, color=color.guid)
+
+    def _update_ui(self):
+        '''Update the drawing'''
+        if self.config.align.mode != 'CUSTOM':
+            plane = self.data.draw.plane
+            direction = self.data.draw.direction
+            world_origin, world_normal = plane
+            x_axis_point = world_origin + direction
+            y_direction = world_normal.cross(direction).normalized()
+            y_axis_point = world_origin + y_direction
+            self.ui.xaxis.callback.update_batch((world_origin, x_axis_point))
+            self.ui.yaxis.callback.update_batch((world_origin, y_axis_point))
 
     def _draw_invoke(self, context):
         result = draw.invoke(self, context)

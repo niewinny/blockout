@@ -1,6 +1,7 @@
 import bpy
 import bmesh
 
+import mathutils
 from .operator import Block
 from .data import Config, Modifier
 from . import bevel, boolean
@@ -21,7 +22,6 @@ class BOUT_OT_BlockObjTool(Block):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.op = 'OBJECT'
 
     def draw(self, context):
         layout = self.layout
@@ -81,8 +81,7 @@ class BOUT_OT_BlockObjTool(Block):
 
         return config
 
-    def build_bmesh(self, context, store_properties=True):
-
+    def get_object(self, context, store_properties=True):
         new_mesh = bpy.data.meshes.new('BlockOut')
         new_obj = bpy.data.objects.new('BlockOut', new_mesh)
         if addon.pref().tools.block.obj.mode != 'CREATE':
@@ -93,8 +92,11 @@ class BOUT_OT_BlockObjTool(Block):
         if store_properties:
             self.objects.created = new_obj
 
+        return new_obj
+
+    def build_bmesh(self, _obj):
         bm = bmesh.new()
-        return new_obj, bm
+        return bm
 
     def build_geometry(self, obj, bm):
 
@@ -108,7 +110,9 @@ class BOUT_OT_BlockObjTool(Block):
         extrusion = self.pref.extrusion
         symmetry_extrude = self.pref.symmetry_extrude
         symmetry_draw = self.pref.symmetry_draw
-        detected = self.pref.detected
+        mode = self.pref.mode
+        active_obj = bpy.context.active_object
+        detected_obj = self._get_detected_obj(self.pref.detected, active_obj)
 
         shape = self.pref.shape
 
@@ -132,7 +136,7 @@ class BOUT_OT_BlockObjTool(Block):
                 self._recalculate_normals(bm, extruded_faces)
                 self._add_bevel(bm, obj, bevel_offset, bevel_segments, extruded_faces)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                self._add_boolean(obj, detected)
+                self._add_boolean(obj, detected_obj, active_obj)
             case 'CIRCLE':
                 face_index = circle.create(bm, plane, verts_number=self.shape.circle.verts)
                 face = bmeshface.from_index(bm, face_index)
@@ -149,10 +153,13 @@ class BOUT_OT_BlockObjTool(Block):
                 face = bmeshface.from_index(bm, cylinder_faces_indexes[0])
                 self._recalculate_normals(bm, cylinder_faces_indexes)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                self._add_boolean(obj, detected)
+                self._add_boolean(obj, detected_obj, active_obj)
                 # self._add_bevel(obj, bevel_offset, bevel_segments)
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
+
+        self._set_origin(obj, plane, self.pref.direction)
+        self._set_parent(mode, obj, detected_obj)
 
         return face_index
 
@@ -217,17 +224,10 @@ class BOUT_OT_BlockObjTool(Block):
             for mod in self.modifiers.bevels:
                 mod.mod.segments = segments
 
-    def _add_boolean(self, obj, detected):
+    def _add_boolean(self, obj, detected_obj, active_obj):
         if self.pref.mode != 'CREATE':
             if self.shape.volume == '3D':
-                bool_obj = None
-                if detected == '':
-                    bool_obj = bpy.context.active_object
-                else:
-                    bool_obj = bpy.data.objects[detected]
-                if not bool_obj:
-                    return
-
+                bool_obj = detected_obj
                 _selected = bpy.context.selected_objects[:]
                 _selected_set = set(_selected + [bool_obj])
                 # _selected_set.remove(obj)
@@ -241,12 +241,7 @@ class BOUT_OT_BlockObjTool(Block):
         if mode != 'CREATE':
             if self.shape.volume == '3D':
                 if not self.modifiers.booleans:
-                    bool_obj = None
-                    if self.objects.detected == '':
-                        bool_obj = self.objects.active
-                    else:
-                        detected = self.objects.detected
-                        bool_obj = bpy.data.objects[detected]
+                    bool_obj = self._get_detected_obj(self.objects.detected, self.objects.active)
                     if not bool_obj:
                         return
 
@@ -265,6 +260,43 @@ class BOUT_OT_BlockObjTool(Block):
             if self.config.mode != 'CREATE':
                 self.data.obj.hide_set(True)
                 self.data.obj.data.shade_smooth()
+
+            self._set_origin(self.data.obj, self.data.draw.plane, self.data.draw.direction)
+            detected_obj = self._get_detected_obj(self.pref.detected, self.objects.active)
+            self._set_parent(self.config.mode, self.data.obj, detected_obj)
+
+    def _set_origin(self, obj, plane, direction):
+        _, normal = plane
+
+        x_axis = direction.normalized()
+        z_axis = normal.normalized()
+        y_axis = z_axis.cross(x_axis).normalized()
+
+        rot_mat = mathutils.Matrix((
+            (x_axis.x, y_axis.x, z_axis.x),
+            (x_axis.y, y_axis.y, z_axis.y),
+            (x_axis.z, y_axis.z, z_axis.z),
+        )).to_4x4()
+
+        old_matrix = obj.matrix_world.copy()
+        bbox_center = sum((old_matrix @ mathutils.Vector(corner) for corner in obj.bound_box), mathutils.Vector()) / 8
+        new_loc = mathutils.Matrix.Translation(bbox_center)
+        new_matrix = new_loc @ rot_mat
+
+        diff = new_matrix.inverted() @ old_matrix
+        obj.data.transform(diff)
+        obj.matrix_world = new_matrix
+
+    def _get_detected_obj(self, detected_obj, active_obj):
+        if detected_obj == '':
+            return active_obj
+        return bpy.data.objects[detected_obj]
+
+    def _set_parent(self, mode, obj, detected_obj):
+        if mode != 'CREATE' and detected_obj is not None:
+            parent_world = detected_obj.matrix_world.copy()
+            obj.parent = detected_obj
+            obj.matrix_parent_inverse = parent_world.inverted()
 
     def _cancel(self, context):
         super()._cancel(context)
