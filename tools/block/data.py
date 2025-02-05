@@ -19,17 +19,9 @@ class Align(bpy.types.PropertyGroup):
         name="Mode",
         description="Mode",
         items=[('FACE', 'Face', 'Align the mesh to the face'),
-               ('VIEW', 'View', 'Align the mesh to the viewport'),
                ('CUSTOM', 'Custom', 'Align the mesh to a custom plane')],
         default='FACE',
         update=custom.redraw)
-    view: bpy.props.EnumProperty(
-        name="Orientation",
-        description="View Orientation",
-        items=[('WORLD', 'World', 'Drawing plane origin is at the world origin'),
-               ('OBJECT', 'Object', 'Drawing plane origin is at the object origin'),
-               ('CURSOR', 'Cursor', 'Drawing plane origin is at the cursor location')],
-        default='WORLD')
     face: bpy.props.EnumProperty(
         name="Orientation",
         description="Face Orientation",

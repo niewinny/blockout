@@ -14,8 +14,6 @@ def draw_align(layout, block):
     col = layout.column(align=True)
     if block.align.mode == 'FACE':
         col.prop(block.align, 'face')
-    if block.align.mode == 'VIEW':
-        col.prop(block.align, 'view')
     if block.align.mode == 'CUSTOM':
         col.prop(block.align.custom, 'location')
         col.prop(block.align.custom, 'normal')

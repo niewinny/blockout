@@ -10,10 +10,8 @@ def build(cls, context):
 
     if cls.config.align.mode == 'FACE' and cls.ray.hit:
         direction, plane = face_orientation(cls, context)
-    elif cls.config.align.mode == 'CUSTOM':
-        direction, plane = custom_orientation(cls, context)
     else:
-        direction, plane = view_orientation(cls, context)
+        direction, plane = custom_orientation(cls, context)
 
     if cls.config.mode != 'CREATE' and cls.config.type == 'EDIT_MESH':
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -41,24 +39,6 @@ def make_local(cls):
 
     cls.data.draw.plane = plane
     cls.data.draw.direction = direction
-
-
-def view_orientation(cls, context):
-    '''Get the orientation from the view'''
-
-    align_view = cls.config.align.view
-    match align_view:
-        case 'WORLD': depth = Vector((0, 0, 0))
-        case 'OBJECT': depth = Vector((0, 0, 0))
-        case 'CURSOR': depth = context.scene.cursor.location
-
-    direction_world = orientation.direction_from_view(context)
-    plane_view = orientation.plane_from_view(context, depth)
-
-    origin = view3d.region_2d_to_plane_3d(context.region, context.region_data, cls.mouse.init, plane_view)
-    plane_world = (origin, plane_view[1])
-
-    return direction_world, plane_world
 
 
 def face_orientation(cls, context):
