@@ -61,15 +61,19 @@ class DrawGradient(BaseDraw):
         self.batch = self.create_batch()
 
     def create_batch(self):
-        vertices = [point.to_2d() for point in self.points]
-        return batch_for_shader(self.shader, 'TRIS', {"pos": vertices, "color": self.colors}, indices=[(0, 1, 2), (2, 3, 0)])
+        return self.setup_batch(self.points, self.colors)
 
-    def update_batch(self, points=None, colors=None):
-        if points:
-            self.points = [Vector(pt) for pt in points]
-        if colors:
+    def setup_batch(self, points, colors):
+        if points is None or len(points) < 2:
+            return batch_for_shader(self.shader, 'TRIS', {"pos": [], "color": []}, indices=[])
+        vertices = [point.to_2d() for point in self.points]
+        return batch_for_shader(self.shader, 'TRIS', {"pos": vertices, "color": colors}, indices=[(0, 1, 2), (2, 3, 0)])
+
+    def update_batch(self, points, colors=None):
+        self.points = [Vector(pt) for pt in points]
+        if colors is not None:
             self.colors = colors
-        self.batch = self.create_batch()
+        self.batch = self.setup_batch(self.points, self.colors)
 
 
 class DrawLine(BaseDraw):

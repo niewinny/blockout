@@ -12,6 +12,12 @@ class DrawUI(handle.Common):
     faces: handle.BMeshFaces = field(default_factory=handle.BMeshFaces)
     guid: handle.Polyline = field(default_factory=handle.Polyline)
 
+    bisect_line: handle.Line = field(default_factory=handle.Line)
+    bisect_polyline: handle.Polyline = field(default_factory=handle.Polyline)
+    bisect_gradient: handle.Gradient = field(default_factory=handle.Gradient)
+    bisect_gradient_flip: handle.Gradient = field(default_factory=handle.Gradient)
+
+
     def __post_init__(self):
         self.clear_all()
 

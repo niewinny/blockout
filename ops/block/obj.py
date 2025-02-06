@@ -82,6 +82,10 @@ class BOUT_OT_BlockObjTool(Block):
         return config
 
     def get_object(self, context, store_properties=True):
+        if self.mode == 'BISECT':
+            obj = context.active_object
+            return obj
+
         new_mesh = bpy.data.meshes.new('BlockOut')
         new_obj = bpy.data.objects.new('BlockOut', new_mesh)
         if addon.pref().tools.block.obj.mode != 'CREATE':
@@ -94,8 +98,12 @@ class BOUT_OT_BlockObjTool(Block):
 
         return new_obj
 
-    def build_bmesh(self, _obj):
+    def build_bmesh(self, obj):
         bm = bmesh.new()
+        if self.mode == 'BISECT':
+            mesh = obj.data
+            bm.from_mesh(mesh)
+
         return bm
 
     def build_geometry(self, obj, bm):

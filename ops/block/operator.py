@@ -5,7 +5,7 @@ from mathutils import Vector
 
 from .data import CreatedData, Config, Objects, Mouse, Pref, Shape, Modifiers
 
-from . import bevel, draw, extrude, ui, orientation
+from . import bevel, draw, extrude, ui, orientation, bisect
 
 from ...utils import addon, scene, infobar, view3d
 from ...bmeshutils import facet
@@ -126,16 +126,21 @@ class Block(bpy.types.Operator):
         if not self.config.align.mode == 'CUSTOM' and not self.ray.hit:
             self.mode = 'BISECT'
 
+        self.data.obj = self.get_object(context)
+        self.data.bm = self.build_bmesh(self.data.obj)
+        self.data.copy.init = set_copy(self.data.obj)
+
+        orientation.build(self, context)
+
+        self._setup_ui(context)
+
         if self.mode != 'BISECT':
-            self.data.obj = self.get_object(context)
-            self.data.bm = self.build_bmesh(self.data.obj)
-            self.data.copy.init = set_copy(self.data.obj)
 
-            orientation.build(self, context)
+            if not self.data.draw.plane:
+                self.report({'ERROR'}, 'Failed to detect drawing plane')
+                return {'CANCELLED'}
 
-            self._setup_ui(context)
             self._update_ui()
-
             orientation.make_local(self)
 
             created_mesh = self._draw_invoke(context)
@@ -180,7 +185,7 @@ class Block(bpy.types.Operator):
                 case 'BEVEL':
                     self._bevel_modal(context, event)
                 case 'BISECT':
-                    pass
+                    bisect.modal(self, context, event)
 
             self._boolean(self.config.mode, self.data.obj, self.data.bm)
 
@@ -201,7 +206,8 @@ class Block(bpy.types.Operator):
                         self._recalculate_normals(self.data.bm, self.data.extrude.faces)
                     self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
                 case 'BISECT':
-                    pass
+                    bisect.execute(self, context)
+                    self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
             self.store_props()
             self.save_props()
@@ -313,6 +319,12 @@ class Block(bpy.types.Operator):
         self.ui.faces.create(context, obj=obj, color=face_color)
         self.ui.guid.create(context, color=color.guid)
 
+        bisec_color = color.slice if self.config.mode == 'SLICE' else color.cut
+        self.ui.bisect_line.create(context, width=1.6, color=bisec_color, depth=True)
+        self.ui.bisect_polyline.create(context, width=1.6, color=color.guid)
+        self.ui.bisect_gradient.create(context, colors=[bisec_color, bisec_color, (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)])
+        self.ui.bisect_gradient_flip.create(context, colors=[(0.0, 0.0, 0.0, 0.5), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)])
+
     def _update_ui(self):
         '''Update the drawing'''
         if self.config.align.mode != 'CUSTOM':
@@ -348,3 +360,6 @@ class Block(bpy.types.Operator):
     def _bevel_modal(self, context, event):
         '''Bevel the mesh'''
         bevel.modal(self, context, event)
+
+    def _bisect_invoke(self, context, event):
+        '''Bisect the mesh'''

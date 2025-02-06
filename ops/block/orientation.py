@@ -8,10 +8,13 @@ from ...utils import view3d
 def build(cls, context):
     '''Get the orientation for the drawing'''
 
-    if cls.config.align.mode == 'FACE' and cls.ray.hit:
-        direction, plane = face_orientation(cls, context)
-    else:
+    if cls.config.align.mode == 'CUSTOM':
         direction, plane = custom_orientation(cls, context)
+    else:
+        if cls.ray.hit:
+            direction, plane = face_orientation(cls, context)
+        else:
+            return None, None
 
     if cls.config.mode != 'CREATE' and cls.config.type == 'EDIT_MESH':
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -91,6 +94,10 @@ def custom_orientation(cls, context):
     rv3d = context.region_data
 
     location_world = view3d.region_2d_to_plane_3d(region, rv3d, cls.mouse.init, custom_plane)
+
+    if location_world is None:
+        return None, None
+
     location_world, detected_axis = orientation.point_on_axis(region, rv3d, custom_plane, custom_direction, location_world, distance=30)
 
     cls.data.draw.symmetry = detected_axis

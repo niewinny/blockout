@@ -46,6 +46,14 @@ class Bevel:
 
 
 @dataclass
+class Bisect:
+    '''Dataclass for storing options'''
+    plane: tuple = (Vector(), Vector())
+    mode: str = 'CUT'
+    flip: bool = False
+
+
+@dataclass
 class ExtrudeEdge:
     '''Dataclass for storing options'''
     index: int = -1
@@ -81,6 +89,7 @@ class CreatedData:
     copy: Copy = field(default_factory=Copy)
     extrude: Extrude = field(default_factory=Extrude)
     bevel: Bevel = field(default_factory=Bevel)
+    bisect: Bisect = field(default_factory=Bisect)
     draw: Draw = field(default_factory=Draw)
 
 
