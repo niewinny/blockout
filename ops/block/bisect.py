@@ -58,42 +58,43 @@ def modal(self, context, event):
     self.data.bisect.plane = (location, normal)
 
 
-def execute(self, context):
+def execute(self, context, obj, bm, bisect_data):
     '''Bisect the mesh'''
 
-    obj, bm = self.data.obj, self.data.bm
+    _bisect(obj, bm, bisect_data)
 
-    _bisect(self, obj, bm)
-
-    selected_objects = list(set(bpy.context.selected_objects) - {obj})
+    selected_objects = list(set(context.selected_objects) - {obj})
 
     for obj in selected_objects:
-        if self.config.type == 'EDIT_MESH':
+        if self.pref.type == 'EDIT_MESH':
             bm = bmesh.from_edit_mesh(obj.data)
         else:
             bm = bmesh.new()
             bm.from_mesh(obj.data)
-        _bisect(self, obj, bm)
+        _bisect(obj, bm, bisect_data)
 
-        if self.config.type == 'EDIT_MESH':
+        if self.pref.type == 'EDIT_MESH':
             bmesh.update_edit_mesh(obj.data)
         else:
             bm.to_mesh(obj.data)
             bm.free()
 
+    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+
     return {'FINISHED'}
 
 
-def _bisect(self, obj, bm):
+def _bisect(obj, bm, bisect_data):
     '''Bisect the mesh'''
 
-    plane_co_global, plane_no_global = self.data.bisect.plane
+    plane_co_global = bisect_data[0]
+    plane_no_global = bisect_data[1]
+    flip = bisect_data[2]
+    mode = bisect_data[3]
 
     # obj.update_from_editmode()
     plane_no = obj.matrix_world.transposed() @ plane_no_global
     plane_co = obj.matrix_world.inverted() @ plane_co_global
-
-    flip = self.data.bisect.flip
 
     geom = bm.verts[:] + bm.edges[:] + bm.faces[:]
     geom = [g for g in geom if not g.hide]
@@ -102,7 +103,7 @@ def _bisect(self, obj, bm):
         plane_no = -plane_no
 
     clear_outer = False
-    if self.data.bisect.mode == 'CUT':
+    if mode == 'CUT':
         clear_outer = True
 
     # Perform bisect

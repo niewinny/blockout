@@ -206,7 +206,11 @@ class Block(bpy.types.Operator):
         obj = self.get_object(context, store_properties=False)
         bm = self.build_bmesh(obj)
 
-        self.build_geometry(obj, bm)
+        if self.pref.bisect.running:
+            bisect_data = (self.pref.bisect.plane.location, self.pref.bisect.plane.normal, self.pref.bisect.flip, self.pref.bisect.mode)
+            bisect.execute(self, context, obj, bm, bisect_data)
+        else:
+            self.build_geometry(obj, bm)
         self.save_props()
 
         return {'FINISHED'}
@@ -249,8 +253,8 @@ class Block(bpy.types.Operator):
                         self._recalculate_normals(self.data.bm, self.data.extrude.faces)
                     self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
                 case 'BISECT':
-                    bisect.execute(self, context)
-                    self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
+                    bisect_data = (self.data.bisect.plane[0], self.data.bisect.plane[1], self.data.bisect.flip, self.data.bisect.mode)
+                    bisect.execute(self, context, self.data.obj, self.data.bm, bisect_data)
 
             self.store_props()
             self.save_props()

@@ -159,6 +159,7 @@ class BisectPref(bpy.types.PropertyGroup):
 
 class Pref(bpy.types.PropertyGroup):
     '''PropertyGroup for storing preferences'''
+    type: bpy.props.EnumProperty(name="Type", description="Type", items=[('OBJECT', 'Object', 'Object'), ('EDIT_MESH', 'Edit Mesh', 'Edit Mesh')], default='OBJECT')
     extrusion: bpy.props.FloatProperty(name="Z", description="Z coordinates", default=0.0, subtype='DISTANCE')
     symmetry_extrude: bpy.props.BoolProperty(name="Symmetry", description="Symmetry", default=False)
     symmetry_draw: bpy.props.BoolVectorProperty(name="Symmetry", description="Symmetry", default=(False, False), size=2)
