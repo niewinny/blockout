@@ -56,8 +56,46 @@ class Block(bpy.types.Operator):
         raise NotImplementedError("Subclasses must implement the ray_cast method")
 
     def draw(self, context):
-        '''Draw panel'''
-        raise NotImplementedError("Subclasses must implement the ray_cast method")
+        '''Draw the operator'''
+        layout = self.layout
+        layout.use_property_split = True
+
+        if self.pref.bisect.running:
+            col = layout.column(align=True)
+            col.prop(self.pref.bisect.plane, 'location', text="Location")
+            col.prop(self.pref.bisect.plane, 'normal', text="Normal")
+            layout.prop(self.pref.bisect, 'mode', text="Mode")
+            layout.prop(self.pref.bisect, 'flip', text="Flip")
+            return
+
+        shape = self.pref.shape
+        match shape:
+            case 'RECTANGLE':
+                col = layout.column(align=True)
+                col.prop(self.shape.rectangle, 'co', text="Dimensions")
+                layout.prop(self.pref, 'offset', text="Offset")
+                col = layout.column(align=True)
+                row = col.row(align=True)
+                row.prop(self.pref.bevel, 'offset', text="Bevel")
+                row.prop(self.pref.bevel, 'segments', text="")
+            case 'BOX':
+                col = layout.column(align=True)
+                col.prop(self.shape.rectangle, 'co', text="Dimensions")
+                col.prop(self.pref, 'extrusion', text="Z")
+                layout.prop(self.pref, 'offset', text="Offset")
+                row = layout.row(align=True)
+                row.prop(self.pref.bevel, 'type', text="Bevel")
+                row.prop(self.pref.bevel, 'offset', text="")
+                row.prop(self.pref.bevel, 'segments', text="")
+            case 'CIRCLE':
+                layout.prop(self.shape.circle, 'radius', text="Radius")
+                layout.prop(self.shape.circle, 'verts', text="Verts")
+                layout.prop(self.pref, 'offset', text="Offset")
+            case 'CYLINDER':
+                layout.prop(self.shape.circle, 'radius', text="Radius")
+                layout.prop(self.pref, 'extrusion', text="Dimensions Z")
+                layout.prop(self.shape.circle, 'verts', text="Verts")
+                layout.prop(self.pref, 'offset', text="Offset")
 
     def _hide_transform_gizmo(self, context):
         self.pref.transform_gizmo = context.space_data.show_gizmo_context
@@ -77,6 +115,10 @@ class Block(bpy.types.Operator):
 
     def store_props(self):
         '''Finish the operator'''
+        self.pref.bisect.plane.location = self.data.bisect.plane[0]
+        self.pref.bisect.plane.normal = self.data.bisect.plane[1]
+        self.pref.bisect.flip = self.data.bisect.flip
+        self.pref.bisect.mode = self.data.bisect.mode
         self.pref.plane.location = self.data.draw.plane[0]
         self.pref.plane.normal = self.data.draw.plane[1]
         self.pref.direction = self.data.draw.direction
@@ -125,6 +167,7 @@ class Block(bpy.types.Operator):
 
         if not self.config.align.mode == 'CUSTOM' and not self.ray.hit:
             self.mode = 'BISECT'
+            self.pref.bisect.running = True
 
         self.data.obj = self.get_object(context)
         self.data.bm = self.build_bmesh(self.data.obj)
@@ -132,7 +175,7 @@ class Block(bpy.types.Operator):
 
         orientation.build(self, context)
 
-        self._setup_ui(context)
+        ui.setup(self, context)
 
         if self.mode != 'BISECT':
 
@@ -140,7 +183,7 @@ class Block(bpy.types.Operator):
                 self.report({'ERROR'}, 'Failed to detect drawing plane')
                 return {'CANCELLED'}
 
-            self._update_ui()
+            draw.update_ui(self)
             orientation.make_local(self)
 
             created_mesh = self._draw_invoke(context)
@@ -286,6 +329,12 @@ class Block(bpy.types.Operator):
 
     def _header(self, context):
         '''Set the header text'''
+
+        if self.mode == 'BISECT':
+            header = f'Bisec: mode:{self.data.bisect.mode}, flip:{self.data.bisect.flip}'
+            context.area.header_text_set(text=header)
+            return
+
         text = self._header_text()
 
         x_length, y_length = self.shape.rectangle.co
@@ -306,36 +355,6 @@ class Block(bpy.types.Operator):
 
         header = f'{text} {dimentions}'
         context.area.header_text_set(text=header)
-
-    def _setup_ui(self, context):
-
-        color = addon.pref().theme.axis
-        self.ui.zaxis.create(context, color=color.z)
-        self.ui.xaxis.create(context, color=color.x)
-        self.ui.yaxis.create(context, color=color.y)
-        color = addon.pref().theme.ops.block
-        face_color = color.cut if self.config.mode == 'CUT' else color.slice
-        obj = self.data.obj
-        self.ui.faces.create(context, obj=obj, color=face_color)
-        self.ui.guid.create(context, color=color.guid)
-
-        bisec_color = color.slice if self.config.mode == 'SLICE' else color.cut
-        self.ui.bisect_line.create(context, width=1.6, color=bisec_color, depth=True)
-        self.ui.bisect_polyline.create(context, width=1.6, color=color.guid)
-        self.ui.bisect_gradient.create(context, colors=[bisec_color, bisec_color, (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)])
-        self.ui.bisect_gradient_flip.create(context, colors=[(0.0, 0.0, 0.0, 0.5), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)])
-
-    def _update_ui(self):
-        '''Update the drawing'''
-        if self.config.align.mode != 'CUSTOM':
-            plane = self.data.draw.plane
-            direction = self.data.draw.direction
-            world_origin, world_normal = plane
-            x_axis_point = world_origin + direction
-            y_direction = world_normal.cross(direction).normalized()
-            y_axis_point = world_origin + y_direction
-            self.ui.xaxis.callback.update_batch((world_origin, x_axis_point))
-            self.ui.yaxis.callback.update_batch((world_origin, y_axis_point))
 
     def _draw_invoke(self, context):
         result = draw.invoke(self, context)

@@ -21,39 +21,6 @@ class BOUT_OT_BlockMeshTool(Block):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def draw(self, context):
-        layout = self.layout
-        layout.use_property_split = True
-
-        shape = self.pref.shape
-        match shape:
-            case 'RECTANGLE':
-                col = layout.column(align=True)
-                col.prop(self.shape.rectangle, 'co', text="Dimensions")
-                layout.prop(self.pref, 'offset', text="Offset")
-                col = layout.column(align=True)
-                row = col.row(align=True)
-                row.prop(self.pref.bevel, 'offset', text="Bevel")
-                row.prop(self.pref.bevel, 'segments', text="")
-            case 'BOX':
-                col = layout.column(align=True)
-                col.prop(self.shape.rectangle, 'co', text="Dimensions")
-                col.prop(self.pref, 'extrusion', text="Z")
-                layout.prop(self.pref, 'offset', text="Offset")
-                row = layout.row(align=True)
-                row.prop(self.pref.bevel, 'type', text="Bevel")
-                row.prop(self.pref.bevel, 'offset', text="")
-                row.prop(self.pref.bevel, 'segments', text="")
-            case 'CIRCLE':
-                layout.prop(self.shape.circle, 'radius', text="Radius")
-                layout.prop(self.shape.circle, 'verts', text="Verts")
-                layout.prop(self.pref, 'offset', text="Offset")
-            case 'CYLINDER':
-                layout.prop(self.shape.circle, 'radius', text="Radius")
-                layout.prop(self.pref, 'extrusion', text="Dimensions Z")
-                layout.prop(self.shape.circle, 'verts', text="Verts")
-                layout.prop(self.pref, 'offset', text="Offset")
-
     def ray_cast(self, context):
         scene.set_active_object(context, self.mouse.init)
         if self.config.pick == 'SELECTED':

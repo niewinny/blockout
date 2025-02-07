@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 import bpy
 from ...shaders import handle
+from ...utils import addon
 
 
 @dataclass
@@ -25,6 +26,24 @@ class DrawUI(handle.Common):
         '''Clear axis highlight'''
         axis = bpy.context.scene.bout.axis
         axis.highlight.x, axis.highlight.y = (False, False)
+
+def setup(self, context):
+
+    color = addon.pref().theme.axis
+    self.ui.zaxis.create(context, color=color.z)
+    self.ui.xaxis.create(context, color=color.x)
+    self.ui.yaxis.create(context, color=color.y)
+    color = addon.pref().theme.ops.block
+    face_color = color.cut if self.config.mode == 'CUT' else color.slice
+    obj = self.data.obj
+    self.ui.faces.create(context, obj=obj, color=face_color)
+    self.ui.guid.create(context, color=color.guid)
+
+    bisec_color = color.slice if self.config.mode == 'SLICE' else color.cut
+    self.ui.bisect_line.create(context, width=1.6, color=bisec_color, depth=True)
+    self.ui.bisect_polyline.create(context, width=1.6, color=color.guid)
+    self.ui.bisect_gradient.create(context, colors=[bisec_color, bisec_color, (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)])
+    self.ui.bisect_gradient_flip.create(context, colors=[(0.0, 0.0, 0.0, 0.5), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 0.0)])
 
 
 def hotkeys(self, layout, _context, _event):

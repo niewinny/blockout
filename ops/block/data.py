@@ -149,6 +149,14 @@ class BevelPref(bpy.types.PropertyGroup):
     segments: bpy.props.IntProperty(name="Segments", description="Bevel Segments", default=1, min=1, max=32)
 
 
+class BisectPref(bpy.types.PropertyGroup):
+    '''PropertyGroup for storing bisect data'''
+    running: bpy.props.BoolProperty(name="Running", description="Running", default=False)
+    mode: bpy.props.EnumProperty(name="Mode", description="Bisect Mode", items=[('CUT', 'Cut', 'Cut'), ('SPLIT', 'Split', 'Split')], default='CUT')
+    flip: bpy.props.BoolProperty(name="Flip", description="Flip", default=False)
+    plane: bpy.props.PointerProperty(type=Plane)
+
+
 class Pref(bpy.types.PropertyGroup):
     '''PropertyGroup for storing preferences'''
     extrusion: bpy.props.FloatProperty(name="Z", description="Z coordinates", default=0.0, subtype='DISTANCE')
@@ -161,6 +169,7 @@ class Pref(bpy.types.PropertyGroup):
     offset: bpy.props.FloatProperty(name="Offset", description="Offset", default=0.0, subtype='DISTANCE')
 
     bevel: bpy.props.PointerProperty(type=BevelPref)
+    bisect: bpy.props.PointerProperty(type=BisectPref)
 
     plane: bpy.props.PointerProperty(type=Plane)
     direction: bpy.props.FloatVectorProperty(name="Direction", description="Direction", default=(0, 1, 0), subtype='XYZ')
@@ -181,6 +190,7 @@ classes = (
     Circle,
     Plane,
     BevelPref,
+    BisectPref,
     Shape,
     Pref,
 )

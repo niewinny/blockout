@@ -67,3 +67,16 @@ def modal(self, context, event):
 
     if self.config.mode != 'CREATE':
         self.ui.faces.callback.update_batch([face])
+
+
+def update_ui(self):
+    '''Update the drawing'''
+    if self.config.align.mode != 'CUSTOM':
+        plane = self.data.draw.plane
+        direction = self.data.draw.direction
+        world_origin, world_normal = plane
+        x_axis_point = world_origin + direction
+        y_direction = world_normal.cross(direction).normalized()
+        y_axis_point = world_origin + y_direction
+        self.ui.xaxis.callback.update_batch((world_origin, x_axis_point))
+        self.ui.yaxis.callback.update_batch((world_origin, y_axis_point))
