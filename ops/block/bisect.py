@@ -62,9 +62,9 @@ def execute(self, context, obj, bm, bisect_data):
     '''Bisect the mesh'''
 
     _bisect(obj, bm, bisect_data)
+    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     selected_objects = list(set(context.selected_objects) - {obj})
-
     for obj in selected_objects:
         if self.pref.type == 'EDIT_MESH':
             bm = bmesh.from_edit_mesh(obj.data)
@@ -72,6 +72,7 @@ def execute(self, context, obj, bm, bisect_data):
             bm = bmesh.new()
             bm.from_mesh(obj.data)
         _bisect(obj, bm, bisect_data)
+        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
         if self.pref.type == 'EDIT_MESH':
             bmesh.update_edit_mesh(obj.data)
@@ -79,7 +80,6 @@ def execute(self, context, obj, bm, bisect_data):
             bm.to_mesh(obj.data)
             bm.free()
 
-    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     return {'FINISHED'}
 

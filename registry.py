@@ -24,6 +24,8 @@ def register():
 
     register_tool(tools.block.obj.BOUT_MT_BlockObj, group=True, separator=True)
 
+
+    assets.register()
     btypes.register()
     keymap.register()
     handlers.register()
@@ -43,3 +45,4 @@ def unregister():
         unregister_class(cls)
 
     btypes.unregister()
+    assets.unregister()

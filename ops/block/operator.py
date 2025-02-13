@@ -156,6 +156,7 @@ class Block(bpy.types.Operator):
 
         self._hide_transform_gizmo(context)
         self.config = self.set_config(context)
+        self.pref.type = self.config.type
         self.get_tool_prpoerties()
 
         mouse_region_prev_x, mouse_region_prev_y = view3d.get_mouse_region_prev(event)
@@ -170,6 +171,9 @@ class Block(bpy.types.Operator):
             self.pref.bisect.running = True
 
         self.data.obj = self.get_object(context)
+        if not self.data.obj:
+            self.report({'ERROR'}, 'Failed to detect object')
+            return {'CANCELLED'}
         self.data.bm = self.build_bmesh(self.data.obj)
         self.data.copy.init = set_copy(self.data.obj)
 
