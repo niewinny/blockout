@@ -29,8 +29,6 @@ def modal(self, context, event):
     selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
 
     objs = list(set(selected_objects + [obj]))
-    for obj in objs:
-        print(obj.name)
     bbox = _bbox_center(objs)
     bbox_2d = view3d.location_3d_to_region_2d(region, rv3d, bbox)
     # Update Gradient
