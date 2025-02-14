@@ -50,7 +50,10 @@ class BOUT_OT_BlockObjTool(Block):
 
     def get_object(self, context, store_properties=True):
         if self.mode == 'BISECT':
-            obj = context.active_object
+            obj = context.active_object if context.active_object.type == 'MESH' else None
+            if not obj:
+                selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+                obj = selected_objects[0] if selected_objects else None
             return obj
 
         new_mesh = bpy.data.meshes.new('BlockOut')
@@ -86,7 +89,7 @@ class BOUT_OT_BlockObjTool(Block):
         symmetry_extrude = self.pref.symmetry_extrude
         symmetry_draw = self.pref.symmetry_draw
         mode = self.pref.mode
-        active_obj = bpy.context.active_object
+        active_obj = bpy.context.active_object if bpy.context.active_object.type == 'MESH' else None
         detected_obj = self._get_detected_obj(self.pref.detected, active_obj)
 
         shape = self.pref.shape

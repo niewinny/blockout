@@ -1,4 +1,3 @@
-
 import math
 import bpy
 from mathutils import Vector
@@ -26,9 +25,17 @@ def modal(self, context, event):
     # Update Polyline
     self.ui.bisect_polyline.callback.update_batch([(point1, point2)])
 
+    obj = self.data.obj
+    selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+
+    objs = list(set(selected_objects + [obj]))
+    for obj in objs:
+        print(obj.name)
+    bbox = _bbox_center(objs)
+    bbox_2d = view3d.location_3d_to_region_2d(region, rv3d, bbox)
     # Update Gradient
     width, height = region.width, region.height
-    center_point = Vector((width/2, height/2))
+    center_point = bbox_2d ## if bbox_2d else Vector((width/2, height/2))
 
     # Calculate line direction
     line_dir = (self.mouse.co - self.mouse.init).normalized()
@@ -69,8 +76,9 @@ def execute(self, context, obj, bm, bisect_data):
     _bisect(obj, bm, bisect_data)
     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
-    selected_objects = list(set(context.selected_objects) - {obj})
-    for obj in selected_objects:
+    selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+    selected_objects_without_obj = list(set(selected_objects) - {obj})
+    for obj in selected_objects_without_obj:
         if self.pref.type == 'EDIT_MESH':
             bm = bmesh.from_edit_mesh(obj.data)
         else:
@@ -136,3 +144,36 @@ def _snap(self, context, precision=False):
     direction = Vector((math.cos(snapped_angle), math.sin(snapped_angle)))
     snapped_mouse_pos = self.mouse.init + direction * distance
     return snapped_mouse_pos
+
+
+def _bbox_center(objs):
+    """Return the center of the combined bounding box of multiple objects in world space."""
+    if not objs:
+        return Vector((0, 0, 0))
+
+    # Initialize bounds in world space
+    world_min = Vector((float('inf'),) * 3)
+    world_max = Vector((float('-inf'),) * 3)
+    
+    for obj in objs:
+        # Get mesh bounds in world space
+        matrix_world = obj.matrix_world
+        
+        # Handle object location/rotation/scale
+        for v in obj.bound_box:
+            world_vertex = matrix_world @ Vector(v)
+            
+            # Update bounds
+            world_min.x = min(world_min.x, world_vertex.x)
+            world_min.y = min(world_min.y, world_vertex.y)
+            world_min.z = min(world_min.z, world_vertex.z)
+            world_max.x = max(world_max.x, world_vertex.x)
+            world_max.y = max(world_max.y, world_vertex.y)
+            world_max.z = max(world_max.z, world_vertex.z)
+    
+    # Calculate center in world space
+    if world_min.x != float('inf'):
+        world_center = (world_min + world_max) * 0.5
+        return world_center
+        
+    return Vector((0, 0, 0))

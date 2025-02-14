@@ -163,8 +163,8 @@ class Block(bpy.types.Operator):
         self.mouse.init = Vector((mouse_region_prev_x, mouse_region_prev_y))
         self.ray = self.ray_cast(context)
 
-        self.objects.selected = context.selected_objects[:]
-        self.objects.active = context.active_object
+        self.objects.selected = [obj for obj in context.selected_objects if obj.type == 'MESH']
+        self.objects.active = context.active_object if context.active_object.type == 'MESH' else None
 
         if not self.config.align.mode == 'CUSTOM' and not self.ray.hit:
             self.mode = 'BISECT'
