@@ -57,9 +57,11 @@ def clear_draw_handlers():
     draw_handlers.clear()
 
     # Redraw the area
-    for area in bpy.context.window.screen.areas:
-        if area.type == 'VIEW_3D':
-            area.tag_redraw()
+    window = bpy.context.window
+    if window:
+        for area in bpy.context.window.screen.areas:
+            if area.type == 'VIEW_3D':
+                area.tag_redraw()
 
 
 def update(context):

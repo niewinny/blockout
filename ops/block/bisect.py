@@ -1,4 +1,5 @@
 
+import math
 import bpy
 from mathutils import Vector
 from ...utils import view3d
@@ -11,6 +12,10 @@ def modal(self, context, event):
     rv3d = context.region_data
 
     depth = rv3d.view_location
+
+    if event.ctrl:
+        precision = event.shift
+        self.mouse.co = _snap(self, context, precision=precision)
 
     # Convert 2D mouse positions to 3D points
     point1 = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.init, depth + rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)))
@@ -115,3 +120,19 @@ def _bisect(obj, bm, bisect_data):
 
     if clear_outer:
         bmesh.ops.contextual_create(bm, geom=geom_cut['geom_cut'], mat_nr=0)
+
+
+def _snap(self, context, precision=False):
+    """Snap the mouse position to the nearest angle increment."""
+    tool_settings = context.scene.tool_settings
+    angle_increment = getattr(tool_settings, 'snap_angle_increment_3d', math.radians(15))
+    if precision:
+        angle_increment = getattr(tool_settings, 'snap_angle_increment_3d_precision', math.radians(5))
+
+    delta = self.mouse.co - self.mouse.init
+    angle = math.atan2(delta.y, delta.x)
+    snapped_angle = round(angle / angle_increment) * angle_increment
+    distance = delta.length
+    direction = Vector((math.cos(snapped_angle), math.sin(snapped_angle)))
+    snapped_mouse_pos = self.mouse.init + direction * distance
+    return snapped_mouse_pos
