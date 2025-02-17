@@ -89,7 +89,7 @@ def modal(self, context, event):
     if self.data.extrude.symmetry:
         facet.set_z(draw_face, normal, -dz, draw_verts, snap_value=increments)
     else:
-        offset = self.config.align.offset if self.config.mode != 'CREATE' else 0.0
+        offset = self.config.align.offset if self.config.mode != 'ADD' else 0.0
         facet.set_z(draw_face, normal, offset, draw_verts, snap_value=increments)
 
     # Update the extrusion value
@@ -100,7 +100,7 @@ def modal(self, context, event):
 
     extrude_faces = [bm.faces[index] for index in self.data.extrude.faces]
 
-    if self.config.mode != 'CREATE':
+    if self.config.mode != 'ADD':
         self.ui.faces.callback.update_batch(extrude_faces)
 
     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)

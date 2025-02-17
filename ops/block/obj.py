@@ -50,15 +50,19 @@ class BOUT_OT_BlockObjTool(Block):
 
     def get_object(self, context, store_properties=True):
         if self.mode == 'BISECT':
-            obj = context.active_object if context.active_object.type == 'MESH' else None
-            if not obj:
-                selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
-                obj = selected_objects[0] if selected_objects else None
-            return obj
+            active_obj = context.active_object if context.active_object and context.active_object.type == 'MESH' else None
+            selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+
+            if active_obj:
+                return active_obj
+
+            if len(selected_objects) > 1:
+                active_obj = selected_objects[0] if selected_objects else None
+                return active_obj
 
         new_mesh = bpy.data.meshes.new('BlockOut')
         new_obj = bpy.data.objects.new('BlockOut', new_mesh)
-        if addon.pref().tools.block.obj.mode != 'CREATE':
+        if addon.pref().tools.block.obj.mode != 'ADD':
             new_obj.display_type = 'WIRE'
         context.collection.objects.link(new_obj)
         # new_obj.select_set(True)
@@ -89,7 +93,7 @@ class BOUT_OT_BlockObjTool(Block):
         symmetry_extrude = self.pref.symmetry_extrude
         symmetry_draw = self.pref.symmetry_draw
         mode = self.pref.mode
-        active_obj = bpy.context.active_object if bpy.context.active_object.type == 'MESH' else None
+        active_obj = bpy.context.active_object if bpy.context.active_object and bpy.context.active_object.type == 'MESH' and bpy.context.active_object.select_get() else None
         detected_obj = self._get_detected_obj(self.pref.detected, active_obj)
 
         shape = self.pref.shape
@@ -203,7 +207,7 @@ class BOUT_OT_BlockObjTool(Block):
                 mod.mod.segments = segments
 
     def _add_boolean(self, obj, detected_obj, active_obj):
-        if self.pref.mode != 'CREATE':
+        if self.pref.mode != 'ADD':
             if self.shape.volume == '3D':
                 bool_obj = detected_obj
                 _selected = bpy.context.selected_objects[:]
@@ -216,7 +220,7 @@ class BOUT_OT_BlockObjTool(Block):
                 obj.data.shade_smooth()
 
     def _boolean(self, mode, obj, bm):
-        if mode != 'CREATE':
+        if mode != 'ADD':
             if self.shape.volume == '3D':
                 if not self.modifiers.booleans:
                     bool_obj = self._get_detected_obj(self.objects.detected, self.objects.active)
@@ -235,7 +239,7 @@ class BOUT_OT_BlockObjTool(Block):
 
         if self.mode != 'BISECT':
             self._bevel_cleanup(context)
-            if self.config.mode != 'CREATE':
+            if self.config.mode != 'ADD':
                 self.data.obj.hide_set(True)
                 self.data.obj.data.shade_smooth()
 
@@ -271,7 +275,7 @@ class BOUT_OT_BlockObjTool(Block):
         return bpy.data.objects[detected_obj]
 
     def _set_parent(self, mode, obj, detected_obj):
-        if mode != 'CREATE' and detected_obj is not None:
+        if mode != 'ADD' and detected_obj is not None:
             parent_world = detected_obj.matrix_world.copy()
             obj.parent = detected_obj
             obj.matrix_parent_inverse = parent_world.inverted()

@@ -65,7 +65,7 @@ def modal(self, context, event):
 
     self.data.extrude.plane = (matrix_world @ point, matrix_world.to_3x3() @ direction)
 
-    if self.config.mode != 'CREATE':
+    if self.config.mode != 'ADD':
         self.ui.faces.callback.update_batch([face])
 
 

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 class Config:
     '''Dataclass for storing options'''
     shape: str = 'RECTANGLE'
-    mode: str = 'CREATE'
+    mode: str = 'ADD'
     type: str = 'OBJECT'
     form: bpy.types.PropertyGroup = None
     align: bpy.types.PropertyGroup = None
@@ -165,7 +165,7 @@ class Pref(bpy.types.PropertyGroup):
     symmetry_draw: bpy.props.BoolVectorProperty(name="Symmetry", description="Symmetry", default=(False, False), size=2)
 
     shape: bpy.props.StringProperty(name="Shape", description="Shape", default='RECTANGLE')
-    mode: bpy.props.StringProperty(name="Mode", description="Mode", default='CREATE')
+    mode: bpy.props.StringProperty(name="Mode", description="Mode", default='ADD')
 
     offset: bpy.props.FloatProperty(name="Offset", description="Offset", default=0.0, subtype='DISTANCE')
 

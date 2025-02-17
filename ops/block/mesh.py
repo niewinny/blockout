@@ -74,7 +74,7 @@ class BOUT_OT_BlockMeshTool(Block):
 
         shape = self.pref.shape
 
-        if self.pref.mode != 'CREATE':
+        if self.pref.mode != 'ADD':
             bpy.ops.mesh.select_all(action='DESELECT')
 
         match shape:
@@ -132,17 +132,17 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def _extrude_invoke(self, context, event):
         super()._extrude_invoke(context, event)
-        if self.config.mode != 'CREATE':
+        if self.config.mode != 'ADD':
             self.data.copy.draw = set_copy(self.data.obj)
 
     def _extrude_modal(self, context, event):
-        if self.config.mode != 'CREATE':
+        if self.config.mode != 'ADD':
             get_copy(self.data.obj, self.data.bm, self.data.copy.draw)
         super()._extrude_modal(context, event)
 
     def _boolean(self, mode, obj, bm):
         super()._boolean(mode, obj, bm)
-        if mode != 'CREATE':
+        if mode != 'ADD':
             if self.shape.volume == '3D':
                 bpy.ops.mesh.intersect_boolean(operation='DIFFERENCE', use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)

@@ -14,9 +14,9 @@ def build(cls, context):
         if cls.ray.hit:
             direction, plane = face_orientation(cls, context)
         else:
-            return None, None
+            direction, plane = world_orientation(cls, context)
 
-    if cls.config.mode != 'CREATE' and cls.config.type == 'EDIT_MESH':
+    if cls.config.mode != 'ADD' and cls.config.type == 'EDITplaneMESH':
         bpy.ops.mesh.select_all(action='DESELECT')
 
     if cls.config.align.grid.enable:
@@ -47,7 +47,6 @@ def make_local(cls):
 def face_orientation(cls, context):
     '''Get the orientation from the face'''
 
-    cls.objects.detected = cls.ray.obj.name
     depsgraph = context.view_layer.depsgraph
     depsgraph.update()
     hit_obj = cls.ray.obj
@@ -80,9 +79,6 @@ def face_orientation(cls, context):
 def custom_orientation(cls, context):
     '''Get the orientation from the custom plane'''
 
-    active_obj = hasattr(cls.objects, 'active')
-    if not active_obj:
-        cls.objects.detected = cls.objects.active.name
     custom_location = cls.config.align.custom.location
     custom_normal = cls.config.align.custom.normal
     custom_direction = cls.config.align.custom.direction
@@ -108,3 +104,38 @@ def custom_orientation(cls, context):
     plane_world = (location_world, custom_normal)
 
     return custom_direction, plane_world
+
+
+def world_orientation(cls, context):
+    '''Get the world orientation'''
+
+    # Get a point on the plane by projecting mouse.init onto the plane
+    region = context.region
+    rv3d = context.region_data
+
+    orientations = [
+        (Vector((1, 0, 0)),  Vector((0, 0, 0)), Vector((0, 0, 1))),  # First try: Z-up
+        (Vector((0, 0, 1)),  Vector((0, 0, 0)), Vector((0, 1, 0))),  # Second try: Y-up
+        (Vector((0, 0, 1)),  Vector((0, 0, 0)), Vector((1, 0, 0)))   # Third try: X-up
+    ]
+
+    for direction, location, normal in orientations:
+        world_plane = (location, normal)
+        location_world = view3d.region_2d_to_plane_3d(region, rv3d, cls.mouse.init, world_plane)
+        if location_world is not None:
+            world_direction = direction
+            world_normal = normal
+            break
+    else:
+        return None, None
+
+    location_world, detected_axis = orientation.point_on_axis(region, rv3d, world_plane, world_direction, location_world, distance=30)
+
+    cls.data.draw.symmetry = detected_axis
+
+    axis = context.scene.bout.axis
+    axis.highlight.x, axis.highlight.y = detected_axis
+
+    plane_world = (location_world, world_normal)
+
+    return world_direction, plane_world

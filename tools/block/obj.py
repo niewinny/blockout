@@ -38,7 +38,7 @@ class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
         _type = block.obj.mode
         match _type:
             case 'CUT': label = "Cut"
-            case 'CREATE': label = "Create"
+            case 'ADD': label =  "Add"
             case 'SLICE':label = "Slice"
         row.popover('BOUT_PT_TypeObj', text=label)
 
@@ -107,9 +107,9 @@ class Pref(bpy.types.PropertyGroup):
         name="Mode",
         description="Mode",
         items=[('CUT', 'Cut', 'Cut'),
-               ('CREATE', 'Create', 'Create'),
+               ('ADD', 'Add', 'Add'),
                ('SLICE', 'Slice', 'Slice')],
-        default='CREATE')
+        default='ADD')
     pick: bpy.props.EnumProperty(
         name="Pick",
         description="Pick objects",

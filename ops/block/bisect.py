@@ -71,8 +71,9 @@ def modal(self, context, event):
 def execute(self, context, obj, bm, bisect_data):
     '''Bisect the mesh'''
 
-    _bisect(obj, bm, bisect_data)
-    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+    if obj.select_get():
+        _bisect(obj, bm, bisect_data)
+        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
     selected_objects_without_obj = list(set(selected_objects) - {obj})
@@ -90,7 +91,6 @@ def execute(self, context, obj, bm, bisect_data):
         else:
             bm.to_mesh(obj.data)
             bm.free()
-
 
     return {'FINISHED'}
 

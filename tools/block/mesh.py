@@ -39,7 +39,7 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
         _type = block.mesh.mode
         match _type:
             case 'CUT': label = "Cut"
-            case 'CREATE': label = "Create"
+            case 'ADD': label = "Add"
         row.popover('BOUT_PT_TypeMesh', text=label)
         layout.label(text="Align:")
         label = "None"
@@ -106,7 +106,7 @@ class Pref(bpy.types.PropertyGroup):
         name="Mode",
         description="Mode",
         items=[('CUT', 'Cut', 'Cut'),
-               ('CREATE', 'Create', 'Create')],
+               ('ADD', 'Add', 'Add')],
         default='CUT')
     pick: bpy.props.EnumProperty(
         name="Pick",

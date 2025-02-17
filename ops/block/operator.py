@@ -131,9 +131,9 @@ class Block(bpy.types.Operator):
         self.pref.bevel.type = self.data.bevel.type
         self.pref.bevel.segments = self.data.bevel.segments
         self.pref.detected = self.objects.detected
-        if self.config.mode != 'CREATE':
+        if self.config.mode != 'ADD':
             self.pref.offset = self.config.align.offset
-
+ 
     def save_props(self):
         '''Store the properties'''
         addon.pref().tools.block.form.segments = self.pref.bevel.segments
@@ -146,7 +146,7 @@ class Block(bpy.types.Operator):
         normal = self.data.draw.plane[1]
         offset = self.config.align.offset
 
-        if self.config.mode != 'CREATE':
+        if self.config.mode != 'ADD':
             facet.set_z(face, normal, offset)
 
         self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
@@ -164,15 +164,17 @@ class Block(bpy.types.Operator):
         self.ray = self.ray_cast(context)
 
         self.objects.selected = [obj for obj in context.selected_objects if obj.type == 'MESH']
-        self.objects.active = context.active_object if context.active_object.type == 'MESH' else None
+        self.objects.active = context.active_object if context.active_object and context.active_object.type == 'MESH' and context.active_object.select_get() else None
+        self.objects.detected = self.ray.obj.name if self.ray.hit else ''
 
-        if not self.config.align.mode == 'CUSTOM' and not self.ray.hit:
-            self.mode = 'BISECT'
-            self.pref.bisect.running = True
+        if len(self.objects.selected) > 0:
+            if not self.config.align.mode == 'CUSTOM' and not self.ray.hit:
+                self.mode = 'BISECT'
+                self.pref.bisect.running = True
 
         self.data.obj = self.get_object(context)
         if not self.data.obj:
-            self.report({'ERROR'}, 'Failed to detect object')
+            self.report({'ERROR'}, 'Failed to detect Drawing Plane: Set Custom orientation or pick Object')
             return {'CANCELLED'}
         self.data.bm = self.build_bmesh(self.data.obj)
         self.data.copy.init = set_copy(self.data.obj)
@@ -253,7 +255,7 @@ class Block(bpy.types.Operator):
                         self.set_offset()
 
                 case 'EXTRUDE':
-                    if self.config.mode == 'CREATE':
+                    if self.config.mode == 'ADD':
                         self._recalculate_normals(self.data.bm, self.data.extrude.faces)
                     self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
                 case 'BISECT':
@@ -275,7 +277,7 @@ class Block(bpy.types.Operator):
                     if self.mode == 'BEVEL' and self.shape.volume == '3D':
                         self.data.bevel.type = '2D' if self.data.bevel.type == '3D' else '3D'
                     self._bevel_invoke(context, event)
-                    if self.config.mode != 'CREATE':
+                    if self.config.mode != 'ADD':
                         self._boolean(self.config.mode, self.data.obj, self.data.bm)
 
         elif event.type == 'S':
@@ -283,7 +285,7 @@ class Block(bpy.types.Operator):
                 if self.mode == 'BEVEL':
                     self.data.bevel.mode = 'SEGMENTS'
                     self._bevel_invoke(context, event)
-                    if self.config.mode != 'CREATE':
+                    if self.config.mode != 'ADD':
                         self._boolean(self.config.mode, self.data.obj, self.data.bm)
 
         elif event.type == 'Z':
