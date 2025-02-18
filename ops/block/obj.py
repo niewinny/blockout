@@ -83,8 +83,14 @@ class BOUT_OT_BlockObjTool(Block):
     def build_geometry(self, obj, bm):
 
         offset = self.pref.offset
-        bevel_offset = self.pref.bevel.offset
-        bevel_segments = self.pref.bevel.segments
+        bevel_round_enable = self.pref.bevel.round.enable
+        bevel_round_offset = self.pref.bevel.round.offset
+        bevel_round_segments = self.pref.bevel.round.segments
+        bevel_round = (bevel_round_enable, bevel_round_offset, bevel_round_segments)
+        bevel_fill_enable = self.pref.bevel.fill.enable
+        bevel_fill_offset = self.pref.bevel.fill.offset
+        bevel_fill_segments = self.pref.bevel.fill.segments
+        bevel_fill = (bevel_fill_enable, bevel_fill_offset, bevel_fill_segments)
         location = self.pref.plane.location
         normal = self.pref.plane.normal
         plane = (location, normal)
@@ -116,7 +122,7 @@ class BOUT_OT_BlockObjTool(Block):
                 facet.set_z(face, normal, offset)
                 extruded_faces = facet.extrude(bm, face, plane, fixed_extrusion)
                 self._recalculate_normals(bm, extruded_faces)
-                self._add_bevel(bm, obj, bevel_offset, bevel_segments, extruded_faces)
+                self._add_bevel(bm, obj, bevel_round, bevel_fill, extruded_faces)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._add_boolean(obj, detected_obj, active_obj)
             case 'CIRCLE':
@@ -153,58 +159,93 @@ class BOUT_OT_BlockObjTool(Block):
         super()._extrude_invoke(context, event)
         infobar.draw(context, event, self._infobar, blank=True)
 
-    def _add_bevel(self, bm, obj, bevel_offset, bevel_segments, extruded_faces):
-        if bevel_offset > 0.0:
+    def _add_bevel(self, bm, obj, round, fill, extruded_faces):
+        bevel_round_enable = round[0]
+        bevel_round_offset = round[1]
+        bevel_round_segments = round[2]
+        bevel_fill_enable = fill[0]
+        bevel_fill_offset = fill[1]
+        bevel_fill_segments = fill[2]
 
-            extruded_bot_edges = [e.index for e in bmeshface.from_index(bm, extruded_faces[0]).edges]
-            extruded_top_edges = [e.index for e in bmeshface.from_index(bm, extruded_faces[-1]).edges]
-            if self.pref.bevel.type == '2D':
-                extruded_edges = [e.index for f_idx in extruded_faces[1:-1] for e in bmeshface.from_index(bm, f_idx).edges if e.index not in extruded_bot_edges and e.index not in extruded_top_edges]
-            else:
-                extruded_edges = [e.index for f_idx in extruded_faces[1:-1] for e in bmeshface.from_index(bm, f_idx).edges if e.index not in extruded_bot_edges]
+        extruded_bot_edges = [e.index for e in bmeshface.from_index(bm, extruded_faces[0]).edges]
+        extruded_top_edges = [e.index for e in bmeshface.from_index(bm, extruded_faces[-1]).edges]
 
-            bevel.set_edge_weight(bm, extruded_edges)
-            bevel.add_modifier(obj, bevel_offset, bevel_segments)
+        if bevel_round_enable and bevel_round_offset > 0.0:
+            extruded_edges = [e.index for f_idx in extruded_faces[1:-1] for e in bmeshface.from_index(bm, f_idx).edges if e.index not in extruded_bot_edges and e.index not in extruded_top_edges]
+            bevel.set_edge_weight(bm, extruded_edges, type='ROUND')
+            bevel.add_modifier(obj, bevel_round_offset, bevel_round_segments, type='ROUND')
+        if bevel_fill_enable and bevel_fill_offset > 0.0:
+            bevel.set_edge_weight(bm, extruded_top_edges, type='FILL')
+            bevel.add_modifier(obj, bevel_fill_offset, bevel_fill_segments, type='FILL')
 
     def _bevel_invoke(self, context, event):
         super()._bevel_invoke(context, event)
         bm = self.data.bm
 
-        set_position, del_position = ({'MID', 'END'}, {}) if self.data.bevel.type == '3D' else ({'MID'}, {'END'})
-        set_edges_indexes = [e.index for e in self.data.extrude.edges if e.position in set_position]
-        del_edges_indexes = [e.index for e in self.data.extrude.edges if e.position in del_position]
-        bevel.set_edge_weight(bm, set_edges_indexes)
-        bevel.clean_edge_weight(bm, del_edges_indexes)
+        set_mid_edges_indexes = [e.index for e in self.data.extrude.edges if e.position == 'MID']
+        set_end_edges_indexes = [e.index for e in self.data.extrude.edges if e.position == 'END']
+
+        bevel.set_edge_weight(bm, set_mid_edges_indexes, type='ROUND')
+        bevel.set_edge_weight(bm, set_end_edges_indexes, type='FILL')
 
         if not self.modifiers.bevels:
-            mod = bevel.add_modifier(self.data.obj, 0.0, self.data.bevel.segments)
-            self.modifiers.bevels.append(Modifier(obj=self.data.obj, mod=mod))
+
+            mod, type = bevel.add_modifier(self.data.obj, 0.0, self.data.bevel.fill.segments, type='FILL')
+            self.modifiers.bevels.append(Modifier(obj=self.data.obj, mod=mod, type=type))
+        
+            mod, type = bevel.add_modifier(self.data.obj, 0.0, self.data.bevel.round.segments, type='ROUND')
+            self.modifiers.bevels.append(Modifier(obj=self.data.obj, mod=mod, type=type))
 
         self.update_bmesh(self.data.obj, bm, loop_triangles=True, destructive=False)
         infobar.draw(context, event, self._infobar, blank=True)
 
     def _bevel_cleanup(self, context):
-        if self.data.bevel.offset <= 0.0:
-            if not self.modifiers.bevels:
-                return
+        if not self.modifiers.bevels:
+            return
 
-            for mod in self.modifiers.bevels:
-                modifier.remove(mod.obj, mod.mod)
+        for m in self.modifiers.bevels[:]:
+            if m.type == 'ROUND' and self.data.bevel.round.offset <= 0.0:
+                modifier.remove(m.obj, m.mod)
+                self.modifiers.bevels.remove(m)
+            elif m.type == 'FILL' and self.data.bevel.fill.offset <= 0.0:
+                modifier.remove(m.obj, m.mod)
+                self.modifiers.bevels.remove(m)
 
-            bevel.del_edge_weight(self.data.bm)
-            self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=False)
+        if not any(mod.type == 'ROUND' for mod in self.modifiers.bevels):
+            bevel.del_edge_weight(self.data.bm, type='ROUND')
+            self.pref.bevel.round.enable = False
+        
+        if not any(mod.type == 'FILL' for mod in self.modifiers.bevels):
+            bevel.del_edge_weight(self.data.bm, type='FILL')
+            self.pref.bevel.fill.enable = False
+        
+        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=False)
 
     def _bevel_modal(self, context, event):
         super()._bevel_modal(context, event)
         if self.data.bevel.mode == 'OFFSET':
-            offset = self.data.bevel.offset
-            for mod in self.modifiers.bevels:
-                mod.mod.width = offset
+            if self.data.bevel.type == 'ROUND':
+                offset = self.data.bevel.round.offset
+                for mod in self.modifiers.bevels:
+                    if mod.type == 'ROUND':
+                        mod.mod.width = offset
+            else:
+                offset = self.data.bevel.fill.offset
+                for mod in self.modifiers.bevels:
+                    if mod.type == 'FILL':
+                        mod.mod.width = offset
 
         if self.data.bevel.mode == 'SEGMENTS':
-            segments = self.data.bevel.segments
-            for mod in self.modifiers.bevels:
-                mod.mod.segments = segments
+            if self.data.bevel.type == 'ROUND':
+                segments = self.data.bevel.round.segments
+                for mod in self.modifiers.bevels:
+                    if mod.type == 'ROUND':
+                        mod.mod.segments = segments
+            else:
+                segments = self.data.bevel.fill.segments
+                for mod in self.modifiers.bevels:
+                    if mod.type == 'FILL':
+                        mod.mod.segments = segments
 
     def _add_boolean(self, obj, detected_obj, active_obj):
         if self.pref.mode != 'ADD':

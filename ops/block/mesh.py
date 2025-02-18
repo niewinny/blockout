@@ -62,8 +62,12 @@ class BOUT_OT_BlockMeshTool(Block):
     def build_geometry(self, obj, bm):
 
         offset = self.pref.offset
-        bevel_offset = self.pref.bevel.offset
-        bevel_segments = self.pref.bevel.segments
+        bevel_round_enable = self.pref.bevel.round.enable
+        bevel_round_offset = self.pref.bevel.round.offset
+        bevel_round_segments = self.pref.bevel.round.segments
+        bevel_fill_enable = self.pref.bevel.fill.enable
+        bevel_fill_offset = self.pref.bevel.fill.offset
+        bevel_fill_segments = self.pref.bevel.fill.segments
         location = self.pref.plane.location
         normal = self.pref.plane.normal
         plane = (location, normal)
@@ -83,7 +87,7 @@ class BOUT_OT_BlockMeshTool(Block):
                 face = bmeshface.from_index(bm, face_index)
                 rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 facet.set_z(face, normal, offset)
-                face_index = facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
+                face_index = facet.bevel(bm, face, bevel_round_offset, bevel_segments=bevel_round_segments)
                 face = bmeshface.from_index(bm, face_index)
                 facet.remove_doubles(bm, face)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
@@ -94,18 +98,16 @@ class BOUT_OT_BlockMeshTool(Block):
                     offset = -extrusion
                 fixed_extrusion = extrusion - offset
                 rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
-                if self.pref.bevel.type == '3D':
-                    facet.set_z(face, normal, offset)
-                    box_faces_indexes = facet.extrude(bm, face, plane, fixed_extrusion)
-                    box.bevel(bm, box_faces_indexes, bevel_offset, bevel_segments=bevel_segments)
-                else:
-                    face_index = facet.bevel(bm, face, bevel_offset, bevel_segments=bevel_segments)
+
+                if self.pref.bevel.round.enable:
+                    face_index = facet.bevel(bm, face, bevel_round_offset, bevel_segments=bevel_round_segments)
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
-                    if self.shape.volume == '3D':
-                        facet.set_z(face, normal, offset)
-                        extruded_faces = facet.extrude(bm, face, plane, fixed_extrusion)
-                        self._recalculate_normals(bm, extruded_faces)
+
+                facet.set_z(face, normal, offset)
+                extruded_faces = facet.extrude(bm, face, plane, fixed_extrusion)
+                self._recalculate_normals(bm, extruded_faces)
+
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._boolean(self.pref.mode, obj, bm)
             case 'CIRCLE':
@@ -122,7 +124,7 @@ class BOUT_OT_BlockMeshTool(Block):
                 face = bmeshface.from_index(bm, cylinder_faces_indexes[0])
                 self._recalculate_normals(bm, cylinder_faces_indexes)
                 facet.set_z(face, normal, offset)
-                cylinder.bevel(bm, cylinder_faces_indexes, bevel_offset, bevel_segments=bevel_segments)
+                cylinder.bevel(bm, cylinder_faces_indexes, bevel_round_offset, bevel_segments=bevel_round_segments)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._boolean(self.pref.mode, obj, bm)
             case _:

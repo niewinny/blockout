@@ -109,7 +109,7 @@ class Pref(bpy.types.PropertyGroup):
         items=[('CUT', 'Cut', 'Cut'),
                ('ADD', 'Add', 'Add'),
                ('SLICE', 'Slice', 'Slice')],
-        default='ADD')
+        default='CUT')
     pick: bpy.props.EnumProperty(
         name="Pick",
         description="Pick objects",

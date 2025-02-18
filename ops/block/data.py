@@ -33,14 +33,22 @@ class Draw:
 
 
 @dataclass
-class Bevel:
+class BevelType:
     '''Dataclass for storing options'''
-    origin: Vector = Vector()
+    enable: bool = True
     offset: float = 0.0
     offset_stored: float = 0.0
     segments: int = 0
     segments_stored: int = 0
-    type: str = '2D'
+
+
+@dataclass
+class Bevel:
+    '''Dataclass for storing options'''
+    origin: Vector = Vector()
+    round: BevelType = field(default_factory=BevelType)
+    fill: BevelType = field(default_factory=BevelType)
+    type: str = 'ROUND'
     mode: str = 'OFFSET'
     precision: bool = False
 
@@ -106,6 +114,7 @@ class Objects:
 class Modifier:
     obj: bpy.types.Object = None
     mod: bpy.types.Modifier = None
+    type: str = ''
 
 
 @dataclass
@@ -142,11 +151,16 @@ class Plane(bpy.types.PropertyGroup):
     normal: bpy.props.FloatVectorProperty(name="Normal", description="Plane normal", size=3, default=(0, 0, 0), subtype='XYZ')
 
 
+class BevelPrefType(bpy.types.PropertyGroup):
+    enable: bpy.props.BoolProperty(name="Enable", description="Enable", default=False)
+    offset: bpy.props.FloatProperty(name="Offset", description="Offset", default=0.0, subtype='DISTANCE')
+    segments: bpy.props.IntProperty(name="Segments", description="Segments", default=1, min=1, max=32)
+
+
 class BevelPref(bpy.types.PropertyGroup):
     '''PropertyGroup for storing bevel data'''
-    type: bpy.props.EnumProperty(name="Mode", description="Bevel Mode", items=[('3D', '3D', '3D'), ('2D', '2D', '2D')], default='2D')
-    offset: bpy.props.FloatProperty(name="Offset", description="Bevel Offset", default=0.0, min=0.0, subtype='DISTANCE')
-    segments: bpy.props.IntProperty(name="Segments", description="Bevel Segments", default=1, min=1, max=32)
+    round: bpy.props.PointerProperty(type=BevelPrefType)
+    fill: bpy.props.PointerProperty(type=BevelPrefType)
 
 
 class BisectPref(bpy.types.PropertyGroup):
@@ -190,6 +204,7 @@ classes = (
     Rectangle,
     Circle,
     Plane,
+    BevelPrefType,
     BevelPref,
     BisectPref,
     Shape,

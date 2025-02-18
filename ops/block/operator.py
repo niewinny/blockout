@@ -33,7 +33,8 @@ class Block(bpy.types.Operator):
 
     def get_tool_prpoerties(self):
         '''Get the tool properties'''
-        self.data.bevel.segments = addon.pref().tools.block.form.segments
+        self.data.bevel.round.segments = addon.pref().tools.block.form.segments
+        self.data.bevel.fill.segments = addon.pref().tools.block.form.segments
 
     def get_object(self, context, store_properties=True):
         '''Set the object data'''
@@ -83,10 +84,15 @@ class Block(bpy.types.Operator):
                 col.prop(self.shape.rectangle, 'co', text="Dimensions")
                 col.prop(self.pref, 'extrusion', text="Z")
                 layout.prop(self.pref, 'offset', text="Offset")
-                row = layout.row(align=True)
-                row.prop(self.pref.bevel, 'type', text="Bevel")
-                row.prop(self.pref.bevel, 'offset', text="")
-                row.prop(self.pref.bevel, 'segments', text="")
+                col = layout.column(align=True, heading="Bevel")
+                row = col.row(align=True)
+                row.prop(self.pref.bevel.round, 'enable', text="Round", toggle=True)
+                row.prop(self.pref.bevel.round, 'offset', text="")
+                row.prop(self.pref.bevel.round, 'segments', text="")
+                row = col.row(align=True)
+                row.prop(self.pref.bevel.fill, 'enable', text="Fill", toggle=True)
+                row.prop(self.pref.bevel.fill, 'offset', text="")
+                row.prop(self.pref.bevel.fill, 'segments', text="")
             case 'CIRCLE':
                 layout.prop(self.shape.circle, 'radius', text="Radius")
                 layout.prop(self.shape.circle, 'verts', text="Verts")
@@ -127,16 +133,19 @@ class Block(bpy.types.Operator):
         self.pref.symmetry_draw = self.data.draw.symmetry
         self.pref.shape = self.config.shape
         self.pref.mode = self.config.mode
-        self.pref.bevel.offset = self.data.bevel.offset
-        self.pref.bevel.type = self.data.bevel.type
-        self.pref.bevel.segments = self.data.bevel.segments
+        self.pref.bevel.round.enable = self.data.bevel.round.enable
+        self.pref.bevel.round.offset = self.data.bevel.round.offset
+        self.pref.bevel.round.segments = self.data.bevel.round.segments
+        self.pref.bevel.fill.enable = self.data.bevel.fill.enable
+        self.pref.bevel.fill.offset = self.data.bevel.fill.offset
+        self.pref.bevel.fill.segments = self.data.bevel.fill.segments
         self.pref.detected = self.objects.detected
         if self.config.mode != 'ADD':
             self.pref.offset = self.config.align.offset
  
     def save_props(self):
         '''Store the properties'''
-        addon.pref().tools.block.form.segments = self.pref.bevel.segments
+        addon.pref().tools.block.form.segments = self.pref.bevel.round.segments
 
     def set_offset(self):
         '''Set the offset'''
@@ -192,6 +201,8 @@ class Block(bpy.types.Operator):
             draw.update_ui(self)
             orientation.make_local(self)
 
+            if self.config.type == 'EDIT_MESH':
+                bpy.ops.mesh.select_all(action='DESELECT')
             created_mesh = self._draw_invoke(context)
             if not created_mesh:
                 self._end(context)
@@ -275,7 +286,7 @@ class Block(bpy.types.Operator):
                         return {'RUNNING_MODAL'}
                     self.data.bevel.mode = 'OFFSET'
                     if self.mode == 'BEVEL' and self.shape.volume == '3D':
-                        self.data.bevel.type = '2D' if self.data.bevel.type == '3D' else '3D'
+                        self.data.bevel.type = 'ROUND' if self.data.bevel.type == 'FILL' else 'FILL'
                     self._bevel_invoke(context, event)
                     if self.config.mode != 'ADD':
                         self._boolean(self.config.mode, self.data.obj, self.data.bm)
@@ -355,7 +366,9 @@ class Block(bpy.types.Operator):
         shape = self.config.shape
         if self.mode == 'BEVEL':
             text = 'Bevel'
-            dimentions = f'Type:{self.data.bevel.type}, Offset:{self.data.bevel.offset:.4f},  Segments:{self.data.bevel.segments}'
+            offset = self.data.bevel.round.offset if self.data.bevel.type == 'ROUND' else self.data.bevel.fill.offset
+            segments = self.data.bevel.round.segments if self.data.bevel.type == 'ROUND' else self.data.bevel.fill.segments
+            dimentions = f'Type:{self.data.bevel.type}, Offset:{offset:.4f}, Segments:{segments}'
         else:
             match shape:
                 case 'RECTANGLE': dimentions = f' Dx:{x_length:.4f},  Dy:{y_length:.4f}'
