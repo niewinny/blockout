@@ -35,7 +35,7 @@ class Draw:
 @dataclass
 class BevelType:
     '''Dataclass for storing options'''
-    enable: bool = True
+    enable: bool = False
     offset: float = 0.0
     offset_stored: float = 0.0
     segments: int = 0

@@ -58,3 +58,22 @@ def merge_copy(obj, bm, mesh_data=None):
     bm.edges.index_update()
     bm.faces.ensure_lookup_table()
     bm.faces.index_update()
+
+
+def remove_doubles(bm, verts_indicies):
+    """
+    Remove doubles from the BMesh 'bm' using the indices of the vertices to check.
+
+    :param bm: A bmesh.BMesh.
+    :param verts_indicies: A list of vertex indices to check for doubles.
+    """
+
+    verts = [bm.verts[i] for i in verts_indicies]
+    bmesh.ops.remove_doubles(bm, verts=verts, dist=0.0001)
+    bm.select_flush(True)
+    bm.verts.ensure_lookup_table()
+    bm.verts.index_update()
+    bm.edges.ensure_lookup_table()
+    bm.edges.index_update()
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()

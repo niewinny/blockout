@@ -4,6 +4,10 @@ from ...utils import view3d, modifier
 def invoke(self, context, event):
     '''Bevel the mesh'''
 
+    self.data.bevel.round.enable = True
+    if self.data.bevel.type == 'FILL':
+        self.data.bevel.fill.enable = True
+
     self.data.bevel.round.segments_stored = self.data.bevel.round.segments
     self.data.bevel.round.offset_stored = self.data.bevel.round.offset
     self.data.bevel.fill.offset_stored = self.data.bevel.fill.offset
@@ -11,8 +15,6 @@ def invoke(self, context, event):
     self.mouse.bevel = self.mouse.co
 
     if self.mode != 'BEVEL':
-        # volume = self.shape.volume
-        # self.data.bevel.type = volume
         self.ui.zaxis.callback.clear()
         self.mode = 'BEVEL'
 

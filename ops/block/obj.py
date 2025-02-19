@@ -65,7 +65,6 @@ class BOUT_OT_BlockObjTool(Block):
         if addon.pref().tools.block.obj.mode != 'ADD':
             new_obj.display_type = 'WIRE'
         context.collection.objects.link(new_obj)
-        # new_obj.select_set(True)
 
         if store_properties:
             self.objects.created = new_obj
@@ -170,13 +169,14 @@ class BOUT_OT_BlockObjTool(Block):
         extruded_bot_edges = [e.index for e in bmeshface.from_index(bm, extruded_faces[0]).edges]
         extruded_top_edges = [e.index for e in bmeshface.from_index(bm, extruded_faces[-1]).edges]
 
+        if bevel_fill_enable and bevel_fill_offset > 0.0:
+            bevel.set_edge_weight(bm, extruded_top_edges, type='FILL')
+            bevel.add_modifier(obj, bevel_fill_offset, bevel_fill_segments, type='FILL')
+
         if bevel_round_enable and bevel_round_offset > 0.0:
             extruded_edges = [e.index for f_idx in extruded_faces[1:-1] for e in bmeshface.from_index(bm, f_idx).edges if e.index not in extruded_bot_edges and e.index not in extruded_top_edges]
             bevel.set_edge_weight(bm, extruded_edges, type='ROUND')
             bevel.add_modifier(obj, bevel_round_offset, bevel_round_segments, type='ROUND')
-        if bevel_fill_enable and bevel_fill_offset > 0.0:
-            bevel.set_edge_weight(bm, extruded_top_edges, type='FILL')
-            bevel.add_modifier(obj, bevel_fill_offset, bevel_fill_segments, type='FILL')
 
     def _bevel_invoke(self, context, event):
         super()._bevel_invoke(context, event)
@@ -189,12 +189,14 @@ class BOUT_OT_BlockObjTool(Block):
         bevel.set_edge_weight(bm, set_end_edges_indexes, type='FILL')
 
         if not self.modifiers.bevels:
-
             mod, type = bevel.add_modifier(self.data.obj, 0.0, self.data.bevel.fill.segments, type='FILL')
             self.modifiers.bevels.append(Modifier(obj=self.data.obj, mod=mod, type=type))
-        
             mod, type = bevel.add_modifier(self.data.obj, 0.0, self.data.bevel.round.segments, type='ROUND')
             self.modifiers.bevels.append(Modifier(obj=self.data.obj, mod=mod, type=type))
+        else:
+            for m in self.modifiers.bevels:
+                if m.type == 'FILL':
+                    m.mod.segments = self.data.bevel.fill.segments
 
         self.update_bmesh(self.data.obj, bm, loop_triangles=True, destructive=False)
         infobar.draw(context, event, self._infobar, blank=True)
@@ -214,11 +216,11 @@ class BOUT_OT_BlockObjTool(Block):
         if not any(mod.type == 'ROUND' for mod in self.modifiers.bevels):
             bevel.del_edge_weight(self.data.bm, type='ROUND')
             self.pref.bevel.round.enable = False
-        
+
         if not any(mod.type == 'FILL' for mod in self.modifiers.bevels):
             bevel.del_edge_weight(self.data.bm, type='FILL')
             self.pref.bevel.fill.enable = False
-        
+
         self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=False)
 
     def _bevel_modal(self, context, event):
@@ -322,7 +324,10 @@ class BOUT_OT_BlockObjTool(Block):
             obj.matrix_parent_inverse = parent_world.inverted()
 
     def _cancel(self, context):
-        super()._cancel(context)
+        if self.objects.created:
+            mesh = self.objects.created.data
+            bpy.data.objects.remove(self.objects.created)
+            bpy.data.meshes.remove(mesh)
         boolean.clear_modifiers(self.modifiers)
 
 

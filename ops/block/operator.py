@@ -75,10 +75,11 @@ class Block(bpy.types.Operator):
                 col = layout.column(align=True)
                 col.prop(self.shape.rectangle, 'co', text="Dimensions")
                 layout.prop(self.pref, 'offset', text="Offset")
-                col = layout.column(align=True)
+                col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
-                row.prop(self.pref.bevel, 'offset', text="Bevel")
-                row.prop(self.pref.bevel, 'segments', text="")
+                row.prop(self.pref.bevel.round, 'enable', text="Round", toggle=True)
+                row.prop(self.pref.bevel.round, 'offset', text="")
+                row.prop(self.pref.bevel.round, 'segments', text="")
             case 'BOX':
                 col = layout.column(align=True)
                 col.prop(self.shape.rectangle, 'co', text="Dimensions")
@@ -102,6 +103,11 @@ class Block(bpy.types.Operator):
                 layout.prop(self.pref, 'extrusion', text="Dimensions Z")
                 layout.prop(self.shape.circle, 'verts', text="Verts")
                 layout.prop(self.pref, 'offset', text="Offset")
+                col = layout.column(align=True, heading="Bevel")
+                row = col.row(align=True)
+                row.prop(self.pref.bevel.fill, 'enable', text="Fill", toggle=True)
+                row.prop(self.pref.bevel.fill, 'offset', text="")
+                row.prop(self.pref.bevel.fill, 'segments', text="")
 
     def _hide_transform_gizmo(self, context):
         self.pref.transform_gizmo = context.space_data.show_gizmo_context
@@ -201,7 +207,7 @@ class Block(bpy.types.Operator):
             draw.update_ui(self)
             orientation.make_local(self)
 
-            if self.config.type == 'EDIT_MESH':
+            if self.config.type == 'EDIT_MESH' and self.config.mode != 'ADD':
                 bpy.ops.mesh.select_all(action='DESELECT')
             created_mesh = self._draw_invoke(context)
             if not created_mesh:
@@ -282,22 +288,28 @@ class Block(bpy.types.Operator):
         elif event.type == 'B':
             if event.value == 'PRESS':
                 if self.config.shape in {'RECTANGLE', 'BOX', 'CYLINDER'}:
-                    if self.config.shape == 'CYLINDER' and self.shape.volume == '2D':
-                        return {'RUNNING_MODAL'}
                     self.data.bevel.mode = 'OFFSET'
-                    if self.mode == 'BEVEL' and self.shape.volume == '3D':
-                        self.data.bevel.type = 'ROUND' if self.data.bevel.type == 'FILL' else 'FILL'
+
+                    if self.config.shape == 'RECTANGLE':
+                        self.data.bevel.type = 'ROUND'
+
+                    if self.config.shape == 'CYLINDER':
+                        self.data.bevel.type = 'FILL'
+
+                    if self.config.shape == 'BOX':
+                        if self.mode == 'BEVEL':
+                            self.data.bevel.type = 'ROUND' if self.data.bevel.type == 'FILL' else 'FILL'
+
+                    if not self.data.bevel.type == 'ROUND':
+                        self.data.bevel.fill.segments = self.data.bevel.round.segments
+
                     self._bevel_invoke(context, event)
-                    if self.config.mode != 'ADD':
-                        self._boolean(self.config.mode, self.data.obj, self.data.bm)
 
         elif event.type == 'S':
             if event.value == 'PRESS':
                 if self.mode == 'BEVEL':
                     self.data.bevel.mode = 'SEGMENTS'
                     self._bevel_invoke(context, event)
-                    if self.config.mode != 'ADD':
-                        self._boolean(self.config.mode, self.data.obj, self.data.bm)
 
         elif event.type == 'Z':
             if event.value == 'PRESS':
@@ -315,10 +327,8 @@ class Block(bpy.types.Operator):
         '''Finish the operator'''
 
     def _cancel(self, context):
-        if self.objects.created:
-            mesh = self.objects.created.data
-            bpy.data.objects.remove(self.objects.created)
-            bpy.data.meshes.remove(mesh)
+        '''Cancel the operator'''
+        raise NotImplementedError("Subclasses must implement the _cancel method")
 
     def _end(self, context):
         '''End the operator'''

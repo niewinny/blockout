@@ -5,7 +5,7 @@ from .operator import Block
 from .data import Config
 from ...utils import addon, scene
 from ...bmeshutils import bmeshface, rectangle, facet, box, circle, cylinder
-from ...bmeshutils.mesh import set_copy, get_copy
+from ...bmeshutils.mesh import set_copy, get_copy, remove_doubles
 
 
 class BOUT_OT_BlockMeshTool(Block):
@@ -62,10 +62,8 @@ class BOUT_OT_BlockMeshTool(Block):
     def build_geometry(self, obj, bm):
 
         offset = self.pref.offset
-        bevel_round_enable = self.pref.bevel.round.enable
         bevel_round_offset = self.pref.bevel.round.offset
         bevel_round_segments = self.pref.bevel.round.segments
-        bevel_fill_enable = self.pref.bevel.fill.enable
         bevel_fill_offset = self.pref.bevel.fill.offset
         bevel_fill_segments = self.pref.bevel.fill.segments
         location = self.pref.plane.location
@@ -87,9 +85,10 @@ class BOUT_OT_BlockMeshTool(Block):
                 face = bmeshface.from_index(bm, face_index)
                 rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 facet.set_z(face, normal, offset)
-                face_index = facet.bevel(bm, face, bevel_round_offset, bevel_segments=bevel_round_segments)
-                face = bmeshface.from_index(bm, face_index)
-                facet.remove_doubles(bm, face)
+                if self.pref.bevel.round.enable:
+                    face_index = facet.bevel_verts(bm, face, bevel_round_offset, bevel_segments=bevel_round_segments)
+                    face = bmeshface.from_index(bm, face_index)
+                    facet.remove_doubles(bm, face)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
             case 'BOX':
                 face_index = rectangle.create(bm, plane)
@@ -98,16 +97,19 @@ class BOUT_OT_BlockMeshTool(Block):
                     offset = -extrusion
                 fixed_extrusion = extrusion - offset
                 rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
-
                 if self.pref.bevel.round.enable:
-                    face_index = facet.bevel(bm, face, bevel_round_offset, bevel_segments=bevel_round_segments)
+                    face_index = facet.bevel_verts(bm, face, bevel_round_offset, bevel_segments=bevel_round_segments)
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
-
                 facet.set_z(face, normal, offset)
                 extruded_faces = facet.extrude(bm, face, plane, fixed_extrusion)
                 self._recalculate_normals(bm, extruded_faces)
-
+                if self.pref.bevel.fill.enable:
+                    face_index = extruded_faces[-1]
+                    face = bmeshface.from_index(bm, face_index)
+                    edges = face.edges
+                    verts_indicies = facet.bevel_edges(bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments)
+                    remove_doubles(bm, verts_indicies)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._boolean(self.pref.mode, obj, bm)
             case 'CIRCLE':
@@ -124,7 +126,8 @@ class BOUT_OT_BlockMeshTool(Block):
                 face = bmeshface.from_index(bm, cylinder_faces_indexes[0])
                 self._recalculate_normals(bm, cylinder_faces_indexes)
                 facet.set_z(face, normal, offset)
-                cylinder.bevel(bm, cylinder_faces_indexes, bevel_round_offset, bevel_segments=bevel_round_segments)
+                if self.pref.bevel.fill.enable:
+                    cylinder.bevel(bm, cylinder_faces_indexes, bevel_fill_offset, bevel_segments=bevel_fill_segments)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._boolean(self.pref.mode, obj, bm)
             case _:
@@ -172,6 +175,10 @@ class BOUT_OT_BlockMeshTool(Block):
         super()._finish(context)
         if self.mode != 'BISECT':
             self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
+
+    def _cancel(self, context):
+        get_copy(self.data.obj, self.data.bm, self.data.copy.init)
+        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
 
 classes = (
