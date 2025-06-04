@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+id = "Blockout"
+version = "0.1.0"
+name = "Blockout"
+tagline = "Blockout"
+maintainer = "ChonkyCat.io"
+type = "add-on"
+
+
+# Optional link to documentation, support, source files, etc
+# website = "http://extensions.blender.org/add-ons/my-example-package/"
+
+
+tags = ["Modeling", "3D View", "Mesh"]
+blender_version_min = "4.2.0"
+
+license = [
+  "SPDX:GPL-2.0-or-later",
+]
