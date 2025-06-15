@@ -210,6 +210,126 @@ class BOUT_OT_ApplyModifiers(Operator):
         }
         return icon_map.get(modifier_type, 'MODIFIER')
 
+    def _get_modifier_referenced_objects(self, modifier):
+        """Get all objects referenced by a modifier"""
+        referenced_objects = set()
+        
+        # Dictionary mapping modifier types to their object properties
+        modifier_object_props = {
+            'BOOLEAN': ['object'],
+            'ARRAY': ['start_cap', 'end_cap', 'offset_object'],
+            'MIRROR': ['mirror_object'],
+            'SHRINKWRAP': ['target'],
+            'CAST': ['object'],
+            'CURVE': ['object'],
+            'HOOK': ['object'],
+            'LATTICE': ['object'],
+            'MESH_DEFORM': ['object'],
+            'SURFACE_DEFORM': ['target'],
+            'ARMATURE': ['object'],
+        }
+        
+        # Get the properties for this modifier type
+        props = modifier_object_props.get(modifier.type, [])
+        
+        # Check each property and add referenced objects
+        for prop_name in props:
+            if hasattr(modifier, prop_name):
+                obj_ref = getattr(modifier, prop_name)
+                if obj_ref:
+                    referenced_objects.add(obj_ref)
+        
+        return referenced_objects
+
+    def _cleanup_unused_objects(self, objects_to_check):
+        """Remove objects that are no longer used by any other data"""
+        removed_count = 0
+        
+        for obj in list(objects_to_check):
+            if not obj or obj.name not in bpy.data.objects:
+                continue
+                
+            if self._is_object_unused(obj):
+                try:
+                    # Remove from all collections first
+                    for collection in obj.users_collection:
+                        collection.objects.unlink(obj)
+                    
+                    # Remove the object data
+                    bpy.data.objects.remove(obj, do_unlink=True)
+                    removed_count += 1
+                except (RuntimeError, ValueError):
+                    # Object might already be removed or have dependencies
+                    pass
+        
+        return removed_count
+
+    def _is_object_unused(self, obj):
+        """Check if an object is no longer used by any other data"""
+        
+        # Define usage checkers as a dictionary of functions
+        usage_checkers = {
+            'modifiers': self._check_modifier_usage,
+            'constraints': self._check_constraint_usage,
+            'parent_relationships': self._check_parent_usage,
+            'particle_systems': self._check_particle_usage,
+        }
+        
+        # Check each usage type
+        for checker_name, checker_func in usage_checkers.items():
+            if checker_func(obj):
+                return False
+        
+        # Object appears to be unused
+        return True
+    
+    def _check_modifier_usage(self, obj):
+        """Check if object is used by any modifiers"""
+        for other_obj in bpy.data.objects:
+            if other_obj == obj:
+                continue
+            for modifier in other_obj.modifiers:
+                referenced_objects = self._get_modifier_referenced_objects(modifier)
+                if obj in referenced_objects:
+                    return True
+        return False
+    
+    def _check_constraint_usage(self, obj):
+        """Check if object is used by any constraints"""
+        constraint_props = ['target', 'subtarget']
+        
+        for other_obj in bpy.data.objects:
+            if other_obj == obj:
+                continue
+            for constraint in other_obj.constraints:
+                for prop in constraint_props:
+                    if hasattr(constraint, prop):
+                        prop_value = getattr(constraint, prop)
+                        if prop_value == obj or (isinstance(prop_value, str) and prop_value == obj.name):
+                            return True
+        return False
+    
+    def _check_parent_usage(self, obj):
+        """Check if object is a parent of any other object"""
+        for other_obj in bpy.data.objects:
+            if other_obj.parent == obj:
+                return True
+        return False
+    
+    def _check_particle_usage(self, obj):
+        """Check if object is used by particle systems"""
+        particle_props = ['instance_object', 'dupli_object']
+        
+        for other_obj in bpy.data.objects:
+            if other_obj == obj:
+                continue
+            for particle_system in other_obj.particle_systems:
+                settings = particle_system.settings
+                for prop in particle_props:
+                    if hasattr(settings, prop) and getattr(settings, prop) == obj:
+                        return True
+        return False
+
     def draw(self, _context):
         """Draw the property panel"""
         layout = self.layout
@@ -298,6 +418,7 @@ class BOUT_OT_ApplyModifiers(Operator):
             obj_modifiers[item.obj_name].append(item)
 
         applied_count = 0
+        objects_to_check_for_removal = set()
 
         # Process each object
         for obj_name, modifiers in obj_modifiers.items():
@@ -308,30 +429,44 @@ class BOUT_OT_ApplyModifiers(Operator):
             # Set the object as active to apply modifiers
             context.view_layer.objects.active = obj
 
-            # Apply modifiers in reverse order (from last to first)
-            # This prevents index shifting issues
+            # Apply modifiers from first to last
+            # We need to handle index shifting by always applying the first enabled modifier
             modifiers_to_apply = []
 
-            for item in reversed(modifiers):
+            for item in modifiers:  # Process in normal order (first to last)
                 # Check if the group is enabled and the modifier is selected
                 group_enabled = True
                 if item.group_index < len(self.modifier_groups):
                     group_enabled = self.modifier_groups[item.group_index].enabled
 
                 if item.apply and group_enabled:
-                    modifier = obj.modifiers.get(item.modifier_name)
-                    if modifier:
-                        modifiers_to_apply.append(modifier)
+                    modifiers_to_apply.append(item.modifier_name)
 
-            # Apply the modifiers
-            for modifier in modifiers_to_apply:
-                try:
-                    bpy.ops.object.modifier_apply(modifier=modifier.name)
-                    applied_count += 1
-                except (RuntimeError, ValueError) as e:
-                    self.report({'WARNING'}, f"Failed to apply {modifier.name} on {obj_name}: {str(e)}")
+            # Before applying, collect objects referenced by modifiers that will be applied
+            for modifier_name in modifiers_to_apply:
+                modifier = obj.modifiers.get(modifier_name)
+                if modifier:
+                    referenced_objects = self._get_modifier_referenced_objects(modifier)
+                    objects_to_check_for_removal.update(referenced_objects)
 
-        self.report({'INFO'}, f"Applied {applied_count} modifiers")
+            # Apply the modifiers from first to last
+            # Handle index shifting by repeatedly finding and applying the first modifier in our list
+            for modifier_name in modifiers_to_apply:
+                modifier = obj.modifiers.get(modifier_name)
+                if modifier:
+                    try:
+                        bpy.ops.object.modifier_apply(modifier=modifier.name)
+                        applied_count += 1
+                    except (RuntimeError, ValueError) as e:
+                        self.report({'WARNING'}, f"Failed to apply {modifier_name} on {obj_name}: {str(e)}")
+
+        # Clean up unused objects after all modifiers are applied
+        removed_count = self._cleanup_unused_objects(objects_to_check_for_removal)
+
+        if removed_count > 0:
+            self.report({'INFO'}, f"Applied {applied_count} modifiers and removed {removed_count} unused objects")
+        else:
+            self.report({'INFO'}, f"Applied {applied_count} modifiers")
         return {'FINISHED'}
 
 
