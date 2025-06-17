@@ -106,6 +106,11 @@ def modal(self, context, event):
             case 'NGON': verts = ngon.add_vert(bm, self.edit_point)
             case 'NHEDRON': verts = ngon.add_vert(bm, self.edit_point)
 
+        # Safety check to ensure we have vertices
+        if not verts:
+            self.report({'ERROR'}, 'Failed to add vertex to edge')
+            return
+        
         self.edit_point = verts[0].index
         self.data.draw.verts.append(DrawVert(index=verts[0].index, co=verts[0].co))
 
@@ -114,6 +119,11 @@ def modal(self, context, event):
 
     if self.edit_mode == 'INIT':
 
+        # Safety check to ensure we have enough vertices
+        if len(self.data.draw.verts) < 2:
+            self.report({'ERROR'}, 'Insufficient vertices for initialization')
+            return
+        
         self.edit_point = self.data.draw.verts[-2].index
         self.edit_mode = 'MOVE'
 

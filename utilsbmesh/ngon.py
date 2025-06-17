@@ -104,6 +104,52 @@ def add_vert(bm, index):
 
     verts = [v for v in result['geom_split'] if isinstance(v, bmesh.types.BMVert)]
 
+    # Check if any vertices were created
+    if not verts:
+        # Fallback: split the edge manually
+        v1, v2 = edge.verts
+        midpoint = (v1.co + v2.co) / 2
+        
+        # Create new vertex at midpoint
+        new_vert = bm.verts.new(midpoint)
+        
+        # Split the edge by creating two new edges and removing the old one
+        new_edge1 = bm.edges.new([v1, new_vert])
+        new_edge2 = bm.edges.new([new_vert, v2])
+        
+        # Update any faces that used the old edge
+        for face in list(edge.link_faces):
+            face_verts = list(face.verts)
+            
+            # Find where to insert the new vertex in the face
+            for i, vert in enumerate(face_verts):
+                next_vert = face_verts[(i + 1) % len(face_verts)]
+                if (vert == v1 and next_vert == v2) or (vert == v2 and next_vert == v1):
+                    # Insert new vertex between these two
+                    if vert == v1:
+                        face_verts.insert(i + 1, new_vert)
+                    else:
+                        face_verts.insert(i + 1, new_vert)
+                    break
+            
+            # Remove old face and create new one
+            bm.faces.remove(face)
+            new_face = bm.faces.new(face_verts)
+            new_face.select_set(True)
+        
+        # Remove the old edge
+        bm.edges.remove(edge)
+        
+        # Update lookup tables
+        bm.verts.ensure_lookup_table()
+        bm.verts.index_update()
+        bm.edges.ensure_lookup_table()
+        bm.edges.index_update()
+        bm.faces.ensure_lookup_table()
+        bm.faces.index_update()
+        
+        verts = [new_vert]
+
     return verts
 
 
