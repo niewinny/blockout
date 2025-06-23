@@ -84,8 +84,6 @@ class Block(bpy.types.Operator):
                 row = col.row(align=True)
                 row.prop(self.pref, 'symmetry_draw_x', toggle=True)
                 row.prop(self.pref, 'symmetry_draw_y', toggle=True)
-                row = col.row(align=True)
-                row.prop(self.pref, 'symmetry_draw', text="symmetry")
                 layout.prop(self.pref, 'offset', text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
