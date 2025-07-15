@@ -6,7 +6,7 @@ class Blockout_AST_AssetShelf(bpy.types.AssetShelf):
     bl_region_type = 'ASSET_SHELF'
     bl_idname = "VIEW3D_AST_blockout_shelf"
     bl_label = "Blockout Shelf"
-    bl_options = {'DEFAULT_VISIBLE', 'NO_ASSET_DRAG'}
+    bl_options = {'NO_ASSET_DRAG'}
     bl_default_preview_size = 32
 
     asset_library_reference = 'CUSTOM'
