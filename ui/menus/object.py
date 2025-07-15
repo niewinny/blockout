@@ -1,5 +1,4 @@
 import bpy
-from ... import bl_info
 
 
 class BOUT_MT_ObjectMode(bpy.types.Menu):
@@ -12,7 +11,7 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
 
         layout.separator()
 
-        layout.operator("bout.mod_boolean")
+        layout.menu("BOUT_MT_ObjectBoolean")
         layout.operator("bout.mod_bevel")
         layout.operator("bout.apply_modifiers")
 
