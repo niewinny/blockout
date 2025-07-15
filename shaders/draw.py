@@ -1,11 +1,11 @@
+import bpy
 import gpu
 from mathutils import Vector
 from gpu_extras.batch import batch_for_shader
 
-
 class DrawPoints():
     def __init__(self, points, size, color):
-        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        self.shader = gpu.shader.from_builtin('POINT_UNIFORM_COLOR' if bpy.app.version >= (4, 5, 0) else 'UNIFORM_COLOR')
         self.size = size
         self.color = color
         self.points = [Vector(p) for p in points]
@@ -118,7 +118,8 @@ class DrawGradient():
 
 class DrawLine(DrawTools):
     def __init__(self, points, width, color, depth=False):
-        self.shader = gpu.shader.from_builtin('POLYLINE_FLAT_COLOR')
+        shader_name = 'POLYLINE_FLAT_COLOR'
+        self.shader = gpu.shader.from_builtin(shader_name)
         self.width = width
         self.color = color
         self.points = [Vector(p) for p in points]
@@ -184,7 +185,8 @@ class DrawLine(DrawTools):
 
 class DrawPolyline():
     def __init__(self, points, width, color):
-        self.shader = gpu.shader.from_builtin('POLYLINE_FLAT_COLOR')
+        shader_name = 'POLYLINE_FLAT_COLOR'
+        self.shader = gpu.shader.from_builtin(shader_name)
         self.width = width
         self.color = color
         self.points = points
