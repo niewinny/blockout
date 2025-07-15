@@ -81,6 +81,7 @@ class BOUT_OT_ModBoolean(bpy.types.Operator):
     def _boolean_active_to_selected(self, selected_objects, active_object):
 
         active_object.display_type = 'WIRE'
+        active_object.hide_render = True
         self._set_smooth(active_object)
 
         for obj in selected_objects:
@@ -101,6 +102,7 @@ class BOUT_OT_ModBoolean(bpy.types.Operator):
 
             self._set_smooth(obj)
             obj.display_type = 'WIRE'
+            obj.hide_render = True
 
             mod = modifier.add(active_object, "Boolean", 'BOOLEAN')
             mod.operation = self.operation
