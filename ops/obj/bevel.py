@@ -339,6 +339,12 @@ class BevelOperatorBase(bpy.types.Operator):
         '''Update header with the current settings'''
 
         info = f'Offset: {self.width:.3f}    Segments: {self.segments}'
+        
+        # Add modifier count if available
+        count_text = self._get_modifier_count_text()
+        if count_text:
+            info += f'    Modifiers: {count_text}'
+        
         context.area.header_text_set(self._get_header_text() + '   ' + info)
 
     def _get_header_text(self):
@@ -391,13 +397,21 @@ class BevelOperatorBase(bpy.types.Operator):
 
 
     def _get_scene_properties(self, context):
-        '''Override in subclasses to get from appropriate scene storage'''
-        pass
+        '''Get scene properties - uses base by default, override for different storage'''
+        scene_props = context.scene.bout.ops.obj.bevel.base
+        self.segments = scene_props.segments
+        self.harden_normals = scene_props.harden_normals
 
     def _set_scene_properties(self, context):
-        '''Override in subclasses to set to appropriate scene storage'''
-        pass
+        '''Set scene properties - uses base by default, override for different storage'''
+        scene_props = context.scene.bout.ops.obj.bevel.base
+        scene_props.segments = self.segments
+        scene_props.harden_normals = self.harden_normals
 
+    def _get_modifier_count_text(self):
+        '''Get modifier count text for display - override in subclasses'''
+        return None
+    
     def _update_drawing(self, context):
         '''Update the drawing'''
 
@@ -412,8 +426,17 @@ class BevelOperatorBase(bpy.types.Operator):
         region = context.region
         rv3d = context.region_data
         point_2d = view3d.location_3d_to_region_2d(region, rv3d, mid_point)
+        
+        # Build text tuple
+        text_lines = [f"Width: {width:.3f}", f"S: {segments}"]
+        
+        # Add modifier count if available
+        count_text = self._get_modifier_count_text()
+        if count_text:
+            text_lines.append(count_text)
+        
         lines = [
-            {"point": point_2d, "text_tuple": (f"Width: {width:.3f}", f"S: {segments}")}
+            {"point": point_2d, "text_tuple": tuple(text_lines)}
         ]
         self.ui.interface.callback.update_batch(lines)
 
@@ -459,6 +482,10 @@ class BOUT_OT_ModBevelPinned(BevelOperatorBase):
     def _get_header_text(self):
         return 'Bevel (Pinned)'
     
+    def _get_modifier_count_text(self):
+        '''Get modifier count text for display'''
+        return "📌"  # Pinned icon
+    
     def _get_scene_properties(self, context):
         '''Get scene properties for pinned operator'''
         scene_props = context.scene.bout.ops.obj.bevel.pinned
@@ -502,18 +529,6 @@ class BOUT_OT_ModBevelSingle(BevelOperatorBase):
         if self.unpinned_count > 0:
             return f'Bevel Single [{self.current_index + 1}/{self.unpinned_count}]'
         return 'Bevel Single (No unpinned modifiers)'
-    
-    def _get_scene_properties(self, context):
-        '''Get scene properties for base operator'''
-        scene_props = context.scene.bout.ops.obj.bevel.base
-        self.segments = scene_props.segments
-        self.harden_normals = scene_props.harden_normals
-    
-    def _set_scene_properties(self, context):
-        '''Set scene properties for base operator'''
-        scene_props = context.scene.bout.ops.obj.bevel.base
-        scene_props.segments = self.segments
-        scene_props.harden_normals = self.harden_normals
 
     def _setup_bevel(self, selected_objects, active_object):
         # Only work with active object for single mode
@@ -541,6 +556,12 @@ class BOUT_OT_ModBevelSingle(BevelOperatorBase):
                 self.unpinned_count = 1
                 self.current_index = 0
 
+    def _get_modifier_count_text(self):
+        '''Get modifier count text for display'''
+        if self.unpinned_count > 0:
+            return f"{self.unpinned_count}({self.current_index + 1})"
+        return None
+    
     def _navigate_modifier(self, direction):
         '''Navigate between unpinned modifiers'''
         if not self.bevels:
@@ -601,23 +622,13 @@ class BOUT_OT_ModBevelAll(BevelOperatorBase):
     bl_label = "Bevel All"
     bl_description = "Edit all unpinned bevel modifiers"
 
+    current_index: bpy.props.IntProperty(default=0)
+
     def _get_header_text(self):
         count = len(self.bevels)
         if count > 0:
-            return f'Bevel All ({count} modifiers)'
+            return f'Bevel All [{self.current_index + 1}/{count}]'
         return 'Bevel All (No unpinned modifiers)'
-    
-    def _get_scene_properties(self, context):
-        '''Get scene properties for base operator'''
-        scene_props = context.scene.bout.ops.obj.bevel.base
-        self.segments = scene_props.segments
-        self.harden_normals = scene_props.harden_normals
-    
-    def _set_scene_properties(self, context):
-        '''Set scene properties for base operator'''
-        scene_props = context.scene.bout.ops.obj.bevel.base
-        scene_props.segments = self.segments
-        scene_props.harden_normals = self.harden_normals
 
     def _setup_bevel(self, selected_objects, active_object):
         for obj in selected_objects:
@@ -632,7 +643,8 @@ class BOUT_OT_ModBevelAll(BevelOperatorBase):
         if self.bevels:
             # Use properties from first modifier as reference
             self._get_bevel_properties(self.bevels[0].mod)
-            self.saved_width = 0.0  # Start from 0 for relative adjustment
+            self.saved_width = self.bevels[0].mod.width  # Start with first modifier's width
+            self.current_index = 0
         else:
             # No unpinned modifiers found - create new ones
             for obj in selected_objects:
@@ -656,20 +668,73 @@ class BOUT_OT_ModBevelAll(BevelOperatorBase):
         # Calculate the adjustment amount
         adjustment = distance - self.distance.delta
 
-        # Apply snapping if Ctrl is held
-        if self.snapping_ctrl:
-            if self.precision:  # Both Shift and Ctrl held - snap to 0.01
-                adjustment = round(adjustment / 0.01) * 0.01
-            else:  # Only Ctrl held - snap to 0.1
-                adjustment = round(adjustment / 0.1) * 0.1
-
-        # Apply relative changes to each modifier
+        # Apply relative changes to each modifier with individual snapping
         for bevel in self.bevels:
             new_width = bevel.initial_width + adjustment
+            
+            # Apply snapping if Ctrl is held - snap each modifier's width individually
+            if self.snapping_ctrl:
+                if self.precision:  # Both Shift and Ctrl held - snap to 0.01
+                    new_width = round(new_width / 0.01) * 0.01
+                else:  # Only Ctrl held - snap to 0.1
+                    new_width = round(new_width / 0.1) * 0.1
+            
             bevel.mod.width = max(0.0, new_width)
         
-        # Update display width (show adjustment amount)
-        self.width = adjustment
+        # Update display width to show current modifier's actual width
+        if self.current_index < len(self.bevels):
+            self.width = self.bevels[self.current_index].mod.width
+        else:
+            self.width = adjustment
+
+    def _get_modifier_count_text(self):
+        '''Get modifier count text for display'''
+        count = len(self.bevels)
+        if count > 0:
+            return f"All({self.current_index + 1})"
+        return None
+    
+    def _navigate_modifier(self, direction):
+        '''Navigate between modifiers for display only'''
+        if not self.bevels:
+            return
+            
+        # Navigate
+        if direction == 'NEXT':
+            self.current_index = (self.current_index + 1) % len(self.bevels)
+        else:
+            self.current_index = (self.current_index - 1) % len(self.bevels)
+        
+        # Update display to show current modifier's properties
+        if self.current_index < len(self.bevels):
+            current_bevel = self.bevels[self.current_index]
+            self.width = current_bevel.mod.width
+            self.segments = current_bevel.mod.segments
+
+    def modal(self, context, event):
+        # Handle navigation
+        if event.type == 'TAB' and event.value == 'PRESS':
+            if len(self.bevels) > 1:
+                if event.shift:
+                    self._navigate_modifier('PREVIOUS')
+                else:
+                    self._navigate_modifier('NEXT')
+                self._update_info(context)
+                self._update_drawing(context)
+                return {'RUNNING_MODAL'}
+        
+        # Call parent modal
+        return super().modal(context, event)
+
+    def _infobar_hotkeys(self, layout, _context, _event):
+        '''Draw the infobar hotkeys'''
+        super()._infobar_hotkeys(layout, _context, _event)
+        
+        if len(self.bevels) > 1:
+            row = layout.row(align=True)
+            row.separator(factor=6.0)
+            row.label(text='', icon='EVENT_TAB')
+            row.label(text='Next/Previous')
 
 
 class Theme(bpy.types.PropertyGroup):
@@ -678,7 +743,7 @@ class Theme(bpy.types.PropertyGroup):
 
 class SceneBase(bpy.types.PropertyGroup):
     '''Base scene properties for bevel operators'''
-    segments: bpy.props.IntProperty(name='Segments', default=5, min=1, max=32)
+    segments: bpy.props.IntProperty(name='Segments', default=1, min=1, max=32)
     harden_normals: bpy.props.BoolProperty(name='Harden Normals', default=False)
 
 
