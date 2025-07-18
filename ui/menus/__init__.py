@@ -3,11 +3,13 @@ from . import edit_mesh
 from . import booleans
 from . import object
 from . import asset
+from . import bevel
 
 
 classes = (
     edit_mesh.BOUT_MT_Edit_Mesh,
     booleans.BOUT_MT_ObjectBoolean,
+    bevel.BOUT_MT_BevelMenu,
     object.BOUT_MT_ObjectMode,
     asset.BOUT_MT_Asset,
 )

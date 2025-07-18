@@ -38,10 +38,7 @@ class BOUT_Preference(bpy.types.AddonPreferences):
             theme = context.preferences.addons[base_package].preferences.theme
 
             self.theme_layout(flow, theme.axis)
-            self.theme_layout(flow, theme.ops.mesh.bevel)
-            self.theme_layout(flow, theme.ops.mesh.loop_bisect)
-            self.theme_layout(flow, theme.ops.mesh.match_face)
-            self.theme_layout(flow, theme.ops.mesh.line_cut)
+            self.theme_layout(flow, theme.ops.obj.bevel)
             self.theme_layout(flow, theme.ops.block)
 
     def theme_layout(self, layout, theme):

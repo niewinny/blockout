@@ -12,7 +12,7 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
         layout.separator()
 
         layout.menu("BOUT_MT_ObjectBoolean")
-        layout.operator("bout.mod_bevel")
+        layout.menu("BOUT_MT_BevelMenu")
         layout.operator("bout.apply_modifiers")
 
         layout.separator()

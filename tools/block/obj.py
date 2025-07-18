@@ -18,7 +18,8 @@ class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
         ('bout.obj_set_custom_plane', {'type': 'SPACE', 'value': 'PRESS', 'alt': True}, {'properties': [('mode', 'MOVE')]}),
         ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG', 'shift': True}, {'properties': [('mode', 'ADD')]}),
         ('bout.block_popup', {'type': 'D', 'value': 'PRESS'}, {}),
-        ('bout.mod_bevel', {'type': 'B', 'value': 'PRESS'}, {}),
+        ('bout.mod_bevel_all', {'type': 'B', 'value': 'PRESS'}, {}),
+        ('bout.mod_bevel_pinned', {'type': 'B', 'value': 'PRESS', 'ctrl': True}, {}),
     )
 
     def draw_settings(context, layout, tool):

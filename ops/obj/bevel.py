@@ -32,6 +32,7 @@ class Bevel:
     obj: bpy.types.Object = None
     mod: bpy.types.Modifier = None
     new: bool = False
+    initial_width: float = 0.0
 
 
 @dataclass
@@ -41,11 +42,9 @@ class DrawUI:
     interface: handle.Interface = field(default_factory=handle.Interface)
 
 
-class BOUT_OT_ModBevel(bpy.types.Operator):
-    bl_idname = "bout.mod_bevel"
-    bl_label = "Bevel"
+class BevelOperatorBase(bpy.types.Operator):
+    '''Base class for bevel operators with shared functionality'''
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
-    bl_description = "Bevel the object"
 
     use_clamp_overlap: bpy.props.BoolProperty(name='Clamp Overlap', default=False)
     loop_slide: bpy.props.BoolProperty(name='Loop Slide', default=False)
@@ -81,7 +80,6 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
         self.mode: str = 'OFFSET'
         self.precision: bool = False
         self.snapping_ctrl: bool = False
@@ -93,7 +91,6 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
 
         self.saved_segments: int = 1
         self.saved_width: float = 0.0
-
 
     @classmethod
     def poll(cls, context):
@@ -152,34 +149,13 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
             setattr(mod, attr, getattr(self, attr))
 
     def _update_bevel(self, selected_objects):
-
         for obj in selected_objects:
             mod = modifier.get(obj, 'BEVEL', -1)
             if not mod:
                 mod = modifier.add(obj, "Bevel", 'BEVEL')
             self._set_bevel_properties(mod)
 
-    def _setup_bevel(self, selected_objects, active_object):
-
-        for obj in selected_objects:
-            mod = modifier.get(obj, 'BEVEL', -1)
-            if not mod or not mod.use_pin_to_last:
-                new = True
-                mod = modifier.add(obj, "Bevel", 'BEVEL')
-                self.width = 0.0
-                self._set_bevel_properties(mod)
-                mod.use_pin_to_last = True
-            else:
-                self._get_bevel_properties(mod)
-                new = False
-
-            self.bevels.append(Bevel(obj=obj, mod=mod, new=new))
-            if obj == active_object:
-                self.saved_width = mod.width
-
-
     def modal(self, context, event):
-
         if event.type == 'MOUSEMOVE':
             intersect_point = self._get_intersect_point(context, event, self.mouse.median)
 
@@ -363,7 +339,11 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
         '''Update header with the current settings'''
 
         info = f'Offset: {self.width:.3f}    Segments: {self.segments}'
-        context.area.header_text_set('Bevel' + '   ' + info)
+        context.area.header_text_set(self._get_header_text() + '   ' + info)
+
+    def _get_header_text(self):
+        '''Get header text for operator type - to be overridden by subclasses'''
+        return 'Bevel'
 
     def draw(self, _context):
         '''Draw the operator options'''
@@ -409,22 +389,14 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
 
         context.area.tag_redraw()
 
-    def _scene_properties(self):
-        attributes = [
-            "harden_normals",
-            "segments",
-        ]
-        return attributes
 
     def _get_scene_properties(self, context):
-        attributes = self._scene_properties()
-        for attr in attributes:
-            setattr(self, attr, getattr(context.scene.bout.ops.obj.bevel, attr))
+        '''Override in subclasses to get from appropriate scene storage'''
+        pass
 
     def _set_scene_properties(self, context):
-        attributes = self._scene_properties()
-        for attr in attributes:
-            setattr(context.scene.bout.ops.obj.bevel, attr, getattr(self, attr))
+        '''Override in subclasses to set to appropriate scene storage'''
+        pass
 
     def _update_drawing(self, context):
         '''Update the drawing'''
@@ -478,21 +450,260 @@ class BOUT_OT_ModBevel(bpy.types.Operator):
         row.label(text='Segments')
 
 
+class BOUT_OT_ModBevelPinned(BevelOperatorBase):
+    '''Bevel operator for last pinned modifier'''
+    bl_idname = "bout.mod_bevel_pinned"
+    bl_label = "Bevel Pinned"
+    bl_description = "Edit last pinned bevel modifier"
+
+    def _get_header_text(self):
+        return 'Bevel (Pinned)'
+    
+    def _get_scene_properties(self, context):
+        '''Get scene properties for pinned operator'''
+        scene_props = context.scene.bout.ops.obj.bevel.pinned
+        self.segments = scene_props.segments
+        self.harden_normals = scene_props.harden_normals
+    
+    def _set_scene_properties(self, context):
+        '''Set scene properties for pinned operator'''
+        scene_props = context.scene.bout.ops.obj.bevel.pinned
+        scene_props.segments = self.segments
+        scene_props.harden_normals = self.harden_normals
+
+    def _setup_bevel(self, selected_objects, active_object):
+        for obj in selected_objects:
+            mod = modifier.get(obj, 'BEVEL', -1)
+            if not mod or not mod.use_pin_to_last:
+                new = True
+                mod = modifier.add(obj, "Bevel", 'BEVEL')
+                self.width = 0.0
+                self._set_bevel_properties(mod)
+                mod.use_pin_to_last = True
+            else:
+                self._get_bevel_properties(mod)
+                new = False
+
+            self.bevels.append(Bevel(obj=obj, mod=mod, new=new))
+            if obj == active_object:
+                self.saved_width = mod.width
+
+
+class BOUT_OT_ModBevelSingle(BevelOperatorBase):
+    '''Bevel operator for single unpinned modifier'''
+    bl_idname = "bout.mod_bevel_single"
+    bl_label = "Bevel Single"
+    bl_description = "Edit single unpinned bevel modifier"
+
+    current_index: bpy.props.IntProperty(default=0)
+    unpinned_count: bpy.props.IntProperty(default=0)
+
+    def _get_header_text(self):
+        if self.unpinned_count > 0:
+            return f'Bevel Single [{self.current_index + 1}/{self.unpinned_count}]'
+        return 'Bevel Single (No unpinned modifiers)'
+    
+    def _get_scene_properties(self, context):
+        '''Get scene properties for base operator'''
+        scene_props = context.scene.bout.ops.obj.bevel.base
+        self.segments = scene_props.segments
+        self.harden_normals = scene_props.harden_normals
+    
+    def _set_scene_properties(self, context):
+        '''Set scene properties for base operator'''
+        scene_props = context.scene.bout.ops.obj.bevel.base
+        scene_props.segments = self.segments
+        scene_props.harden_normals = self.harden_normals
+
+    def _setup_bevel(self, selected_objects, active_object):
+        # Only work with active object for single mode
+        if active_object and active_object.type == 'MESH':
+            unpinned_bevels = [m for m in active_object.modifiers 
+                             if m.type == 'BEVEL' and not m.use_pin_to_last]
+            
+            self.unpinned_count = len(unpinned_bevels)
+            
+            if unpinned_bevels:
+                # Start with last unpinned
+                self.current_index = len(unpinned_bevels) - 1
+                mod = unpinned_bevels[self.current_index]
+                self._get_bevel_properties(mod)
+                self.bevels.append(Bevel(obj=active_object, mod=mod, new=False))
+                self.saved_width = mod.width
+            else:
+                # No unpinned modifiers found - create new one
+                mod = modifier.add(active_object, "Bevel", 'BEVEL')
+                self.width = 0.0
+                self._set_bevel_properties(mod)
+                # Don't pin it - this is for unpinned modifiers
+                self.bevels.append(Bevel(obj=active_object, mod=mod, new=True))
+                self.saved_width = 0.0
+                self.unpinned_count = 1
+                self.current_index = 0
+
+    def _navigate_modifier(self, direction):
+        '''Navigate between unpinned modifiers'''
+        if not self.bevels:
+            return
+            
+        obj = self.bevels[0].obj
+        unpinned_bevels = [m for m in obj.modifiers 
+                         if m.type == 'BEVEL' and not m.use_pin_to_last]
+        
+        if not unpinned_bevels:
+            return
+            
+        # Save current properties before switching
+        current_mod = self.bevels[0].mod
+        self._set_bevel_properties(current_mod)
+        
+        # Navigate
+        if direction == 'NEXT':
+            self.current_index = (self.current_index + 1) % len(unpinned_bevels)
+        else:
+            self.current_index = (self.current_index - 1) % len(unpinned_bevels)
+        
+        # Update to new modifier
+        new_mod = unpinned_bevels[self.current_index]
+        self._get_bevel_properties(new_mod)
+        self.bevels[0] = Bevel(obj=obj, mod=new_mod, new=False)
+        self.saved_width = new_mod.width
+
+    def modal(self, context, event):
+        # Handle navigation
+        if event.type == 'TAB' and event.value == 'PRESS':
+            if self.unpinned_count > 1:
+                if event.shift:
+                    self._navigate_modifier('PREVIOUS')
+                else:
+                    self._navigate_modifier('NEXT')
+                self._update_info(context)
+                self._update_drawing(context)
+                return {'RUNNING_MODAL'}
+        
+        # Call parent modal
+        return super().modal(context, event)
+
+    def _infobar_hotkeys(self, layout, _context, _event):
+        '''Draw the infobar hotkeys'''
+        super()._infobar_hotkeys(layout, _context, _event)
+        
+        if self.unpinned_count > 1:
+            row = layout.row(align=True)
+            row.separator(factor=6.0)
+            row.label(text='', icon='EVENT_TAB')
+            row.label(text='Next/Previous')
+
+
+class BOUT_OT_ModBevelAll(BevelOperatorBase):
+    '''Bevel operator for all unpinned modifiers'''
+    bl_idname = "bout.mod_bevel_all"
+    bl_label = "Bevel All"
+    bl_description = "Edit all unpinned bevel modifiers"
+
+    def _get_header_text(self):
+        count = len(self.bevels)
+        if count > 0:
+            return f'Bevel All ({count} modifiers)'
+        return 'Bevel All (No unpinned modifiers)'
+    
+    def _get_scene_properties(self, context):
+        '''Get scene properties for base operator'''
+        scene_props = context.scene.bout.ops.obj.bevel.base
+        self.segments = scene_props.segments
+        self.harden_normals = scene_props.harden_normals
+    
+    def _set_scene_properties(self, context):
+        '''Set scene properties for base operator'''
+        scene_props = context.scene.bout.ops.obj.bevel.base
+        scene_props.segments = self.segments
+        scene_props.harden_normals = self.harden_normals
+
+    def _setup_bevel(self, selected_objects, active_object):
+        for obj in selected_objects:
+            unpinned_bevels = [m for m in obj.modifiers 
+                             if m.type == 'BEVEL' and not m.use_pin_to_last]
+            
+            for mod in unpinned_bevels:
+                # Store initial width for relative adjustment
+                self.bevels.append(Bevel(obj=obj, mod=mod, new=False, 
+                                       initial_width=mod.width))
+        
+        if self.bevels:
+            # Use properties from first modifier as reference
+            self._get_bevel_properties(self.bevels[0].mod)
+            self.saved_width = 0.0  # Start from 0 for relative adjustment
+        else:
+            # No unpinned modifiers found - create new ones
+            for obj in selected_objects:
+                mod = modifier.add(obj, "Bevel", 'BEVEL')
+                # Don't pin it - this is for unpinned modifiers
+                self.bevels.append(Bevel(obj=obj, mod=mod, new=True, initial_width=0.0))
+            
+            if self.bevels:
+                self.width = 0.0
+                self._set_bevel_properties(self.bevels[0].mod)
+                self.saved_width = 0.0
+
+    def _set_width(self):
+        '''Set the offset with relative adjustment for each modifier'''
+        distance = self._calculate_distance()
+
+        if self.precision:
+            delta_distance = distance - self.distance.precision
+            distance = self.distance.precision + (delta_distance * 0.1)
+
+        # Calculate the adjustment amount
+        adjustment = distance - self.distance.delta
+
+        # Apply snapping if Ctrl is held
+        if self.snapping_ctrl:
+            if self.precision:  # Both Shift and Ctrl held - snap to 0.01
+                adjustment = round(adjustment / 0.01) * 0.01
+            else:  # Only Ctrl held - snap to 0.1
+                adjustment = round(adjustment / 0.1) * 0.1
+
+        # Apply relative changes to each modifier
+        for bevel in self.bevels:
+            new_width = bevel.initial_width + adjustment
+            bevel.mod.width = max(0.0, new_width)
+        
+        # Update display width (show adjustment amount)
+        self.width = adjustment
+
+
 class Theme(bpy.types.PropertyGroup):
     guide: bpy.props.FloatVectorProperty(name="Bevel Guid", description="Color of the guide line", size=4, subtype='COLOR', default=(0.0, 0.0, 0.0, 0.8), min=0.0, max=1.0)
 
 
-class Scene(bpy.types.PropertyGroup):
+class SceneBase(bpy.types.PropertyGroup):
+    '''Base scene properties for bevel operators'''
+    segments: bpy.props.IntProperty(name='Segments', default=5, min=1, max=32)
+    harden_normals: bpy.props.BoolProperty(name='Harden Normals', default=False)
+
+
+class ScenePinned(bpy.types.PropertyGroup):
+    '''Scene properties for pinned bevel operator'''
     segments: bpy.props.IntProperty(name='Segments', default=1, min=1, max=32)
     harden_normals: bpy.props.BoolProperty(name='Harden Normals', default=True)
 
 
+class Scene(bpy.types.PropertyGroup):
+    '''Scene properties container for all bevel operators'''
+    base: bpy.props.PointerProperty(type=SceneBase)
+    pinned: bpy.props.PointerProperty(type=ScenePinned)
+
+
 types_classes = (
     Theme,
+    SceneBase,
+    ScenePinned,
     Scene,
 )
 
 
 classes = (
-    BOUT_OT_ModBevel,
+    BOUT_OT_ModBevelPinned,
+    BOUT_OT_ModBevelSingle,
+    BOUT_OT_ModBevelAll,
 )
