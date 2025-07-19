@@ -7,7 +7,7 @@ from ..utils import view3d
 def direction_from_closest_edge(obj, face, loc):
     '''
     Get the direction from the closest edge
-    
+
     :param obj: Object containing the face
     :param face: Face to find the closest edge for
     :param loc: Location to measure distance from
@@ -31,7 +31,7 @@ def direction_from_closest_edge(obj, face, loc):
 def direction_from_normal(normal):
     '''
     Get the direction vector perpendicular to a normal
-    
+
     :param normal: Normal vector
     :return: Direction vector perpendicular to the normal
     '''
@@ -90,7 +90,7 @@ def snap_plane(plane, snap_plane, direction, snap_value):
 def point_on_axis(region, rv3d, plane, direction, point, distance):
     '''
     Get the closest point on the plane along the given axis within the given distance
-    
+
     :param region: Region for 2D to 3D conversion
     :param rv3d: Region view 3D for 2D to 3D conversion
     :param plane: Tuple (origin, normal) defining the plane
@@ -110,7 +110,7 @@ def point_on_axis(region, rv3d, plane, direction, point, distance):
 
     vec = point - location
     proj_length = vec.dot(y_axis)
-    proj_vec_y = proj_length * y_axis 
+    proj_vec_y = proj_length * y_axis
     proj_vec_x = vec - proj_vec_y
 
     length_x = proj_vec_x.length
@@ -148,7 +148,7 @@ def point_on_axis(region, rv3d, plane, direction, point, distance):
 def face_bbox_center(face, matrix):
     """
     Compute the axis-aligned bounding box center for a face
-    
+
     :param face: Face to compute the bounding box for
     :param matrix: Matrix to transform from local to world space
     :return: Center of the face's bounding box in world space
@@ -199,7 +199,7 @@ def face_bbox_center(face, matrix):
 def set_align_rotation_from_vectors(normal, direction):
     """
     Set context.scene.bout.align.rotation from normal and direction vectors.
-    
+
     :param normal: Normal vector of the plane
     :param direction: Direction vector along the plane (should be perpendicular to normal)
     :return: Euler rotation angles in radians [x, y, z]
@@ -207,7 +207,7 @@ def set_align_rotation_from_vectors(normal, direction):
 
     normal = normal.normalized()
     direction = direction.normalized()
-    
+
     # Handle exact axis-aligned cases for precision
     x_pos = Vector((1, 0, 0))
     x_neg = Vector((-1, 0, 0))
@@ -215,21 +215,25 @@ def set_align_rotation_from_vectors(normal, direction):
     y_neg = Vector((0, -1, 0))
     z_pos = Vector((0, 0, 1))
     z_neg = Vector((0, 0, -1))
-    
+
     axis_threshold = 0.999
+
+    # Special cases for axis-aligned normals
+    # When normal is along Y axis (forward/back)
+    if normal.dot(y_pos) > axis_threshold:  # Normal points to +Y
+        # Rotate -90° around X axis: X→X, Y→Z, Z→-Y
+        return [-math.pi/2, 0, 0]
+    elif normal.dot(y_neg) > axis_threshold:  # Normal points to -Y
+        # Rotate 90° around X axis: X→X, Y→-Z, Z→Y
+        return [math.pi/2, 0, 0]
     
-    # Special cases for common orientations
-    if normal.dot(y_neg) > axis_threshold and direction.dot(z_pos) > axis_threshold:
-        return [0, 0, -math.pi/2]  # -90° Z
-    
-    if normal.dot(y_pos) > axis_threshold and direction.dot(z_pos) > axis_threshold:
-        return [0, 0, math.pi/2]  # 90° Z
-    
-    if normal.dot(x_neg) > axis_threshold and direction.dot(z_pos) > axis_threshold:
-        return [0, math.pi/2, 0]  # 90° Y
-    
-    if normal.dot(x_pos) > axis_threshold and direction.dot(z_pos) > axis_threshold:
-        return [0, -math.pi/2, 0]  # -90° Y
+    # When normal is along X axis (right/left)
+    elif normal.dot(x_pos) > axis_threshold:  # Normal points to +X
+        # Rotate 90° around Y axis: X→Z, Y→Y, Z→-X
+        return [0, math.pi/2, 0]
+    elif normal.dot(x_neg) > axis_threshold:  # Normal points to -X
+        # Rotate -90° around Y axis: X→-Z, Y→Y, Z→X
+        return [0, -math.pi/2, 0]
 
     # Standard case: create orientation matrix
     z_axis = normal
@@ -274,7 +278,7 @@ def get_vectors_from_align_rotation(rotation):
     """
     Convert rotation angles (in radians) back to normal and direction vectors.
     This is the inverse function of set_align_rotation_from_vectors.
-    
+
     :param rotation: Euler angles in radians [x, y, z]
     :return: Tuple with (normal, direction) vectors
     """

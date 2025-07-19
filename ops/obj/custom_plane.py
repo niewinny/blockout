@@ -187,13 +187,17 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
             location = None
             normal = None
             direction = None
+            
+            # Cache inverse transpose matrix for normal transformation
+            # This is the mathematically correct way to transform normals when non-uniform scaling is present
+            inv_trans_matrix = (matrix.inverted().transposed()).to_3x3()
 
             if element_type == 'VERT':
                 # Use the vertex
                 vert = element
                 location = matrix @ vert.co
                 # Transform normal correctly using inverse transpose
-                normal = (matrix.inverted().transposed()).to_3x3() @ vert.normal
+                normal = inv_trans_matrix @ vert.normal
                 normal.normalize()
                 # Use direction_from_normal to compute direction
                 direction = matrix.to_3x3() @ direction_from_normal(vert.normal)
@@ -206,7 +210,7 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
 
                 # Compute normal as average of connected face normals
                 sum_normal = Vector()
-                faces_normals = [matrix.to_3x3() @ f.normal for f in edge.link_faces]
+                faces_normals = [inv_trans_matrix @ f.normal for f in edge.link_faces]
                 sum_normal = sum(faces_normals, Vector())
 
                 # Use direction from v1 to v2 as edge direction
@@ -224,7 +228,8 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
                     normal = ray.normal
                     direction = direction_from_normal(normal)
                 else:
-                    normal = matrix.to_3x3() @ face.normal
+                    # Use inverse transpose for correct normal transformation
+                    normal = inv_trans_matrix @ face.normal
                     location = face_bbox_center(face, matrix)
                     direction = matrix.to_3x3() @ face.calc_tangent_edge()
 
