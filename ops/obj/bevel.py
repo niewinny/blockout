@@ -529,6 +529,22 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
     )
     current_index: bpy.props.IntProperty(default=0)
     unpinned_count: bpy.props.IntProperty(default=0)
+    
+    def execute(self, context):
+        """Override execute to handle mode-specific behavior"""
+        active_object = context.active_object if context.active_object and context.active_object.select_get() else None
+        selected_objects = list(set(filter(None, context.selected_objects + [active_object])))
+
+        if self.all_mode:
+            # All mode - update all modifiers
+            self._update_bevel(selected_objects)
+        else:
+            # Single mode - only update the current modifier
+            for b in self.bevels:
+                self._set_bevel_properties(b.mod)
+                
+        self._set_scene_properties(context)
+        return {'FINISHED'}
 
     def _get_header_text(self):
         mode_text = "All" if self.all_mode else "Single"
@@ -539,27 +555,46 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
         
         if self.all_mode:
             # All mode - work with all selected objects
+            # Process active object first with modifiers in reverse order
+            if active_object and active_object.type == 'MESH':
+                unpinned_bevels = [m for m in active_object.modifiers 
+                                 if m.type == 'BEVEL' and not m.use_pin_to_last]
+                
+                # Add in reverse order (last modifier first)
+                for mod in reversed(unpinned_bevels):
+                    # Store initial width for relative adjustment
+                    self.bevels.append(Bevel(obj=active_object, mod=mod, new=False, 
+                                           initial_width=mod.width))
+            
+            # Process other objects with modifiers in reverse order
             for obj in selected_objects:
-                if obj.type == 'MESH':
+                if obj != active_object and obj.type == 'MESH':
                     unpinned_bevels = [m for m in obj.modifiers 
                                      if m.type == 'BEVEL' and not m.use_pin_to_last]
                     
-                    for mod in unpinned_bevels:
+                    # Add in reverse order (last modifier first)
+                    for mod in reversed(unpinned_bevels):
                         # Store initial width for relative adjustment
                         self.bevels.append(Bevel(obj=obj, mod=mod, new=False, 
                                                initial_width=mod.width))
             
             if self.bevels:
-                # Use properties from first modifier as reference
+                # Start with first modifier (which is last modifier of active object)
+                self.current_index = 0
                 self._get_bevel_properties(self.bevels[0].mod)
                 self.saved_width = self.bevels[0].mod.width
-                self.current_index = 0
             else:
                 # No unpinned modifiers found - create new ones
+                # Process non-active objects first
                 for obj in selected_objects:
-                    if obj.type == 'MESH':
+                    if obj != active_object and obj.type == 'MESH':
                         mod = modifier.add(obj, "Bevel", 'BEVEL')
                         self.bevels.append(Bevel(obj=obj, mod=mod, new=True, initial_width=0.0))
+                
+                # Process active object last
+                if active_object and active_object.type == 'MESH':
+                    mod = modifier.add(active_object, "Bevel", 'BEVEL')
+                    self.bevels.append(Bevel(obj=active_object, mod=mod, new=True, initial_width=0.0))
                 
                 if self.bevels:
                     self.width = 0.0
@@ -568,33 +603,47 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
             
             self.unpinned_count = len(self.bevels)
         else:
-            # Single mode - only work with active object
+            # Single mode - work with all selected objects but edit one at a time
+            # Process active object first with modifiers in reverse order
             if active_object and active_object.type == 'MESH':
                 unpinned_bevels = [m for m in active_object.modifiers 
                                  if m.type == 'BEVEL' and not m.use_pin_to_last]
                 
-                self.unpinned_count = len(unpinned_bevels)
-                
-                if unpinned_bevels:
-                    # Use target_index if provided, otherwise start with last unpinned
-                    if target_index is not None and 0 <= target_index < len(unpinned_bevels):
-                        self.current_index = target_index
-                    else:
-                        self.current_index = len(unpinned_bevels) - 1
-                    
-                    mod = unpinned_bevels[self.current_index]
-                    self._get_bevel_properties(mod)
+                # Add in reverse order (last modifier first)
+                for mod in reversed(unpinned_bevels):
                     self.bevels.append(Bevel(obj=active_object, mod=mod, new=False))
-                    self.saved_width = mod.width
+            
+            # Process other objects with modifiers in reverse order
+            for obj in selected_objects:
+                if obj != active_object and obj.type == 'MESH':
+                    unpinned_bevels = [m for m in obj.modifiers 
+                                     if m.type == 'BEVEL' and not m.use_pin_to_last]
+                    
+                    # Add in reverse order (last modifier first)
+                    for mod in reversed(unpinned_bevels):
+                        self.bevels.append(Bevel(obj=obj, mod=mod, new=False))
+            
+            if self.bevels:
+                # Use target_index if provided, otherwise start with first modifier
+                if target_index is not None and 0 <= target_index < len(self.bevels):
+                    self.current_index = target_index
                 else:
-                    # No unpinned modifiers found - create new one
+                    self.current_index = 0
+                
+                current_bevel = self.bevels[self.current_index]
+                self._get_bevel_properties(current_bevel.mod)
+                self.saved_width = current_bevel.mod.width
+            else:
+                # No unpinned modifiers found - create new one on active object
+                if active_object and active_object.type == 'MESH':
                     mod = modifier.add(active_object, "Bevel", 'BEVEL')
                     self.width = 0.0
                     self._set_bevel_properties(mod)
                     self.bevels.append(Bevel(obj=active_object, mod=mod, new=True))
                     self.saved_width = 0.0
-                    self.unpinned_count = 1
                     self.current_index = 0
+            
+            self.unpinned_count = len(self.bevels)
 
     def _get_modifier_count_text(self):
         '''Get modifier count text for display'''
@@ -623,30 +672,21 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
                 self.width = current_bevel.mod.width
                 self.segments = current_bevel.mod.segments
         else:
-            # Single mode - switch between actual modifiers
-            obj = self.bevels[0].obj
-            unpinned_bevels = [m for m in obj.modifiers 
-                             if m.type == 'BEVEL' and not m.use_pin_to_last]
-            
-            if not unpinned_bevels:
-                return
-                
-            # Navigate
+            # Single mode - navigate through all modifiers across all objects
             if direction == 'NEXT':
-                self.current_index = (self.current_index + 1) % len(unpinned_bevels)
+                self.current_index = (self.current_index + 1) % len(self.bevels)
             else:
-                self.current_index = (self.current_index - 1) % len(unpinned_bevels)
+                self.current_index = (self.current_index - 1) % len(self.bevels)
             
             # Update to new modifier
-            new_mod = unpinned_bevels[self.current_index]
-            self._get_bevel_properties(new_mod)
-            self.bevels[0] = Bevel(obj=obj, mod=new_mod, new=False)
+            current_bevel = self.bevels[self.current_index]
+            self._get_bevel_properties(current_bevel.mod)
             
             # Calculate what saved_width should be so current mouse position = new modifier's width
             # Formula: new_mod.width = (distance + saved_width) - distance.delta
             # Rearranged: saved_width = new_mod.width + distance.delta - distance
             current_distance = self._calculate_distance()
-            self.saved_width = new_mod.width + self.distance.delta - current_distance
+            self.saved_width = current_bevel.mod.width + self.distance.delta - current_distance
 
     def _set_width(self):
         '''Set the width based on mode'''
@@ -680,12 +720,75 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
             else:
                 self.width = adjustment
         else:
-            # Single mode - use base class implementation
-            super()._set_width()
+            # Single mode - only edit current modifier
+            distance = self._calculate_distance()
+
+            if self.precision:
+                delta_distance = distance - self.distance.precision
+                distance = self.distance.precision + (delta_distance * 0.1)
+
+            distance += self.saved_width
+            distance = distance if distance > self.distance.delta else self.distance.delta
+            offset = distance - self.distance.delta
+
+            # Apply snapping if Ctrl is held
+            if self.snapping_ctrl:
+                if self.precision:  # Both Shift and Ctrl held - snap to 0.01
+                    offset = round(offset / 0.01) * 0.01
+                else:  # Only Ctrl held - snap to 0.1
+                    offset = round(offset / 0.1) * 0.1
+
+            self.width = offset
+            # Only update the current modifier in single mode
+            if self.current_index < len(self.bevels):
+                self.bevels[self.current_index].mod.width = offset
 
     def modal(self, context, event):
+        # Handle segments and harden normals for mode-specific behavior
+        if event.type == 'N' and event.value == 'PRESS':
+            self.harden_normals = not self.harden_normals
+            if self.all_mode:
+                # All mode - update all modifiers
+                for b in self.bevels:
+                    b.mod.harden_normals = self.harden_normals
+            else:
+                # Single mode - only update current modifier
+                if self.current_index < len(self.bevels):
+                    self.bevels[self.current_index].mod.harden_normals = self.harden_normals
+            return {'RUNNING_MODAL'}
+            
+        elif event.type == 'WHEELUPMOUSE' or event.type == 'NUMPAD_PLUS' or event.type == 'EQUAL':
+            if event.value == 'PRESS':
+                self.segments += 1
+                if self.all_mode:
+                    # All mode - update all modifiers
+                    for b in self.bevels:
+                        b.mod.segments = self.segments
+                else:
+                    # Single mode - only update current modifier
+                    if self.current_index < len(self.bevels):
+                        self.bevels[self.current_index].mod.segments = self.segments
+                self._update_info(context)
+                self._update_drawing(context)
+                return {'RUNNING_MODAL'}
+                
+        elif event.type == 'WHEELDOWNMOUSE' or event.type == 'NUMPAD_MINUS' or event.type == 'MINUS':
+            if event.value == 'PRESS':
+                self.segments -= 1
+                if self.all_mode:
+                    # All mode - update all modifiers
+                    for b in self.bevels:
+                        b.mod.segments = self.segments
+                else:
+                    # Single mode - only update current modifier
+                    if self.current_index < len(self.bevels):
+                        self.bevels[self.current_index].mod.segments = self.segments
+                self._update_info(context)
+                self._update_drawing(context)
+                return {'RUNNING_MODAL'}
+        
         # Handle mode toggle
-        if event.type == 'G' and event.value == 'PRESS':
+        elif event.type == 'G' and event.value == 'PRESS':
             # Store current state before switching
             old_index = self.current_index
             old_bevels = self.bevels[:] if self.bevels else []
@@ -701,16 +804,9 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
             # Determine target index for Single mode if switching to it
             target_index = None
             if not self.all_mode and was_all_mode and old_index < len(old_bevels):
-                # Switching to Single mode - find which modifier to edit
-                old_bevel = old_bevels[old_index]
-                if old_bevel.obj == active_object:
-                    # Find the index of this modifier in the active object's list
-                    unpinned_bevels = [m for m in active_object.modifiers 
-                                     if m.type == 'BEVEL' and not m.use_pin_to_last]
-                    for i, mod in enumerate(unpinned_bevels):
-                        if mod == old_bevel.mod:
-                            target_index = i
-                            break
+                # Switching to Single mode - use the same index from All mode
+                # since both modes now use the same list structure
+                target_index = old_index
             
             self._setup_bevel(selected_objects, active_object, target_index)
             
@@ -719,31 +815,15 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
             
             if self.bevels:
                 if self.all_mode:
-                    # Switching to All mode (was Single mode)
-                    if not was_all_mode and old_bevels and active_object:
-                        # From Single mode: find the active object's modifier at the same position
-                        matching_indices = []
-                        for i, bevel in enumerate(self.bevels):
-                            if bevel.obj == active_object:
-                                matching_indices.append(i)
-                        
-                        # Try to match the modifier index
-                        if matching_indices and old_index < len(matching_indices):
-                            self.current_index = matching_indices[old_index]
-                        elif matching_indices:
-                            self.current_index = matching_indices[0]
-                        else:
-                            self.current_index = 0
-                    else:
-                        # Keep same index if possible
-                        self.current_index = min(old_index, len(self.bevels) - 1)
+                    # Switching to All mode - keep same index since both modes use same list
+                    self.current_index = min(old_index, len(self.bevels) - 1) if self.bevels and old_index > 0 else 0
                     
                     # Reset distance.delta so current mouse position = 0 adjustment from current state
                     self.distance.delta = current_distance
                 else:
                     # Switching to Single mode - reset saved_width to match current modifier
-                    if self.bevels:
-                        current_mod = self.bevels[0].mod
+                    if self.bevels and self.current_index < len(self.bevels):
+                        current_mod = self.bevels[self.current_index].mod
                         self.saved_width = current_mod.width + self.distance.delta - current_distance
             
             # Update display
