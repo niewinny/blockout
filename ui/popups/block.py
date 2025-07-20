@@ -14,7 +14,7 @@ class BOUT_OT_block_popup(bpy.types.Operator):
         block = addon.pref().tools.block
 
         layout.label(text="Shape:")
-        grid = layout.grid_flow(row_major=True, columns=3, even_columns=True,  even_rows=True, align=True)
+        grid = layout.grid_flow(row_major=True, columns=4, even_columns=True,  even_rows=True, align=True)
         shapes = [
             ('BOX', 'MESH_CUBE'),
             ('CYLINDER', 'MESH_CYLINDER'),
