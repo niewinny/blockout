@@ -159,7 +159,11 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.fill, 'enable', text="Fill", toggle=True)
                 row.prop(self.pref.bevel.fill, 'offset', text="")
                 row.prop(self.pref.bevel.fill, 'segments', text="")
-
+        
+        if self.pref.mode != 'ADD':
+            col = layout.column(align=True)
+            settings = addon.pref().tools.block.settings
+            col.prop(settings, 'solver', text="Boolean Solver")
 
     def _hide_transform_gizmo(self, context):
         self.pref.transform_gizmo = context.space_data.show_gizmo_context

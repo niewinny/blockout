@@ -2,7 +2,7 @@ from pathlib import Path
 import bpy
 from ... import bl_info
 from ...utils import addon
-from .common import draw_align, draw_type, draw_shape
+from .common import draw_align, draw_type, draw_shape, draw_settings
 
 
 class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
@@ -61,6 +61,9 @@ class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
             case 'CUSTOM': label, icon = ("Custom", "OBJECT_ORIGIN")
         layout.popover('BOUT_PT_AlignObj', text=label, icon=icon)
 
+        layout.separator()
+        layout.popover('BOUT_PT_SettingsObj', text="", icon='SETTINGS')
+
 
 class BOUT_PT_AlignObj(bpy.types.Panel):
     bl_label = "Align"
@@ -75,6 +78,19 @@ class BOUT_PT_AlignObj(bpy.types.Panel):
         draw_align(layout, context, block)
         layout.separator()
         layout.prop(block.obj, 'pick')
+
+
+class BOUT_PT_SettingsObj(bpy.types.Panel):
+    bl_label = "Preferences"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+    bl_description = "Set preferences for the blockout tool\n • Solver - select boolean solver"
+    bl_context = 'objectmode'
+
+    def draw(self, context):
+        layout = self.layout
+        block = addon.pref().tools.block
+        draw_settings(layout, context, block)
 
 
 class BOUT_PT_ShapeObj(bpy.types.Panel):
@@ -120,4 +136,5 @@ classes = (
     BOUT_PT_ShapeObj,
     BOUT_PT_AlignObj,
     BOUT_PT_TypeObj,
+    BOUT_PT_SettingsObj,
 )

@@ -2,7 +2,7 @@ from pathlib import Path
 import bpy
 from ... import bl_info
 from ...utils import addon
-from .common import draw_align, draw_type, draw_shape
+from .common import draw_align, draw_type, draw_shape, draw_settings
 
 
 class BOUT_MT_Block(bpy.types.WorkSpaceTool):
@@ -61,6 +61,9 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
             case 'CUSTOM': label, icon = ("Custom", "OBJECT_ORIGIN")
         layout.popover('BOUT_PT_AlignMesh', text=label, icon=icon)
 
+        layout.separator()
+        layout.popover('BOUT_PT_SettingsMesh', text="", icon='SETTINGS')
+
 
 class BOUT_PT_AlignMesh(bpy.types.Panel):
     bl_label = "Align"
@@ -75,6 +78,19 @@ class BOUT_PT_AlignMesh(bpy.types.Panel):
         draw_align(layout, context, block)
         layout.separator()
         layout.prop(block.mesh, 'pick')
+
+
+class BOUT_PT_SettingsMesh(bpy.types.Panel):
+    bl_label = "Preferences"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'WINDOW'
+    bl_description = "Set preferences for the block tool"
+    bl_context = 'editmesh'
+
+    def draw(self, context):
+        layout = self.layout
+        block = addon.pref().tools.block
+        draw_settings(layout, context, block)
 
 
 class BOUT_PT_ShapeMesh(bpy.types.Panel):
@@ -121,4 +137,5 @@ classes = (
     BOUT_PT_ShapeMesh,
     BOUT_PT_AlignMesh,
     BOUT_PT_TypeMesh,
+    BOUT_PT_SettingsMesh,
 )

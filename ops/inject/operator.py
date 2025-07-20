@@ -236,7 +236,7 @@ class BOUT_OT_AssetImport(bpy.types.Operator):
         '''Add the boolean modifier'''
         mod = modifier.add(bool_obj, "Boolean", 'BOOLEAN')
         mod.operation = operation
-        mod.solver = 'FAST'
+        mod.solver = addon.pref().tools.block.settings.solver
         mod.object = obj
         mod.show_in_editmode = True
 

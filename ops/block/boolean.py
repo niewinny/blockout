@@ -1,11 +1,11 @@
-from ...utils import modifier
+from ...utils import modifier, addon
 
 
 def add_modifier(bool_obj, obj, operation='DIFFERENCE'):
     '''Add the boolean modifier'''
     mod = modifier.add(bool_obj, "Boolean", 'BOOLEAN')
     mod.operation = operation
-    mod.solver = 'FAST'
+    mod.solver = addon.pref().tools.block.settings.solver
     mod.object = obj
     mod.show_in_editmode = True
 

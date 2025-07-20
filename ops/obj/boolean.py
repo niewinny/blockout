@@ -5,6 +5,24 @@ from mathutils import Vector
 from ...utils import modifier
 
 
+def get_solver_items(self, context):
+    """Get boolean solver items based on Blender version"""
+    if bpy.app.version >= (5, 0, 0):
+        # Blender 5.0+ uses FLOAT instead of FAST
+        return (
+            ('FLOAT', "Float", "Float solver"),
+            ('EXACT', "Exact", "Exact solver"),
+            ('MANIFOLD', "Manifold", "Manifold solver"),
+        )
+    else:
+        # Pre-5.0 uses FAST
+        return (
+            ('FAST', "Fast", "Fast solver"),
+            ('EXACT', "Exact", "Exact solver"),
+            ('MANIFOLD', "Manifold", "Manifold solver"),
+        )
+
+
 def update_selection(context, objects_to_select, objects_to_deselect=None):
     """Update object selection with proper error handling"""
     if objects_to_deselect:
@@ -74,11 +92,8 @@ class BOUT_OT_ModBoolean(bpy.types.Operator):
 
     solver: bpy.props.EnumProperty(
         name="Solver",
-        items=(
-            ('FAST', "Fast", "Fast"),
-            ('EXACT', "Exact", "Exact"),
-        ),
-        default='FAST'
+        items= get_solver_items,
+        default=0
     )
 
     flip: bpy.props.BoolProperty(
@@ -157,11 +172,8 @@ class BOUT_OT_ModBooleanSlice(bpy.types.Operator):
 
     solver: bpy.props.EnumProperty(
         name="Solver",
-        items=(
-            ('FAST', "Fast", "Fast"),
-            ('EXACT', "Exact", "Exact"),
-        ),
-        default='FAST'
+        items= get_solver_items,
+        default=0
     )
 
     flip: bpy.props.BoolProperty(
@@ -274,11 +286,8 @@ class BOUT_OT_ModBooleanCarve(bpy.types.Operator):
 
     solver: bpy.props.EnumProperty(
         name="Solver",
-        items=(
-            ('FAST', "Fast", "Fast"),
-            ('EXACT', "Exact", "Exact"),
-        ),
-        default='FAST'
+        items= get_solver_items,
+        default=0
     )
 
     offset: bpy.props.FloatProperty(

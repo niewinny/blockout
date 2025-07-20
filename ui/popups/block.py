@@ -71,7 +71,7 @@ class BOUT_OT_block_popup(bpy.types.Operator):
         row.prop(context.scene.bout.align, 'mode', expand=True)
 
         header, body = col_align.panel("align_panel", default_closed=True)
-        header.label(text="Align Properties")
+        header.label(text="Properties")
 
         if body:
             col_align.separator()

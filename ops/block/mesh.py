@@ -233,7 +233,8 @@ class BOUT_OT_BlockMeshTool(Block):
                         operation = 'DIFFERENCE'
                     case _: operation = 'DIFFERENCE'
 
-                bpy.ops.mesh.intersect_boolean(operation=operation, use_swap=False, use_self=False, threshold=1e-06, solver='FAST')
+                solver = addon.pref().tools.block.settings.solver
+                bpy.ops.mesh.intersect_boolean(operation=operation, use_swap=False, use_self=False, threshold=1e-06, solver=solver)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
                 if mode == 'CARVE':

@@ -39,3 +39,12 @@ def draw_shape(layout, block):
     col = layout.column(align=True)
     col.scale_y = 1.6
     col.prop(block, 'shape', expand=True)
+
+
+def draw_settings(layout, context, block):
+    '''Draw settings properties'''
+
+    layout.use_property_split = False
+    col = layout.column(align=True)
+    col.prop(block.settings, 'solver')
+
