@@ -1,6 +1,6 @@
 from bpy.utils import register_class, unregister_class, register_tool, unregister_tool
 import bpy
-from . import btypes, ops, ui, preferences, tools, gizmo, keymap, handlers, assets
+from . import btypes, ops, ui, preferences, tools, gizmo, keymap, handlers
 
 
 classes = (
@@ -8,7 +8,6 @@ classes = (
     *preferences.classes,
     *ops.classes,
     *tools.classes,
-    *assets.classes,
     *gizmo.classes,
     *ui.classes,
 )
@@ -23,7 +22,6 @@ def register():
     register_tool(tools.block.mesh.BOUT_MT_Block, group=False, separator=True)
     register_tool(tools.block.obj.BOUT_MT_BlockObj, group=False, separator=True)
 
-    assets.register()
     btypes.register()
     keymap.register()
     handlers.register()
@@ -43,4 +41,3 @@ def unregister():
         unregister_class(cls)
 
     btypes.unregister()
-    assets.unregister()

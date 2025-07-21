@@ -43,13 +43,6 @@ def object_mode_hotkeys(kc):
     keys.append((km, kmi))
 
 
-def asset_shelf_hotkeys(kc):
-    '''Asset Shelf Hotkeys'''
-
-    km = kc.keymaps.new(name="Asset Shelf")
-    kmi = km.keymap_items.new("bout.asset_import", "LEFTMOUSE", "CLICK_DRAG")
-    keys.append((km, kmi))
-
 def register():
     '''Register Keymaps'''
 
@@ -61,7 +54,6 @@ def register():
 
     edit_mesh_hotkeys(kc)
     object_mode_hotkeys(kc)
-    asset_shelf_hotkeys(kc)
 
     del active_keyconfig
     del addon_keyconfig
