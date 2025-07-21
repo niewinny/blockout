@@ -1,6 +1,7 @@
 import bpy
 import gpu
 from mathutils import Vector
+import mathutils.geometry
 from gpu_extras.batch import batch_for_shader
 
 class DrawPoints():
@@ -481,9 +482,23 @@ class DrawBMeshFaces():
                 else:
                     face_indices.append(vert_index_map[vert])
 
-            # Triangulate the face by creating triangle indices from the loop indices
-            for i in range(1, len(face_indices) - 1):
-                self.indices.append((face_indices[0], face_indices[i], face_indices[i + 1]))
+            # Use Blender's tessellation for the face
+            # This works correctly for any polygon shape
+            if len(face_indices) >= 3:
+                # Get the actual 3D coordinates for tessellation
+                face_verts_co = [self.vertices[idx] for idx in face_indices]
+                
+                # Use Blender's tessellation function
+                try:
+                    # tessellate_polygon returns indices for triangulation
+                    tris = mathutils.geometry.tessellate_polygon([face_verts_co])
+                    for tri in tris:
+                        # Map local indices to our global vertex indices
+                        self.indices.append((face_indices[tri[0]], face_indices[tri[1]], face_indices[tri[2]]))
+                except:
+                    # Fallback to simple fan triangulation if tessellation fails
+                    for i in range(1, len(face_indices) - 1):
+                        self.indices.append((face_indices[0], face_indices[i], face_indices[i + 1]))
 
         return batch_for_shader(self.shader, 'TRIS', {"pos": self.vertices}, indices=self.indices)
 
