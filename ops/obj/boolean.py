@@ -74,10 +74,74 @@ def prepare_boolean_object(obj):
     set_smooth(obj)
 
 
-class BOUT_OT_ModBoolean(bpy.types.Operator):
+class BooleanOperatorBase(bpy.types.Operator):
+    """Base class for boolean operators with common functionality"""
+    bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
+    
+    solver: bpy.props.EnumProperty(
+        name="Solver",
+        items=get_solver_items,
+        default=0
+    )
+    
+    flip: bpy.props.BoolProperty(
+        name="Flip",
+        default=False
+    )
+    
+    @classmethod
+    def poll(cls, context):
+        return context.area.type == 'VIEW_3D' and context.mode in {'EDIT_MESH', 'OBJECT'}
+    
+    def get_objects(self, context):
+        """Get active and selected objects, excluding active from selected list"""
+        active_object = context.active_object
+        selected_objects = context.selected_objects[:]
+        
+        if active_object in selected_objects:
+            selected_objects.remove(active_object)
+            
+        return active_object, selected_objects
+    
+    def execute(self, context):
+        """Common execute method that handles the flip logic"""
+        active_object, selected_objects = self.get_objects(context)
+        
+        # Validate selection
+        validation_result = self.validate_selection(selected_objects)
+        if validation_result:
+            return validation_result
+        
+        if self.flip:
+            result = self.apply_operation_active_to_selected(context, selected_objects, active_object)
+        else:
+            result = self.apply_operation_selected_to_active(context, selected_objects, active_object)
+        
+        # Handle post-operation selection if defined
+        if hasattr(self, 'update_selection_after_operation'):
+            self.update_selection_after_operation(context, active_object, selected_objects)
+        
+        return {'FINISHED'}
+    
+    def validate_selection(self, selected_objects):
+        """Validate that we have enough objects for boolean operation"""
+        if len(selected_objects) < 1:
+            self.report({'WARNING'}, "Not enough objects selected for boolean operation")
+            return {'CANCELLED'}
+        return None
+    
+    def apply_operation_active_to_selected(self, context, selected_objects, active_object):
+        """Override this method in subclasses to implement active->selected operation"""
+        raise NotImplementedError("Subclasses must implement apply_operation_active_to_selected")
+    
+    def apply_operation_selected_to_active(self, context, selected_objects, active_object):
+        """Override this method in subclasses to implement selected->active operation"""
+        raise NotImplementedError("Subclasses must implement apply_operation_selected_to_active")
+
+
+class BOUT_OT_ModBoolean(BooleanOperatorBase):
     bl_idname = "bout.mod_boolean"
     bl_label = "Boolean"
-    bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
     bl_description = "Boolean Objects together"
 
     operation: bpy.props.EnumProperty(
@@ -89,47 +153,21 @@ class BOUT_OT_ModBoolean(bpy.types.Operator):
         ),
         default='DIFFERENCE'
     )
-
-    solver: bpy.props.EnumProperty(
-        name="Solver",
-        items= get_solver_items,
-        default=0
-    )
-
-    flip: bpy.props.BoolProperty(
-        name="Flip",
-        default=False
-    )
-
-
-    @classmethod
-    def poll(cls, context):
-        return context.area.type == 'VIEW_3D' and context.mode in {'EDIT_MESH', 'OBJECT'}
-
-    def execute(self, context):
-        active_object = context.active_object
-        selected_objects = context.selected_objects[:]
-
-        if active_object in selected_objects:
-            selected_objects.remove(active_object)
-
+    
+    def update_selection_after_operation(self, context, active_object, selected_objects):
+        """Update selection based on flip state"""
         if self.flip:
-            self._boolean_active_to_selected(selected_objects, active_object)
             # Keep the boolean source (active) selected, deselect objects with modifiers
             update_selection(context, [active_object], selected_objects)
         else:
-            self._boolean_selected_to_active(selected_objects, active_object)
             # Keep the boolean sources (selected) selected, deselect object with modifiers (active)
             update_selection(context, selected_objects, [active_object])
 
-        return {'FINISHED'}
-    
-
-    def _boolean_active_to_selected(self, selected_objects, active_object):
+    def apply_operation_active_to_selected(self, context, selected_objects, active_object):
+        """Apply boolean from active object to selected objects"""
         prepare_boolean_object(active_object)
 
         for obj in selected_objects:
-
             mod = modifier.add(obj, "Boolean", 'BOOLEAN')
             mod.operation = self.operation
             mod.object = active_object
@@ -138,8 +176,8 @@ class BOUT_OT_ModBoolean(bpy.types.Operator):
             for key, value in attributes:
                 setattr(mod, key, value)
 
-
-    def _boolean_selected_to_active(self, selected_objects, active_object):
+    def apply_operation_selected_to_active(self, context, selected_objects, active_object):
+        """Apply boolean from selected objects to active object"""
         for obj in selected_objects:
             prepare_boolean_object(obj)
 
@@ -164,52 +202,27 @@ class BOUT_OT_ModBoolean(bpy.types.Operator):
         layout.prop(self, 'flip')
 
 
-class BOUT_OT_ModBooleanSlice(bpy.types.Operator):
+class BOUT_OT_ModBooleanSlice(BooleanOperatorBase):
     bl_idname = "bout.mod_boolean_slice"
     bl_label = "Boolean Slice"
-    bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
     bl_description = "Slice objects into two parts using boolean operations"
-
-    solver: bpy.props.EnumProperty(
-        name="Solver",
-        items= get_solver_items,
-        default=0
-    )
-
-    flip: bpy.props.BoolProperty(
-        name="Flip",
-        default=False
-    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.objects_with_modifiers: list = []
-
-    @classmethod
-    def poll(cls, context):
-        return context.area.type == 'VIEW_3D' and context.mode in {'EDIT_MESH', 'OBJECT'}
-
-    def execute(self, context):
-        active_object = context.active_object
-        selected_objects = context.selected_objects[:]
-
-        if active_object in selected_objects:
-            selected_objects.remove(active_object)
-
+    
+    def update_selection_after_operation(self, context, active_object, selected_objects):
+        """Update selection to show only boolean source objects"""
         if self.flip:
-            self._slice_active_to_selected(context, selected_objects, active_object)
             # Deselect all and select only the boolean source object
             all_objects = selected_objects + self.objects_with_modifiers
             update_selection(context, [active_object], all_objects)
         else:
-            self._slice_selected_to_active(context, selected_objects, active_object)
             # Deselect all and select only the boolean source objects
             all_objects = [active_object] + self.objects_with_modifiers
             update_selection(context, selected_objects, all_objects)
 
-        return {'FINISHED'}
-
-    def _slice_active_to_selected(self, context, selected_objects, active_object):
+    def apply_operation_active_to_selected(self, context, selected_objects, active_object):
         prepare_boolean_object(active_object)
 
         for obj in selected_objects:
@@ -238,7 +251,7 @@ class BOUT_OT_ModBooleanSlice(bpy.types.Operator):
 
             self.objects_with_modifiers.extend([obj, duplicate])
 
-    def _slice_selected_to_active(self, context, selected_objects, active_object):
+    def apply_operation_selected_to_active(self, context, selected_objects, active_object):
         # Create duplicate of active object for the intersect part
         active_duplicate = active_object.copy()
         active_duplicate.data = active_object.data.copy()
@@ -278,17 +291,10 @@ class BOUT_OT_ModBooleanSlice(bpy.types.Operator):
         layout.prop(self, 'flip')
 
 
-class BOUT_OT_ModBooleanCarve(bpy.types.Operator):
+class BOUT_OT_ModBooleanCarve(BooleanOperatorBase):
     bl_idname = "bout.mod_boolean_carve"
     bl_label = "Boolean Carve"
-    bl_options = {'REGISTER', 'UNDO', 'BLOCKING', 'GRAB_CURSOR'}
     bl_description = "Carve into objects using boolean operations"
-
-    solver: bpy.props.EnumProperty(
-        name="Solver",
-        items= get_solver_items,
-        default=0
-    )
 
     offset: bpy.props.FloatProperty(
         name="Offset",
@@ -298,43 +304,22 @@ class BOUT_OT_ModBooleanCarve(bpy.types.Operator):
         subtype='DISTANCE'
     )
 
-    flip: bpy.props.BoolProperty(
-        name="Flip",
-        default=False
-    )
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.carved_objects: list = []
-
-    @classmethod
-    def poll(cls, context):
-        return context.area.type == 'VIEW_3D' and context.mode in {'EDIT_MESH', 'OBJECT'}
-
-    def execute(self, context):
-        active_object = context.active_object
-        selected_objects = context.selected_objects[:]
-
-        if active_object in selected_objects:
-            selected_objects.remove(active_object)
-
+    
+    def update_selection_after_operation(self, context, active_object, selected_objects):
+        """Update selection to show only carved objects and hide sources"""
+        # Deselect all source objects, select only carved objects
+        all_sources = selected_objects + [active_object]
+        update_selection(context, self.carved_objects, all_sources)
+        
+        # Hide the boolean sources after selection update
         if self.flip:
-            self._carve_active_to_selected(context, selected_objects, active_object)
-            # Deselect all source objects, select only carved objects
-            all_sources = selected_objects + [active_object]
-            update_selection(context, self.carved_objects, all_sources)
-            # Hide the boolean source after selection update
             active_object.hide_set(True)
         else:
-            self._carve_selected_to_active(context, selected_objects, active_object)
-            # Deselect all source objects, select only carved objects
-            all_sources = selected_objects + [active_object]
-            update_selection(context, self.carved_objects, all_sources)
-            # Hide the boolean sources after selection update
             for obj in selected_objects:
                 obj.hide_set(True)
-
-        return {'FINISHED'}
 
     def _create_carve_duplicate(self, context, obj):
         """Create a duplicate object with faces moved inward for carving effect"""
@@ -362,7 +347,7 @@ class BOUT_OT_ModBooleanCarve(bpy.types.Operator):
         
         return new_obj
 
-    def _carve_active_to_selected(self, context, selected_objects, active_object):
+    def apply_operation_active_to_selected(self, context, selected_objects, active_object):
         # Create carve duplicate if offset is specified
         if self.offset > 0:
             carve_obj = self._create_carve_duplicate(context, active_object)
@@ -384,7 +369,7 @@ class BOUT_OT_ModBooleanCarve(bpy.types.Operator):
                 setattr(mod, key, value)
 
 
-    def _carve_selected_to_active(self, context, selected_objects, active_object):
+    def apply_operation_selected_to_active(self, context, selected_objects, active_object):
         for obj in selected_objects:
             # Create carve duplicate if offset is specified
             if self.offset > 0:

@@ -101,6 +101,11 @@ class BevelOperatorBase(bpy.types.Operator):
 
         active_object = context.active_object if context.active_object and context.active_object.select_get() else None
         selected_objects = list(set(filter(None, context.selected_objects + [active_object])))
+
+        if not selected_objects:
+            self.report({'WARNING'}, "No objects selected for bevel operation")
+            return {'CANCELLED'}
+
         self.mouse.median = sum([o.location for o in selected_objects], Vector()) / len(selected_objects) if selected_objects else Vector()
 
         self.mouse.co = self._get_intersect_point(context, event, self.mouse.median)
