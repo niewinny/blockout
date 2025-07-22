@@ -105,8 +105,13 @@ def hotkeys(self, layout, _context, _event):
             case 'SPHERE':
                 row.label(text='Subd', icon='EVENT_S')
                 row.separator(factor=factor)
-            case 'CORNER' | 'NGON':
+            case 'CORNER':
                 row.label(text='Bevel', icon='EVENT_B')
+                row.separator(factor=factor)
+            case 'NGON' | 'NHEDRON':
+                row.label(text='Bevel', icon='EVENT_B')
+                row.separator(factor=factor)
+                row.label(text='Delete', icon='EVENT_X')
                 row.separator(factor=factor)
     else:
         if self.config.shape == 'BOX':

@@ -198,6 +198,46 @@ def fix_winding_order(bm, face_index, plane_normal):
     return face_index
 
 
+def dissolve_vert(bm, vert_index, face_index):
+    '''Dissolve a vertex from an n-gon face'''
+    
+    face = bm.faces[face_index]
+    face_verts = list(face.verts)
+    
+    # Need at least 4 vertices to dissolve one (maintain triangle)
+    if len(face_verts) <= 3:
+        return None, face_index
+    
+    # Find the vertex to dissolve
+    vert_to_remove = bm.verts[vert_index]
+    if vert_to_remove not in face_verts:
+        return None, face_index
+    
+    # Remove the vertex from the face
+    face_verts.remove(vert_to_remove)
+    
+    # Delete the old face
+    bm.faces.remove(face)
+    
+    # Create new face without the dissolved vertex
+    new_face = bm.faces.new(face_verts)
+    new_face.select_set(True)
+    
+    # Clean up the vertex if it has no more connections
+    if len(vert_to_remove.link_faces) == 0:
+        bm.verts.remove(vert_to_remove)
+    
+    # Update lookup tables
+    bm.verts.ensure_lookup_table()
+    bm.verts.index_update()
+    bm.edges.ensure_lookup_table()
+    bm.edges.index_update()
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()
+    
+    return vert_to_remove, new_face.index
+
+
 def store(self):
     '''Store the ngon face'''
 

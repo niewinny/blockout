@@ -83,21 +83,59 @@ def modal(self, context, event):
             for e in face.edges:
                 mid_edge_co = (e.verts[0].co + e.verts[1].co) / 2
                 reg = view3d.location_3d_to_region_2d(region, rv3d, mid_edge_co, default=obj.location)
-                if is_near(region, mouse, reg):
+                if _is_near(region, mouse, reg):
                     self.edit_mode = 'ADD_VERT'
                     self.edit_point = e.index
+                    self.highlight_type = 'EDGE'
                     break
 
             for v in face.verts:
                 reg = view3d.location_3d_to_region_2d(region, rv3d, v.co, default=obj.location)
-                if is_near(region, mouse, reg):
+                if _is_near(region, mouse, reg):
                     self.edit_mode = 'MOVE'
                     self.edit_point = v.index
+                    self.highlight_type = 'VERTEX'
                     break
 
     if self.edit_mode == 'GET':
         self.edit_mode = 'END'
 
+        return
+
+    if self.edit_mode == 'DELETE':
+        # Check if we have more than 3 vertices and a valid highlight
+        if len(self.data.draw.verts) > 3 and hasattr(self, 'highlight_index') and self.highlight_index is not None:
+            match self.config.shape:
+                case 'NGON' | 'NHEDRON':
+                    # Dissolve the vertex
+                    removed_vert, new_face_index = ngon.dissolve_vert(bm, self.highlight_index, self.data.draw.faces[0])
+                    
+                    if removed_vert:
+                        # Update face index
+                        self.data.draw.faces[0] = new_face_index
+                        
+                        # Fix winding order after deletion
+                        plane_normal = plane[1]
+                        new_face_index = ngon.fix_winding_order(bm, new_face_index, plane_normal)
+                        self.data.draw.faces[0] = new_face_index
+                        
+                        # Rebuild the draw verts list with correct indices from the face
+                        # Don't preserve first if it was the deleted vertex
+                        preserve_first = self.data.draw.verts[0].index != self.highlight_index
+                        _rebuild_vertex_list(self, bm, new_face_index, preserve_first=preserve_first)
+                        
+                        self.update_bmesh(obj, bm)
+                        ngon.store(self)
+                        
+                        # Update shader/UI with new vertex positions
+                        _update_ui_after_change(self, bm, matrix_world)
+                        
+                        # Clear the active highlight
+                        self.ui.active.callback.update_batch([])
+                    else:
+                        self.report({'INFO'}, 'Cannot delete vertex: minimum 3 vertices required')
+        
+        self.edit_mode = 'NONE'
         return
 
     if self.edit_mode == 'ADD_VERT':
@@ -112,7 +150,10 @@ def modal(self, context, event):
             return
         
         self.edit_point = verts[0].index
-        self.data.draw.verts.append(DrawVert(index=verts[0].index, co=verts[0].co))
+        
+        # Rebuild the vertex list from the face to maintain consistency
+        # The face may have been recreated with vertices in a different order
+        _rebuild_vertex_list(self, bm, self.data.draw.faces[0], preserve_first=True)
 
         self.edit_mode = 'MOVE'
         self.update_bmesh(obj, bm)
@@ -130,9 +171,21 @@ def modal(self, context, event):
     if self.edit_mode in {'MOVE'}:
 
         index = next((idx for idx, vert in enumerate(self.data.draw.verts) if vert.index == self.edit_point), None)
+        
+        # Check if index is valid
+        if index is None:
+            self.edit_mode = 'NONE'
+            return
+            
         match self.config.shape:
-            case 'NGON': self.data.draw.verts[index].region, point = ngon.set_xy(bm, self.edit_point, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
-            case 'NHEDRON': self.data.draw.verts[index].region, point = ngon.set_xy(bm, self.edit_point, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
+            case 'NGON': 
+                self.data.draw.verts[index].region, point = ngon.set_xy(bm, self.edit_point, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
+                # Update the stored position
+                self.data.draw.verts[index].co = bm.verts[self.edit_point].co.copy()
+            case 'NHEDRON': 
+                self.data.draw.verts[index].region, point = ngon.set_xy(bm, self.edit_point, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
+                # Update the stored position
+                self.data.draw.verts[index].co = bm.verts[self.edit_point].co.copy()
 
         # After moving vertex, fix winding order if needed
         if self.data.draw.faces and len(self.data.draw.verts) >= 3:
@@ -146,15 +199,7 @@ def modal(self, context, event):
 
         match self.config.shape:
             case 'NGON' | 'NHEDRON':
-                faces = [bm.faces[i] for i in self.data.draw.faces]
-                points_gloabal = []
-                for p in self.data.draw.verts:
-                    point = bm.verts[p.index].co
-                    points_gloabal.append(matrix_world @ point)
-
-                self.ui.vert.callback.update_batch(points_gloabal)
-                if self.config.mode != 'ADD':
-                    self.ui.faces.callback.update_batch(faces)
+                _update_ui_after_change(self, bm, matrix_world)
 
                 self.ui.active.callback.update_batch([matrix_world @ bm.verts[self.edit_point].co.copy()])
 
@@ -172,6 +217,9 @@ def modal(self, context, event):
         self.ui.interface.callback.update_batch([])
 
         highlight = []
+        self.highlight_type = None
+        self.highlight_index = None
+        
         if self.data.draw.faces:
 
             face = bm.faces[self.data.draw.faces[0]]
@@ -179,19 +227,77 @@ def modal(self, context, event):
             for e in face.edges:
                 mid_edge_co = (e.verts[0].co + e.verts[1].co) / 2
                 reg = view3d.location_3d_to_region_2d(region, rv3d, mid_edge_co, default=obj.location)
-                if is_near(region, mouse, reg):
+                if _is_near(region, mouse, reg):
                     highlight = [matrix_world  @ mid_edge_co]
+                    self.highlight_type = 'EDGE'
+                    self.highlight_index = e.index
                     break
 
             for v in face.verts:
                 reg = view3d.location_3d_to_region_2d(region, rv3d, v.co, default=obj.location)
-                if is_near(region, mouse, reg):
+                if _is_near(region, mouse, reg):
                     highlight = [matrix_world @ v.co.copy()]
+                    self.highlight_type = 'VERTEX'
+                    self.highlight_index = v.index
                     break
 
             self.ui.active.callback.update_batch(highlight)
 
-def is_near(region, point1, point2):
+def _rebuild_vertex_list(self, bm, face_index, preserve_first=True):
+    """
+    Rebuild the draw vertex list from the face, preserving the drawing vertex position.
+    
+    Args:
+        bm: The BMesh object
+        face_index: The face index to rebuild from
+        preserve_first: If True, keep the first vertex as the first vertex if it still exists
+    
+    Returns:
+        None (updates self.data.draw.verts in place)
+    """
+    face = bm.faces[face_index]
+    
+    # Store the current drawing vertex (first vertex) if we need to preserve it
+    drawing_vert_index = None
+    if preserve_first and len(self.data.draw.verts) > 0:
+        drawing_vert_index = self.data.draw.verts[0].index
+    
+    # Build new vertex list
+    new_draw_verts = []
+    drawing_vert = None
+    
+    # First pass: find all vertices and identify the drawing vertex
+    for v in face.verts:
+        draw_vert = DrawVert(index=v.index, co=v.co.copy())
+        if v.index == drawing_vert_index:
+            drawing_vert = draw_vert
+        else:
+            new_draw_verts.append(draw_vert)
+    
+    # Reconstruct list with drawing vertex first (if it exists and we're preserving)
+    if drawing_vert and preserve_first:
+        self.data.draw.verts = [drawing_vert] + new_draw_verts
+    else:
+        # Just use face vertex order
+        self.data.draw.verts = []
+        for v in face.verts:
+            self.data.draw.verts.append(DrawVert(index=v.index, co=v.co.copy()))
+
+
+def _update_ui_after_change(self, bm, matrix_world):
+    """Update the UI/shader after vertex changes."""
+    faces = [bm.faces[i] for i in self.data.draw.faces]
+    points_global = []
+    for p in self.data.draw.verts:
+        point = bm.verts[p.index].co
+        points_global.append(matrix_world @ point)
+    
+    self.ui.vert.callback.update_batch(points_global)
+    if self.config.mode != 'ADD':
+        self.ui.faces.callback.update_batch(faces)
+
+
+def _is_near(region, point1, point2):
     """Check if point2 is within 'threshold' pixels of point1."""
     height = region.height
     width = region.width

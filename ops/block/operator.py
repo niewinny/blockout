@@ -452,6 +452,15 @@ class Block(bpy.types.Operator):
             if event.value == 'PRESS':
                 self.data.extrude.symmetry = not self.data.extrude.symmetry
 
+        elif event.type == 'X':
+            if event.value == 'PRESS':
+                if self.mode == 'EDIT' and self.config.shape in {'NGON', 'NHEDRON'}:
+                    # Check if we're highlighting a vertex (not an edge midpoint)
+                    if hasattr(self, 'highlight_type') and self.highlight_type == 'VERTEX':
+                        self.edit_mode = 'DELETE'
+                        edit.modal(self, context, event)
+                        return {'RUNNING_MODAL'}
+
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
             self._cancel(context)
             self._end(context)
