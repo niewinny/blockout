@@ -134,6 +134,13 @@ def modal(self, context, event):
             case 'NGON': self.data.draw.verts[index].region, point = ngon.set_xy(bm, self.edit_point, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
             case 'NHEDRON': self.data.draw.verts[index].region, point = ngon.set_xy(bm, self.edit_point, plane, mouse_point_on_plane, direction, snap_value=increments, symmetry=symmetry)
 
+        # After moving vertex, fix winding order if needed
+        if self.data.draw.faces and len(self.data.draw.verts) >= 3:
+            plane_normal = plane[1]
+            new_face_index = ngon.fix_winding_order(bm, self.data.draw.faces[0], plane_normal)
+            if new_face_index != self.data.draw.faces[0]:
+                self.data.draw.faces[0] = new_face_index
+
         self.update_bmesh(obj, bm)
         ngon.store(self)
 

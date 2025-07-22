@@ -169,6 +169,35 @@ def new(bm, verts_list):
     return face
 
 
+def fix_winding_order(bm, face_index, plane_normal):
+    '''Fix the winding order of a face to match the plane normal'''
+    
+    face = bm.faces[face_index]
+    face_verts = list(face.verts)
+    
+    # Need at least 3 vertices to determine winding
+    if len(face_verts) < 3:
+        return face_index
+    
+    # Calculate current face normal based on first 3 vertices
+    v0, v1, v2 = face_verts[0].co, face_verts[1].co, face_verts[2].co
+    edge1 = v1 - v0
+    edge2 = v2 - v0
+    current_normal = edge1.cross(edge2).normalized()
+    
+    # Check if it matches plane normal
+    if current_normal.dot(plane_normal) < 0:
+        # Reverse the vertex order to fix the winding
+        face_verts.reverse()
+        bm.faces.remove(face)
+        new_face = bm.faces.new(face_verts)
+        new_face.select_set(True)
+        bm.faces.ensure_lookup_table()
+        return new_face.index
+    
+    return face_index
+
+
 def store(self):
     '''Store the ngon face'''
 
