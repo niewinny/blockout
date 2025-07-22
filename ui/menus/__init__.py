@@ -1,12 +1,8 @@
 import bpy
-from . import booleans
 from . import object
-from . import bevel
 
 
 classes = (
-    booleans.BOUT_MT_ObjectBoolean,
-    bevel.BOUT_MT_BevelMenu,
     object.BOUT_MT_ObjectMode,
 )
 

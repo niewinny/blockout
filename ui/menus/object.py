@@ -10,9 +10,24 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
         layout.operator_context = "INVOKE_DEFAULT"
 
         layout.separator()
+        op = layout.operator("bout.mod_bevel", text="Bevel (Unpinned)")
+        op.all_mode = True
+        layout.operator("bout.mod_bevel_pinned", text="Bevel Pinned")
+        layout.separator()
 
-        layout.menu("BOUT_MT_ObjectBoolean")
-        layout.menu("BOUT_MT_BevelMenu")
+        # Standard boolean operations
+        cut_op = layout.operator("bout.mod_boolean", text="Cut")
+        cut_op.operation = 'DIFFERENCE'
+        union_op = layout.operator("bout.mod_boolean", text="Union")
+        union_op.operation = 'UNION'
+        intersect_op = layout.operator("bout.mod_boolean", text="Intersect")
+        intersect_op.operation = 'INTERSECT'
+
+        # Special boolean operations
+        layout.operator("bout.mod_boolean_slice", text="Slice")
+        layout.operator("bout.mod_boolean_carve", text="Carve")
+
+        layout.separator()
         layout.operator("bout.apply_modifiers")
 
         layout.separator()
