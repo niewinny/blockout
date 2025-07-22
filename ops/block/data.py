@@ -210,6 +210,8 @@ class Pref(bpy.types.PropertyGroup):
 
     ngon: bpy.props.CollectionProperty(type=Ngon)
 
+    reveal: bpy.props.BoolProperty(name="Reveal", description="Reveal", default=False)
+
 
 class Shape(bpy.types.PropertyGroup):
     volume: bpy.props.StringProperty(name="Volume", description="Volume", default='2D')

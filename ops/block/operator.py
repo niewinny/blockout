@@ -387,6 +387,9 @@ class Block(bpy.types.Operator):
                         self.edit_mode = 'NONE'
                         return {'RUNNING_MODAL'}
 
+            # Check if Shift is held for object reveal
+            self.pref.reveal = event.shift if self.config.type == 'OBJECT' else False
+
             # Finalize if no early return
             self.store_props()
             self.save_props()

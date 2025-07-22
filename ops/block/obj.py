@@ -181,6 +181,9 @@ class BOUT_OT_BlockObjTool(Block):
 
         self._set_origin(obj)
 
+        if self.pref.reveal:
+            self._reveal_objects(bpy.context, obj)
+
     def update_bmesh(self, obj, bm, loop_triangles=False, destructive=False):
         mesh = obj.data
         bm.to_mesh(mesh)
@@ -401,6 +404,13 @@ class BOUT_OT_BlockObjTool(Block):
         bm.to_mesh(new_obj.data)
         bm.free()
 
+    def _reveal_objects(self, context, obj):
+        '''Reveal the created objects'''
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.hide_set(False)
+        obj.select_set(True)
+        context.view_layer.objects.active = obj
+
 
     def _finish(self, context):
         super()._finish(context)
@@ -415,6 +425,9 @@ class BOUT_OT_BlockObjTool(Block):
                 self.data.obj.data.shade_smooth()
 
             self._set_origin(self.data.obj)
+
+            if self.pref.reveal:
+                self._reveal_objects(context, self.data.obj)
 
     def _set_origin(self, obj):
         bbox_corners = [mathutils.Vector(corner) for corner in obj.bound_box]
