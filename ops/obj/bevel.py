@@ -158,6 +158,7 @@ class BevelOperatorBase(bpy.types.Operator):
             mod = modifier.get(obj, 'BEVEL', -1)
             if not mod:
                 mod = modifier.add(obj, "Bevel", 'BEVEL')
+                mod.miter_outer = 'MITER_ARC'
             self._set_bevel_properties(mod)
 
     def modal(self, context, event):
@@ -512,6 +513,7 @@ class BOUT_OT_ModBevelPinned(BevelOperatorBase):
                 self.width = 0.0
                 self._set_bevel_properties(mod)
                 mod.use_pin_to_last = True
+                mod.miter_outer = 'MITER_ARC'
             else:
                 self._get_bevel_properties(mod)
                 new = False
@@ -594,11 +596,13 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
                 for obj in selected_objects:
                     if obj != active_object and obj.type == 'MESH':
                         mod = modifier.add(obj, "Bevel", 'BEVEL')
+                        mod.miter_outer = 'MITER_ARC'
                         self.bevels.append(Bevel(obj=obj, mod=mod, new=True, initial_width=0.0))
                 
                 # Process active object last
                 if active_object and active_object.type == 'MESH':
                     mod = modifier.add(active_object, "Bevel", 'BEVEL')
+                    mod.miter_outer = 'MITER_ARC'
                     self.bevels.append(Bevel(obj=active_object, mod=mod, new=True, initial_width=0.0))
                 
                 if self.bevels:
@@ -642,6 +646,7 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
                 # No unpinned modifiers found - create new one on active object
                 if active_object and active_object.type == 'MESH':
                     mod = modifier.add(active_object, "Bevel", 'BEVEL')
+                    mod.miter_outer = 'MITER_ARC'
                     self.width = 0.0
                     self._set_bevel_properties(mod)
                     self.bevels.append(Bevel(obj=active_object, mod=mod, new=True))
