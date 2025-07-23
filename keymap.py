@@ -21,6 +21,10 @@ def object_mode_hotkeys(kc):
     keys.append((km, kmi))
 
     km = kc.keymaps.new(name='Object Mode', space_type='EMPTY')
+    kmi = km.keymap_items.new('bout.mod_boolean_slice', 'BACK_SLASH', 'PRESS', alt=True)
+    keys.append((km, kmi))
+
+    km = kc.keymaps.new(name='Object Mode', space_type='EMPTY')
     kmi = km.keymap_items.new('bout.set_active_tool', 'W', 'PRESS', ctrl=True)
     kmi.properties.edit_mode = False
     keys.append((km, kmi))
