@@ -11,7 +11,6 @@ class Pref(bpy.types.PropertyGroup):
     obj: bpy.props.PointerProperty(type=obj.Pref)
     align: bpy.props.PointerProperty(type=data.Align)
     form: bpy.props.PointerProperty(type=data.Form)
-    settings: bpy.props.PointerProperty(type=data.Settings)
 
 
 types_classes = (

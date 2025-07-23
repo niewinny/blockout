@@ -21,6 +21,8 @@ def draw_align(layout, context, block):
         col = layout.column(align=True, heading='Rotation')
         col.prop(context.scene.bout.align, 'rotation', text='Rotation', expand=True)
 
+    layout.separator()
+    layout.prop(block.align, 'solver')
 
 
 def draw_type(layout, block):
@@ -39,12 +41,3 @@ def draw_shape(layout, block):
     col = layout.column(align=True)
     col.scale_y = 1.6
     col.prop(block, 'shape', expand=True)
-
-
-def draw_settings(layout, context, block):
-    '''Draw settings properties'''
-
-    layout.use_property_split = False
-    col = layout.column(align=True)
-    col.prop(block.settings, 'solver')
-

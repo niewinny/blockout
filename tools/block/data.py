@@ -48,21 +48,13 @@ class Align(bpy.types.PropertyGroup):
     absolute: bpy.props.BoolProperty(name="Absolute", default=False)
     offset: bpy.props.FloatProperty(name="Offset", description="Offset the mesh above the drawing plane", default=0.001, subtype='DISTANCE')
     increments: bpy.props.FloatProperty(name="Increments", description="Round the values to the nearest increment", default=0.1, subtype='DISTANCE')
+    solver: bpy.props.EnumProperty(name="Solver", description="Boolean Solver", items=get_solver_items, default=0)
 
 class Form(bpy.types.PropertyGroup):
     bevel_segments: bpy.props.IntProperty(name="Bevel Segments", description="Number of bevel segments", default=1, min=1, max=32)
     circle_verts: bpy.props.IntProperty(name="Verts", description="Circle Verts", default=32, min=3, max=256)
 
-class Settings(bpy.types.PropertyGroup):
-    solver: bpy.props.EnumProperty(
-        name="Solver",
-        description="Boolean Solver",
-        items=get_solver_items,
-        default=0
-    )
-
 types_classes = (
     Align,
     Form,
-    Settings,
 )

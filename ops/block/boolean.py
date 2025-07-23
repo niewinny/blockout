@@ -5,7 +5,7 @@ def add_modifier(bool_obj, obj, operation='DIFFERENCE'):
     '''Add the boolean modifier'''
     mod = modifier.add(bool_obj, "Boolean", 'BOOLEAN')
     mod.operation = operation
-    mod.solver = addon.pref().tools.block.settings.solver
+    mod.solver = addon.pref().tools.block.align.solver
     mod.object = obj
     mod.show_in_editmode = True
 

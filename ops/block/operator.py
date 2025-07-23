@@ -162,8 +162,8 @@ class Block(bpy.types.Operator):
         
         if self.pref.mode != 'ADD':
             col = layout.column(align=True)
-            settings = addon.pref().tools.block.settings
-            col.prop(settings, 'solver', text="Boolean Solver")
+            align = addon.pref().tools.block.align
+            col.prop(align, 'solver', text="Boolean Solver")
 
     def _hide_transform_gizmo(self, context):
         self.pref.transform_gizmo = context.space_data.show_gizmo_context
