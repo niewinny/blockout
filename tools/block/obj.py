@@ -42,15 +42,16 @@ class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
         row.popover('BOUT_PT_ShapeObj', text=label, icon=icon)
 
         label = "None  "
+        icon = 'STRIP_COLOR_01'
         _type = block.mode
         match _type:
-            case 'CUT': label = "Cut"
-            case 'ADD': label = "Add"
-            case 'SLICE': label = "Slice"
-            case 'INTERSECT': label = "Intersect"
-            case 'CARVE': label = "Carve"
-            case 'UNION': label = "Union"
-        row.popover('BOUT_PT_TypeObj', text=label)
+            case 'CUT': (label, icon) = ("Cut", 'STRIP_COLOR_01')
+            case 'ADD': (label, icon) = ("Add", 'STRIP_COLOR_09')
+            case 'SLICE': (label, icon) = ("Slice", 'STRIP_COLOR_03')
+            case 'INTERSECT': (label, icon) = ("Intersect", 'STRIP_COLOR_05')
+            case 'CARVE': (label, icon) = ("Carve", 'STRIP_COLOR_02')
+            case 'UNION': (label, icon) = ("Union", 'STRIP_COLOR_04')
+        row.popover('BOUT_PT_TypeObj', text=label, icon=icon)
 
         layout.separator()
         layout.label(text="Align:")

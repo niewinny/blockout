@@ -12,12 +12,12 @@ shapes = [('BOX', 'Box', 'Box', 'MESH_CUBE', 1),
           ('CORNER', 'Corner', 'Corner', 'AREA_DOCK', 8),]
 
 
-modes = [('CUT', 'Cut', 'Cut'),
-         ('ADD', 'Add', 'Add'),
-         ('SLICE', 'Slice', 'Slice'),
-         ('INTERSECT', 'Intersect', 'Intersect'),
-         ('CARVE', 'Carve', 'Carve'),
-         ('UNION', 'Union', 'Union')]
+modes = [('CUT', 'Cut', 'Cut', 'STRIP_COLOR_01', 1),
+         ('ADD', 'Add', 'Add', 'STRIP_COLOR_09', 2),
+         ('SLICE', 'Slice', 'Slice', 'STRIP_COLOR_03', 3),
+         ('INTERSECT', 'Intersect', 'Intersect', 'STRIP_COLOR_05', 4),
+         ('CARVE', 'Carve', 'Carve', 'STRIP_COLOR_02', 5),
+         ('UNION', 'Union', 'Union', 'STRIP_COLOR_04', 6)]
 
 
 def get_solver_items(self, context):

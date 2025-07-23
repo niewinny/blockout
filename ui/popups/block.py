@@ -40,20 +40,20 @@ class BOUT_OT_block_popup(bpy.types.Operator):
         layout.label(text="Mode:")
         grid = layout.grid_flow(row_major=True, columns=4, even_columns=True, even_rows=True, align=True)
         modes = [
-            ('CUT'),
-            ('ADD'),
-            ('SLICE'),
-            ('INTERSECT'),
-            ('CARVE'),
-            ('UNION'),
-            (''),
-            ('')
+            ('CUT', 'STRIP_COLOR_01'),
+            ('ADD', 'STRIP_COLOR_09'),
+            ('SLICE', 'STRIP_COLOR_03'),
+            ('INTERSECT', 'STRIP_COLOR_05'),
+            ('CARVE', 'STRIP_COLOR_02'),
+            ('UNION', 'STRIP_COLOR_04'),
+            ('', ''),
+            ('', '')
         ]
-        for mode in modes:
+        for mode, icon in modes:
             if mode:  # Only create button if mode is not empty
                 col = grid.column(align=True)
                 col.scale_y = 1.6
-                col.prop_enum(block, "mode", mode)
+                col.prop_enum(block, "mode", mode, icon=icon)
             else:
                 # Create empty space
                 col = grid.column(align=True)
