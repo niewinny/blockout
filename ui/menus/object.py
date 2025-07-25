@@ -1,6 +1,17 @@
 import bpy
 
 
+class BOUT_MT_MatrixOperations(bpy.types.Menu):
+    bl_idname = "BOUT_MT_MatrixOperations"
+    bl_label = "Matrix Operations"
+
+    def draw(self, _context):
+        layout = self.layout
+        
+        layout.operator("bout.store_matrix", text="Store Matrix")
+        layout.operator("bout.restore_matrix", text="Restore Matrix")
+
+
 class BOUT_MT_ObjectMode(bpy.types.Menu):
     bl_idname = "BOUT_MT_ObjectMode"
     bl_label = "Blockout"
@@ -37,4 +48,5 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
 
         layout.separator()
 
-        layout.menu("BOUT_MT_Asset")
+        # Matrix operations submenu
+        layout.menu("BOUT_MT_MatrixOperations", text="Matrix")

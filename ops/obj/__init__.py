@@ -4,6 +4,7 @@ from . import boolean
 from . import custom_plane
 from . import veil
 from . import apply_modifiers
+from . import matrix_store
 
 
 class Theme(bpy.types.PropertyGroup):
@@ -17,6 +18,7 @@ class Scene(bpy.types.PropertyGroup):
 types_classes = (
     *bevel.types_classes,
     *apply_modifiers.types_classes,
+    *matrix_store.types_classes,
     Theme,
     Scene,
 )
@@ -28,4 +30,5 @@ classes = (
     *custom_plane.classes,
     *veil.classes,
     *apply_modifiers.classes,
+    *matrix_store.classes,
 )

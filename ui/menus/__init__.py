@@ -3,6 +3,7 @@ from . import object
 
 
 classes = (
+    object.BOUT_MT_MatrixOperations,
     object.BOUT_MT_ObjectMode,
 )
 
