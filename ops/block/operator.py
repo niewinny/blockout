@@ -252,7 +252,7 @@ class Block(bpy.types.Operator):
             if not self.ray.hit:
                 if self.config.mode != 'ADD':
                     if self.config.type == 'OBJECT':
-                        self.report({'INFO'}, "No mesh detected: Please select a mesh or point at one")
+                        self.report({'INFO'}, "No mesh detected: Please select a mesh")
                         return {'CANCELLED'}
 
         self.data.obj = self.get_object(context)

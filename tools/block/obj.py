@@ -110,7 +110,7 @@ class Pref(bpy.types.PropertyGroup):
         description="Pick objects",
         items=[('SELECTED', 'Selected', 'Selected'),
             ('VISIBLE', 'Visible', 'Visible')], 
-        default='VISIBLE')
+        default='SELECTED')
 
 
 types_classes = (
