@@ -57,26 +57,6 @@ class Theme(bpy.types.PropertyGroup):
     axis: bpy.props.PointerProperty(type=ThemeAxis)
 
 
-class ObjectData(bpy.types.PropertyGroup):
-    matrix_base: bpy.props.FloatVectorProperty(
-        name="Base Matrix", 
-        size=16, 
-        subtype='MATRIX', 
-        default=(1.0, 0.0, 0.0, 0.0, 
-                 0.0, 1.0, 0.0, 0.0, 
-                 0.0, 0.0, 1.0, 0.0, 
-                 0.0, 0.0, 0.0, 1.0))
-    
-    matrix_posed: bpy.props.FloatVectorProperty(
-        name="Posed Matrix", 
-        size=16, 
-        subtype='MATRIX', 
-        default=(1.0, 0.0, 0.0, 0.0, 
-                 0.0, 1.0, 0.0, 0.0, 
-                 0.0, 0.0, 1.0, 0.0, 
-                 0.0, 0.0, 0.0, 1.0))
-
-
 
 classes = [
     *ops.types_classes,
@@ -88,15 +68,12 @@ classes = [
     Scene,
     ThemeAxis,
     Theme,
-    ObjectData,
 ]
 
 
 def register():
     bpy.types.Scene.bout = bpy.props.PointerProperty(type=Scene)
-    bpy.types.Object.bout = bpy.props.PointerProperty(type=ObjectData)
 
 
 def unregister():
     del bpy.types.Scene.bout
-    del bpy.types.Object.bout

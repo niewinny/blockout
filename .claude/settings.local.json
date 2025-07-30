@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:docs.blender.org)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
