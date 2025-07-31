@@ -150,6 +150,10 @@ def bevel_edges(bm, edges, bevel_offset=0.0, bevel_segments=1):
 
 def remove_doubles(bm, face):
     '''Remove double vertices'''
+    
+    # Check if face is valid before proceeding
+    if not face or not face.is_valid:
+        return
 
     verts = [v for v in face.verts]
     bmesh.ops.remove_doubles(bm, verts=verts, dist=0.0001)
