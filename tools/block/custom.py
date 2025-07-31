@@ -1,4 +1,5 @@
 import bpy
+from bpy.app.handlers import persistent
 
 from ...shaders.draw import DrawLine, DrawGrid
 from ...utils import addon
@@ -155,6 +156,7 @@ def remove():
     clear_draw_handlers()
 
 
+@persistent
 def undo(scene):
     '''Handler for post-undo operations to ensure UI updates'''
     if hasattr(scene, "bout"):
