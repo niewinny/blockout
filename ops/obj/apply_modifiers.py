@@ -50,6 +50,11 @@ class BOUT_OT_ApplyModifiers(Operator):
     modifier_groups: CollectionProperty(type=BOUT_PT_ApplyModifiersGroup)
     object_items: CollectionProperty(type=BOUT_PT_ApplyModifiersObjectItem)
     active_object_index: IntProperty(name="Active Object", default=0)
+    remove_used_objects: BoolProperty(
+        name="Remove objects used by modifiers",
+        description="Remove objects that were used by modifiers and are no longer needed",
+        default=True
+    )
 
     @classmethod
     def poll(cls, context):
@@ -337,12 +342,16 @@ class BOUT_OT_ApplyModifiers(Operator):
         if not self.modifier_items:
             layout.label(text="No modifiers found", icon='INFO')
             return
-
+        layout.label(text="Options:")
+        # Add toggle for removing used objects at the top
+        layout.prop(self, "remove_used_objects")
+        
         layout.separator()
+        layout.label(text="Modifiers to apply:")
 
         # Object selection list at top
         if len(self.object_items) > 1:
-            layout.label(text="Select Object:", icon='OBJECT_DATA')
+            layout.label(text="Selected Objects:", icon='OBJECT_DATA')
             layout.template_list(
                 "BOUT_UL_ApplyModifiersObjectList", "",
                 self, "object_items",
@@ -460,8 +469,10 @@ class BOUT_OT_ApplyModifiers(Operator):
                     except (RuntimeError, ValueError) as e:
                         self.report({'WARNING'}, f"Failed to apply {modifier_name} on {obj_name}: {str(e)}")
 
-        # Clean up unused objects after all modifiers are applied
-        removed_count = self._cleanup_unused_objects(objects_to_check_for_removal)
+        # Clean up unused objects after all modifiers are applied, if enabled
+        removed_count = 0
+        if self.remove_used_objects:
+            removed_count = self._cleanup_unused_objects(objects_to_check_for_removal)
 
         if removed_count > 0:
             self.report({'INFO'}, f"Applied {applied_count} modifiers and removed {removed_count} unused objects")
