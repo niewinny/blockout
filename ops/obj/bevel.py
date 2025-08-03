@@ -75,7 +75,16 @@ class BevelOperatorBase(bpy.types.Operator):
         ),
         default='ANGLE'
     )
-    angle_limit: bpy.props.FloatProperty(name='Angle', default=0.523599, min=0, max=3.14159, precision=3)
+    angle_limit: bpy.props.FloatProperty(
+        name='Angle', 
+        default=0.523599, 
+        min=0, 
+        max=3.14159, 
+        precision=4,
+        step=10,
+        subtype='ANGLE',
+        description='Angle limit for beveling'
+    )
     edge_weight: bpy.props.StringProperty(name='Edge Weight', default='bevel_weight_edge')
 
     def __init__(self, *args, **kwargs):
@@ -226,6 +235,15 @@ class BevelOperatorBase(bpy.types.Operator):
             self.harden_normals = not self.harden_normals
             for b in self.bevels:
                 b.mod.harden_normals = self.harden_normals
+        
+        elif event.type == 'L' and event.value == 'PRESS':
+            # Cycle through limit methods
+            limit_methods = ['NONE', 'ANGLE', 'WEIGHT', 'VGROUP']
+            current_index = limit_methods.index(self.limit_method)
+            self.limit_method = limit_methods[(current_index + 1) % len(limit_methods)]
+            for b in self.bevels:
+                b.mod.limit_method = self.limit_method
+            self._update_info(context)
 
         elif event.type == 'WHEELUPMOUSE' or event.type == 'NUMPAD_PLUS' or event.type == 'EQUAL':
             if event.value == 'PRESS':
@@ -240,6 +258,24 @@ class BevelOperatorBase(bpy.types.Operator):
                 self.segments -= 1
                 for b in self.bevels:
                     b.mod.segments = self.segments
+                self._update_info(context)
+                self._update_drawing(context)
+        
+        elif event.type == 'UP_ARROW' and event.value == 'PRESS':
+            # Increase angle limit if in ANGLE mode
+            if self.limit_method == 'ANGLE':
+                self.angle_limit = min(self.angle_limit + 0.0174533, 3.14159)  # +1 degree
+                for b in self.bevels:
+                    b.mod.angle_limit = self.angle_limit
+                self._update_info(context)
+                self._update_drawing(context)
+        
+        elif event.type == 'DOWN_ARROW' and event.value == 'PRESS':
+            # Decrease angle limit if in ANGLE mode
+            if self.limit_method == 'ANGLE':
+                self.angle_limit = max(self.angle_limit - 0.0174533, 0.0)  # -1 degree
+                for b in self.bevels:
+                    b.mod.angle_limit = self.angle_limit
                 self._update_info(context)
                 self._update_drawing(context)
 
@@ -340,11 +376,24 @@ class BevelOperatorBase(bpy.types.Operator):
             return mouse_pos_3d
 
         return Vector((0, 0, 0))
+    
+    def _format_angle(self, angle_rad):
+        '''Format angle in degrees without trailing zeros'''
+        angle_deg = math.degrees(angle_rad)
+        # Format with 2 decimals then strip trailing zeros and decimal point
+        return f"{angle_deg:.2f}".rstrip('0').rstrip('.')
 
     def _update_info(self, context):
         '''Update header with the current settings'''
 
         info = f'Offset: {self.width:.3f}    Segments: {self.segments}'
+        
+        # Add limit method info
+        if self.limit_method != 'NONE':
+            info += f'    Limit: {self.limit_method}'
+            if self.limit_method == 'ANGLE':
+                angle_formatted = self._format_angle(self.angle_limit)
+                info += f' ({angle_formatted}°)'
         
         # Add modifier count if available
         count_text = self._get_modifier_count_text()
@@ -364,6 +413,14 @@ class BevelOperatorBase(bpy.types.Operator):
 
         layout.prop(self, 'width')
         layout.prop(self, 'segments')
+
+        layout.separator()
+
+        layout.prop(self, "limit_method")
+        if self.limit_method == 'ANGLE':
+            layout.prop(self, "angle_limit")
+        elif self.limit_method == 'WEIGHT':
+            layout.prop(self, "edge_weight")
 
         layout.separator()
 
@@ -407,12 +464,16 @@ class BevelOperatorBase(bpy.types.Operator):
         scene_props = context.scene.bout.ops.obj.bevel.base
         self.segments = scene_props.segments
         self.harden_normals = scene_props.harden_normals
+        self.limit_method = scene_props.limit_method
+        self.angle_limit = scene_props.angle_limit
 
     def _set_scene_properties(self, context):
         '''Set scene properties - uses base by default, override for different storage'''
         scene_props = context.scene.bout.ops.obj.bevel.base
         scene_props.segments = self.segments
         scene_props.harden_normals = self.harden_normals
+        scene_props.limit_method = self.limit_method
+        scene_props.angle_limit = self.angle_limit
 
     def _get_modifier_count_text(self):
         '''Get modifier count text for display - override in subclasses'''
@@ -435,6 +496,16 @@ class BevelOperatorBase(bpy.types.Operator):
         
         # Build text tuple
         text_lines = [f"Width: {width:.3f}", f"S: {segments}"]
+        
+        # Add limit method if not none
+        if self.limit_method != 'NONE':
+            if self.limit_method == 'ANGLE':
+                angle_formatted = self._format_angle(self.angle_limit)
+                text_lines.append(f"L:{angle_formatted}")
+            elif self.limit_method == 'WEIGHT':
+                text_lines.append("L:W")
+            else:
+                text_lines.append(f"L:{self.limit_method}")
         
         # Add modifier count if available
         count_text = self._get_modifier_count_text()
@@ -477,6 +548,9 @@ class BevelOperatorBase(bpy.types.Operator):
         row.separator(factor=6.0)
         row.label(text='', icon='EVENT_S')
         row.label(text='Segments')
+        row.separator(factor=6.0)
+        row.label(text='', icon='EVENT_L')
+        row.label(text='Limit Method')
 
 
 class BOUT_OT_ModBevelPinned(BevelOperatorBase):
@@ -497,12 +571,16 @@ class BOUT_OT_ModBevelPinned(BevelOperatorBase):
         scene_props = context.scene.bout.ops.obj.bevel.pinned
         self.segments = scene_props.segments
         self.harden_normals = scene_props.harden_normals
+        self.limit_method = scene_props.limit_method
+        self.angle_limit = scene_props.angle_limit
     
     def _set_scene_properties(self, context):
         '''Set scene properties for pinned operator'''
         scene_props = context.scene.bout.ops.obj.bevel.pinned
         scene_props.segments = self.segments
         scene_props.harden_normals = self.harden_normals
+        scene_props.limit_method = self.limit_method
+        scene_props.angle_limit = self.angle_limit
 
     def _setup_bevel(self, selected_objects, active_object):
         for obj in selected_objects:
@@ -766,6 +844,25 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
                 if self.current_index < len(self.bevels):
                     self.bevels[self.current_index].mod.harden_normals = self.harden_normals
             return {'RUNNING_MODAL'}
+        
+        elif event.type == 'L' and event.value == 'PRESS':
+            # Cycle through limit methods
+            limit_methods = ['NONE', 'ANGLE', 'WEIGHT', 'VGROUP']
+            current_index = limit_methods.index(self.limit_method)
+            self.limit_method = limit_methods[(current_index + 1) % len(limit_methods)]
+            
+            if self.all_mode:
+                # All mode - update all modifiers
+                for b in self.bevels:
+                    b.mod.limit_method = self.limit_method
+            else:
+                # Single mode - only update current modifier
+                if self.current_index < len(self.bevels):
+                    self.bevels[self.current_index].mod.limit_method = self.limit_method
+                    
+            self._update_info(context)
+            self._update_drawing(context)
+            return {'RUNNING_MODAL'}
             
         elif event.type == 'WHEELUPMOUSE' or event.type == 'NUMPAD_PLUS' or event.type == 'EQUAL':
             if event.value == 'PRESS':
@@ -793,6 +890,38 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
                     # Single mode - only update current modifier
                     if self.current_index < len(self.bevels):
                         self.bevels[self.current_index].mod.segments = self.segments
+                self._update_info(context)
+                self._update_drawing(context)
+                return {'RUNNING_MODAL'}
+        
+        elif event.type == 'UP_ARROW' and event.value == 'PRESS':
+            # Increase angle limit if in ANGLE mode
+            if self.limit_method == 'ANGLE':
+                self.angle_limit = min(self.angle_limit + 0.0174533, 3.14159)  # +1 degree
+                if self.all_mode:
+                    # All mode - update all modifiers
+                    for b in self.bevels:
+                        b.mod.angle_limit = self.angle_limit
+                else:
+                    # Single mode - only update current modifier
+                    if self.current_index < len(self.bevels):
+                        self.bevels[self.current_index].mod.angle_limit = self.angle_limit
+                self._update_info(context)
+                self._update_drawing(context)
+                return {'RUNNING_MODAL'}
+        
+        elif event.type == 'DOWN_ARROW' and event.value == 'PRESS':
+            # Decrease angle limit if in ANGLE mode
+            if self.limit_method == 'ANGLE':
+                self.angle_limit = max(self.angle_limit - 0.0174533, 0.0)  # -1 degree
+                if self.all_mode:
+                    # All mode - update all modifiers
+                    for b in self.bevels:
+                        b.mod.angle_limit = self.angle_limit
+                else:
+                    # Single mode - only update current modifier
+                    if self.current_index < len(self.bevels):
+                        self.bevels[self.current_index].mod.angle_limit = self.angle_limit
                 self._update_info(context)
                 self._update_drawing(context)
                 return {'RUNNING_MODAL'}
@@ -878,12 +1007,52 @@ class SceneBase(bpy.types.PropertyGroup):
     '''Base scene properties for bevel operators'''
     segments: bpy.props.IntProperty(name='Segments', default=1, min=1, max=32)
     harden_normals: bpy.props.BoolProperty(name='Harden Normals', default=False)
+    limit_method: bpy.props.EnumProperty(
+        name='Limit Method',
+        items=(
+            ('NONE', 'None', 'No limit'),
+            ('ANGLE', 'Angle', 'Limit by angle'),
+            ('WEIGHT', 'Weight', 'Limit by weight'),
+            ('VGROUP', 'Vertex Group', 'Limit by vertex group')
+        ),
+        default='ANGLE'
+    )
+    angle_limit: bpy.props.FloatProperty(
+        name='Angle', 
+        default=0.523599, 
+        min=0, 
+        max=3.14159, 
+        precision=4,
+        step=10,
+        subtype='ANGLE',
+        description='Angle limit for beveling'
+    )
 
 
 class ScenePinned(bpy.types.PropertyGroup):
     '''Scene properties for pinned bevel operator'''
     segments: bpy.props.IntProperty(name='Segments', default=1, min=1, max=32)
     harden_normals: bpy.props.BoolProperty(name='Harden Normals', default=True)
+    limit_method: bpy.props.EnumProperty(
+        name='Limit Method',
+        items=(
+            ('NONE', 'None', 'No limit'),
+            ('ANGLE', 'Angle', 'Limit by angle'),
+            ('WEIGHT', 'Weight', 'Limit by weight'),
+            ('VGROUP', 'Vertex Group', 'Limit by vertex group')
+        ),
+        default='ANGLE'
+    )
+    angle_limit: bpy.props.FloatProperty(
+        name='Angle', 
+        default=0.523599, 
+        min=0, 
+        max=3.14159, 
+        precision=4,
+        step=10,
+        subtype='ANGLE',
+        description='Angle limit for beveling'
+    )
 
 
 class Scene(bpy.types.PropertyGroup):
