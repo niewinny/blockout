@@ -141,6 +141,7 @@ class Block(bpy.types.Operator):
                 col.prop(self.shape.corner, 'min', text="Rotation Min")
                 col.prop(self.shape.corner, 'max', text="Max")
             case 'NGON':
+                layout.prop(self.pref, 'offset', text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
                 row.prop(self.pref.bevel.round, 'enable', text="Round", toggle=True)
@@ -333,6 +334,9 @@ class Block(bpy.types.Operator):
                 self._bevel_invoke(context, event)
                 return {'RUNNING_MODAL'}
 
+            if event.value == 'RELEASE' and self.shape.volume == '2D':
+                self.set_offset()
+
             match (self.mode, event.value, self.config.shape):
                 # DRAW RELEASE
                 case ('DRAW', 'RELEASE', 'BOX'):
@@ -347,8 +351,6 @@ class Block(bpy.types.Operator):
                     return {'RUNNING_MODAL'}
                 case ('DRAW', 'RELEASE', 'CORNER'):
                     return _extrude_and_bevel_corner()
-                case ('DRAW', 'RELEASE', _):
-                    self.set_offset()
                 # BEVEL RELEASE
                 case ('BEVEL', 'RELEASE', 'BOX'):
                     return _extrude_and_bevel()
@@ -359,8 +361,6 @@ class Block(bpy.types.Operator):
                         return _extrude_and_bevel()
                 case ('BEVEL', 'RELEASE', 'CORNER'):
                     return _extrude_and_bevel_corner()
-                case ('BEVEL', 'RELEASE', _):
-                    self.set_offset()
                 # BEVEL PRESS
                 case ('BEVEL', 'PRESS', 'NGON'):
                     return {'RUNNING_MODAL'}

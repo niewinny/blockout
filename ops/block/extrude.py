@@ -106,8 +106,7 @@ def modal(self, context, event):
     if self.data.extrude.symmetry:
         facet.set_z(draw_face, normal, -dz, draw_verts, snap_value=increments)
     else:
-        offset = self.config.align.offset if self.config.mode != 'ADD' else 0.0
-        facet.set_z(draw_face, normal, offset, draw_verts)
+        facet.set_z(draw_face, normal, 0, draw_verts)
 
     # Update the extrusion value
     self.data.extrude.value = dz
