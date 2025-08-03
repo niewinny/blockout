@@ -334,7 +334,7 @@ class Block(bpy.types.Operator):
                 self._bevel_invoke(context, event)
                 return {'RUNNING_MODAL'}
 
-            if event.value == 'RELEASE' and self.shape.volume == '2D':
+            if event.value in {'RELEASE', 'PRESS'} and self.shape.volume == '2D':
                 self.set_offset()
 
             match (self.mode, event.value, self.config.shape):
