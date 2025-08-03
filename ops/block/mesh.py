@@ -96,7 +96,7 @@ class BOUT_OT_BlockMeshTool(Block):
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
                 if mode != 'ADD':
-                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 if mode != 'ADD':
                     self._boolean(self.pref.mode, obj, bm, ui)
@@ -127,7 +127,7 @@ class BOUT_OT_BlockMeshTool(Block):
                 circle.set_xy(face, plane, None, direction, radius=self.shape.circle.radius, local_space=True)
                 facet.set_z(face, normal, offset)
                 if mode != 'ADD':
-                    cylinder_faces_indexes = facet.extrude(bm, face, plane, -extrusion)
+                    cylinder_faces_indexes = facet.extrude(bm, face, plane, extrusion)
                     self._recalculate_normals(bm, cylinder_faces_indexes)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 if mode != 'ADD':
@@ -170,7 +170,7 @@ class BOUT_OT_BlockMeshTool(Block):
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
                 if mode != 'ADD':
-                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
                     self._recalculate_normals(bm, extruded_faces)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 if mode != 'ADD':

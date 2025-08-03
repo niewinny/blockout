@@ -121,7 +121,7 @@ class BOUT_OT_BlockObjTool(Block):
                     bevel.mod.verts(obj, bevel_round)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 else:
-                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
                     self._recalculate_normals(bm, extruded_faces)
                     bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
@@ -147,7 +147,7 @@ class BOUT_OT_BlockObjTool(Block):
                     bevel.mod.verts(obj, bevel_round)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 else:
-                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
                     self._recalculate_normals(bm, extruded_faces)
                     bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
@@ -185,7 +185,7 @@ class BOUT_OT_BlockObjTool(Block):
                     bevel.mod.verts(obj, bevel_round)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 else:
-                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
                     self._recalculate_normals(bm, extruded_faces)
                     bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)

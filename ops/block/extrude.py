@@ -215,9 +215,11 @@ def uniform(self, context):
         self.shape.volume = '3D'
         
         # Update extrude data
-        self.data.extrude.value = extrusion_value
+        self.data.extrude.value = -extrusion_value
         self.data.extrude.faces = extruded_faces
-        
+
+        self.pref.extrusion = -extrusion_value
+
         # Restore selection if needed
         if was_selected:
             for face_idx in extruded_faces:
