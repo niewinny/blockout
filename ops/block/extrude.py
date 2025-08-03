@@ -144,6 +144,9 @@ def uniform(self, context):
     plane = self.data.draw.matrix.plane
     normal = plane[1].normalized()
     
+    # Transform normal to world space (use rotation part of matrix only)
+    world_normal = (obj.matrix_world.to_3x3() @ normal).normalized()
+    
     # Transform vertices to world space
     world_verts = [obj.matrix_world @ v.co for v in face.verts]
     
@@ -152,7 +155,7 @@ def uniform(self, context):
     
     # Perform raycasts from opposite side to each vertex
     hit_distances = []
-    ray_direction = -normal
+    ray_direction = -world_normal
     
     for vert_world in world_verts:
         # Start ray from far away in the opposite direction
@@ -177,8 +180,8 @@ def uniform(self, context):
     extrusion_candidates = []
     
     # Cast from face center
-    ray_origin = face_center - normal * (median_distance + 10.0)
-    ray = ray_cast._ray_cast(context, ray_origin, normal, self.objects.selected)
+    ray_origin = face_center - world_normal * (median_distance + 10.0)
+    ray = ray_cast._ray_cast(context, ray_origin, world_normal, self.objects.selected)
     
     if ray.hit:
         distance = (ray.location - face_center).length
@@ -186,8 +189,8 @@ def uniform(self, context):
     
     # Cast from each vertex
     for vert_world in world_verts:
-        ray_origin = vert_world - normal * (median_distance + 10.0)
-        ray = ray_cast._ray_cast(context, ray_origin, normal, self.objects.selected)
+        ray_origin = vert_world - world_normal * (median_distance + 10.0)
+        ray = ray_cast._ray_cast(context, ray_origin, world_normal, self.objects.selected)
         
         if ray.hit:
             distance = (ray.location - vert_world).length
