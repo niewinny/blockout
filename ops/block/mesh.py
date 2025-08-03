@@ -66,6 +66,7 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def build_geometry(self, obj, bm, ui=False):
 
+        mode = self.pref.mode
         offset = self.pref.offset
         bevel_round_offset = self.pref.bevel.round.offset
         bevel_round_segments = self.pref.bevel.round.segments
@@ -81,7 +82,7 @@ class BOUT_OT_BlockMeshTool(Block):
 
         shape = self.pref.shape
 
-        if self.pref.mode != 'ADD':
+        if mode != 'ADD':
             bpy.ops.mesh.select_all(action='DESELECT')
 
         match shape:
@@ -94,7 +95,11 @@ class BOUT_OT_BlockMeshTool(Block):
                     face_index = facet.bevel_verts(bm, face, bevel_round_offset, bevel_segments=bevel_round_segments)
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
+                if mode != 'ADD':
+                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if mode != 'ADD':
+                    self._boolean(self.pref.mode, obj, bm, ui)
             case 'BOX':
                 faces_indexes = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
@@ -121,7 +126,12 @@ class BOUT_OT_BlockMeshTool(Block):
                 face = bmeshface.from_index(bm, faces_indexes[0])
                 circle.set_xy(face, plane, None, direction, radius=self.shape.circle.radius, local_space=True)
                 facet.set_z(face, normal, offset)
+                if mode != 'ADD':
+                    cylinder_faces_indexes = facet.extrude(bm, face, plane, -extrusion)
+                    self._recalculate_normals(bm, cylinder_faces_indexes)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if mode != 'ADD':
+                    self._boolean(self.pref.mode, obj, bm, ui)
             case 'CYLINDER':
                 faces_indexes = circle.create(bm, plane, verts_number=self.shape.circle.verts)
                 face = bmeshface.from_index(bm, faces_indexes[0])
@@ -159,7 +169,12 @@ class BOUT_OT_BlockMeshTool(Block):
                     face_index = facet.bevel_verts(bm, face, bevel_round_offset, bevel_segments=bevel_round_segments)
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
+                if mode != 'ADD':
+                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if mode != 'ADD':
+                    self._boolean(self.pref.mode, obj, bm, ui)
             case 'NHEDRON':
                 face = ngon.new(bm, self.pref.ngon)
                 faces_indexes = [face.index]

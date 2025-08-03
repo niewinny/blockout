@@ -90,6 +90,7 @@ class BOUT_OT_BlockObjTool(Block):
 
     def build_geometry(self, obj, bm):
 
+        mode = self.pref.mode
         offset = self.pref.offset
         bevel_round_enable = self.pref.bevel.round.enable
         bevel_round_offset = self.pref.bevel.round.offset
@@ -116,8 +117,15 @@ class BOUT_OT_BlockObjTool(Block):
                 face = bmeshface.from_index(bm, faces_indexes[0])
                 rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
                 facet.set_z(face, normal, offset)
-                bevel.mod.verts(obj, bevel_round)
-                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if mode == 'ADD':
+                    bevel.mod.verts(obj, bevel_round)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                else:
+                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
+                    bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                    self._add_boolean(obj, detected_obj, extruded_faces[0])
             case 'BOX':
                 faces_indexes = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
@@ -135,8 +143,15 @@ class BOUT_OT_BlockObjTool(Block):
                 face = bmeshface.from_index(bm, faces_indexes[0])
                 circle.set_xy(face, plane, None, direction, radius=self.shape.circle.radius, local_space=True)
                 facet.set_z(face, normal, offset)
-                bevel.mod.verts(obj, bevel_round)
-                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if mode == 'ADD':
+                    bevel.mod.verts(obj, bevel_round)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                else:
+                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
+                    bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                    self._add_boolean(obj, detected_obj, extruded_faces[0])
             case 'CYLINDER':
                 faces_indexes = circle.create(bm, plane, verts_number=self.shape.circle.verts)
                 face = bmeshface.from_index(bm, faces_indexes[0])
@@ -166,8 +181,15 @@ class BOUT_OT_BlockObjTool(Block):
             case 'NGON':
                 face = ngon.new(bm, self.pref.ngon)
                 facet.set_z(face, normal, offset)
-                bevel.mod.verts(obj, bevel_round)
-                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if mode == 'ADD':
+                    bevel.mod.verts(obj, bevel_round)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                else:
+                    extruded_faces = facet.extrude(bm, face, plane, -extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
+                    bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                    self._add_boolean(obj, detected_obj, extruded_faces[0])
             case 'NHEDRON':
                 face = ngon.new(bm, self.pref.ngon)
                 facet.set_z(face, normal, offset)
