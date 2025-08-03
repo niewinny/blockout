@@ -4,7 +4,7 @@ import mathutils
 
 from .operator import Block
 from .data import Config, Modifier
-from . import bevel, boolean, weld, draw
+from . import bevel, boolean, weld, draw, extrude
 from ...utils import addon, scene, infobar, modifier
 
 from ...utilsbmesh import bmeshface, rectangle, facet, circle, sphere, corner, ngon
@@ -415,10 +415,19 @@ class BOUT_OT_BlockObjTool(Block):
     def _finish(self, context):
         super()._finish(context)
 
-        if self.config.mode == 'CARVE':
-            self._add_carve_obj(context, self.data.obj, self.data.extrude.faces[0], self.config.align.offset, self.data.draw.matrix.normal)
-
         if self.mode != 'BISECT':
+
+            if self.config.mode != 'ADD':
+                if self.shape.volume == '2D':
+                    extrude.uniform(self, context)
+                    if self.data.bevel.round.enable and self.data.extrude.faces:
+                        bevel.uniform(self, self.data.bm, self.data.obj, self.data.extrude.faces)
+                        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=False)
+                    self._boolean(self.config.mode, self.data.obj)
+
+            if self.config.mode == 'CARVE':
+                self._add_carve_obj(context, self.data.obj, self.data.extrude.faces[0], self.config.align.offset, self.data.draw.matrix.normal)
+
             self._bevel_cleanup(context)
             if self.config.mode != 'ADD':
                 self.data.obj.hide_set(True)

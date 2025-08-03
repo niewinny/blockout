@@ -173,6 +173,36 @@ def del_edge_weight(bm, type='ALL'):
             bm.edges.layers.float.remove(bw)
 
 
+def uniform(self, bm, obj, extruded_faces):
+    '''Update bevel after uniform extrusion from 2D to 3D'''
+    from ...utilsbmesh import bmeshface
+    
+    # Get edges from bottom and top faces
+    extruded_bot_edges = [e.index for e in bmeshface.from_index(bm, extruded_faces[0]).edges]
+    extruded_top_edges = [e.index for e in bmeshface.from_index(bm, extruded_faces[-1]).edges]
+    
+    # Get middle edges (vertical edges) - all edges from side faces excluding top and bottom edges
+    middle_edges = []
+    for face_idx in extruded_faces[1:-1]:  # Skip first and last (bottom and top)
+        face = bmeshface.from_index(bm, face_idx)
+        for edge in face.edges:
+            if edge.index not in extruded_bot_edges and edge.index not in extruded_top_edges:
+                middle_edges.append(edge.index)
+    
+    # Remove duplicates
+    middle_edges = list(set(middle_edges))
+    
+    # Set edge weights for ROUND bevel on middle edges only
+    set_edge_weight(bm, middle_edges, type='ROUND')
+    
+    # Update existing ROUND bevel modifiers from vertex to edge mode
+    for mod in self.modifiers.bevels:
+        if mod.type == 'ROUND' and mod.mod:
+            mod.mod.affect = 'EDGES'
+            mod.mod.limit_method = 'WEIGHT'
+            mod.mod.edge_weight = "bout_bevel_weight_edge_round"
+
+
 def add_modifier(obj, width, segments, type='ROUND', limit_method='WEIGHT', affect='EDGES'):
     '''Add the bevel modifier'''
     mod = modifier.add(obj, "Bevel", 'BEVEL')

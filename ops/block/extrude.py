@@ -1,4 +1,5 @@
 from ...utils import view3d
+from ...utils.scene import ray_cast
 from ...utils.types import DrawVert
 from mathutils import Vector
 from ...utilsbmesh import facet, corner
@@ -128,3 +129,100 @@ def modal(self, context, event):
     self.ui.interface.callback.update_batch(lines)
 
     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+
+
+def uniform(self, context):
+    '''Finish 2D shapes by extruding them based on raycasting'''
+ 
+    obj = self.data.obj
+    bm = self.data.bm
+    
+    # Get the 2D face
+    face_index = self.data.draw.faces[0]
+    face = bm.faces[face_index]
+    
+    # Get face normal and plane
+    plane = self.data.draw.matrix.plane
+    normal = plane[1].normalized()
+    
+    # Transform vertices to world space
+    world_verts = [obj.matrix_world @ v.co for v in face.verts]
+    
+    # Calculate center of the face in world space
+    face_center = sum(world_verts, Vector()) / len(world_verts)
+    
+    # Perform raycasts from opposite side to each vertex
+    hit_distances = []
+    ray_direction = -normal
+    
+    for vert_world in world_verts:
+        # Start ray from far away in the opposite direction
+        ray_origin = vert_world - ray_direction * 100000.0
+        
+        # Cast ray toward the vertex using proper object filtering
+        ray = ray_cast._ray_cast(context, ray_origin, ray_direction, self.objects.selected)
+        
+        if ray.hit:
+            distance = (ray.location - vert_world).length
+            hit_distances.append(distance)
+    
+    # Calculate median distance for object bounds
+    if hit_distances:
+        hit_distances.sort()
+        median_distance = hit_distances[len(hit_distances) // 2]
+    else:
+        # Default distance if no hits
+        median_distance = 1.0
+    
+    # Cast rays from face center AND each vertex to find maximum extrusion distance
+    extrusion_candidates = []
+    
+    # Cast from face center
+    ray_origin = face_center - normal * (median_distance + 10.0)
+    ray = ray_cast._ray_cast(context, ray_origin, normal, self.objects.selected)
+    
+    if ray.hit:
+        distance = (ray.location - face_center).length
+        extrusion_candidates.append(distance)
+    
+    # Cast from each vertex
+    for vert_world in world_verts:
+        ray_origin = vert_world - normal * (median_distance + 10.0)
+        ray = ray_cast._ray_cast(context, ray_origin, normal, self.objects.selected)
+        
+        if ray.hit:
+            distance = (ray.location - vert_world).length
+            extrusion_candidates.append(distance)
+    
+    # Pick the maximum extrusion value
+    if extrusion_candidates:
+        extrusion_value = max(extrusion_candidates)
+        # Add offset
+        offset = self.config.align.offset if hasattr(self.config.align, 'offset') else 0.1
+        extrusion_value += offset
+    else:
+        # Default minimal extrusion if no hits
+        extrusion_value = 0.1
+    
+    # Perform the extrusion
+    if extrusion_value > 0:
+        # Store current face selection state
+        was_selected = face.select
+        
+        # Extrude the face
+        extruded_faces = facet.extrude(bm, face, plane, -extrusion_value)
+        
+        # Update shape volume to 3D
+        self.shape.volume = '3D'
+        
+        # Update extrude data
+        self.data.extrude.value = extrusion_value
+        self.data.extrude.faces = extruded_faces
+        
+        # Restore selection if needed
+        if was_selected:
+            for face_idx in extruded_faces:
+                bm.faces[face_idx].select_set(True)
+        
+        # Update the mesh
+        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)

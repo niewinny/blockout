@@ -1,7 +1,7 @@
 import bpy
 import bmesh
 
-from . import draw
+from . import draw, extrude
 from .operator import Block
 from .data import Config
 from ...utils import addon, scene
@@ -276,7 +276,13 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def _finish(self, context):
         super()._finish(context)
+
         if self.mode != 'BISECT':
+            if self.config.mode != 'ADD':
+                if self.shape.volume == '2D':
+                    extrude.uniform(self, context)
+                    self._boolean(self.pref.mode, self.data.obj, self.data.bm)
+
             self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=True)
 
     def _cancel(self, context):
