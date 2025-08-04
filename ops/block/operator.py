@@ -214,6 +214,9 @@ class Block(bpy.types.Operator):
 
     def set_offset(self):
         '''Set the offset'''
+        if self.mode == 'BISECT':
+            return
+
         bm = self.data.bm
         obj = self.data.obj
         face = self.data.bm.faces[self.data.draw.faces[0]]
