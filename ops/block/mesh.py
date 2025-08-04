@@ -24,10 +24,7 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def ray_cast(self, context):
         scene.set_active_object(context, self.mouse.init)
-        if self.config.pick == 'SELECTED':
-            ray = scene.ray_cast.edited(context, self.mouse.init)
-        else:
-            ray = scene.ray_cast.visible(context, self.mouse.init, modes={'EDIT', 'OBJECT'})
+        ray = scene.ray_cast.edited(context, self.mouse.init)
         return ray
 
     def _header_text(self):
@@ -41,7 +38,6 @@ class BOUT_OT_BlockMeshTool(Block):
         config.shape = addon.pref().tools.block.shape
         config.form = addon.pref().tools.block.form
         config.align = addon.pref().tools.block.align
-        config.pick = addon.pref().tools.block.mesh.pick
         config.mode = addon.pref().tools.block.mode
         config.type = 'EDIT_MESH'
         return config

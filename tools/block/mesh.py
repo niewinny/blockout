@@ -74,8 +74,6 @@ class BOUT_PT_AlignMesh(bpy.types.Panel):
         layout = self.layout
         block = addon.pref().tools.block
         draw_align(layout, context, block)
-        layout.separator()
-        layout.prop(block.mesh, 'pick')
 
 
 class BOUT_PT_ShapeMesh(bpy.types.Panel):
@@ -102,20 +100,6 @@ class BOUT_PT_TypeMesh(bpy.types.Panel):
         layout = self.layout
         block = addon.pref().tools.block
         draw_type(layout, block)
-
-
-class Pref(bpy.types.PropertyGroup):
-    pick: bpy.props.EnumProperty(
-        name="Pick",
-        description="Pick objects",
-        items=[('SELECTED', 'Edited', 'Edited'),
-            ('VISIBLE', 'Visible', 'Visible')], 
-        default='SELECTED')
-
-
-types_classes = (
-    Pref,
-)
 
 
 classes = (

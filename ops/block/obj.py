@@ -24,10 +24,7 @@ class BOUT_OT_BlockObjTool(Block):
         super().__init__(*args, **kwargs)
 
     def ray_cast(self, context):
-        if self.config.pick == 'SELECTED':
-            ray = scene.ray_cast.selected(context, self.mouse.init)
-        else:
-            ray = scene.ray_cast.visible(context, self.mouse.init, modes={'EDIT', 'OBJECT'})
+        ray = scene.ray_cast.selected(context, self.mouse.init)
         return ray
 
     def _header_text(self):
@@ -42,7 +39,6 @@ class BOUT_OT_BlockObjTool(Block):
         config.shape = addon.pref().tools.block.shape
         config.form = addon.pref().tools.block.form
         config.align = addon.pref().tools.block.align
-        config.pick = addon.pref().tools.block.obj.pick
         config.mode = addon.pref().tools.block.mode
         config.type = 'OBJECT'
 
@@ -330,12 +326,6 @@ class BOUT_OT_BlockObjTool(Block):
 
         for obj in self.objects.selected:
             objs_to_duplicate.append(obj)
-
-        if self.config.pick == 'VISIBLE':
-            detected = bpy.data.objects[self.objects.detected]
-            if detected and detected.type == 'MESH':
-                if detected not in objs_to_duplicate:
-                    objs_to_duplicate.append(detected)
 
         for o in objs_to_duplicate:
             new_obj = o.copy()

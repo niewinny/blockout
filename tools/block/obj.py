@@ -74,8 +74,6 @@ class BOUT_PT_AlignObj(bpy.types.Panel):
         layout = self.layout
         block = addon.pref().tools.block
         draw_align(layout, context, block)
-        layout.separator()
-        layout.prop(block.obj, 'pick')
 
 
 class BOUT_PT_ShapeObj(bpy.types.Panel):
@@ -103,19 +101,6 @@ class BOUT_PT_TypeObj(bpy.types.Panel):
         block = addon.pref().tools.block
         draw_type(layout, block)
 
-
-class Pref(bpy.types.PropertyGroup):
-    pick: bpy.props.EnumProperty(
-        name="Pick",
-        description="Pick objects",
-        items=[('SELECTED', 'Selected', 'Selected'),
-            ('VISIBLE', 'Visible', 'Visible')], 
-        default='SELECTED')
-
-
-types_classes = (
-    Pref,
-)
 
 classes = (
     BOUT_PT_ShapeObj,

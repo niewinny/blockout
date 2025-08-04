@@ -88,10 +88,6 @@ class BOUT_OT_block_popup(bpy.types.Operator):
             col3 = col.column(align=True)
             col3.prop(block.align, 'solver')
             col3.separator()
-            if context.mode == 'EDIT_MESH':
-                col3.prop(block.mesh, 'pick')
-            else:
-                col3.prop(block.obj, 'pick')
 
 
     def execute(self, context):
