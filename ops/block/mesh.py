@@ -205,10 +205,12 @@ class BOUT_OT_BlockMeshTool(Block):
         return mesh
 
     def _draw_modal(self, context, event):
-        if self.config.mode != 'ADD':
+        if self.config.mode != 'ADD' and self.config.shape == 'SPHERE':
             get_copy(self.data.obj, self.data.bm, self.data.copy.draw)
-        super()._draw_modal(context, event)
-        self._boolean(self.config.mode, self.data.obj, self.data.bm)
+            super()._draw_modal(context, event)
+            self._boolean(self.config.mode, self.data.obj, self.data.bm)
+        else:
+            super()._draw_modal(context, event)
 
     def _extrude_invoke(self, context, event):
         super()._extrude_invoke(context, event)
