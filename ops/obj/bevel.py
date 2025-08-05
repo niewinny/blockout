@@ -592,6 +592,19 @@ class BOUT_OT_ModBevelPinned(BevelOperatorBase):
                 self._set_bevel_properties(mod)
                 mod.use_pin_to_last = True
                 mod.miter_outer = 'MITER_ARC'
+                
+                # Move the modifier to the end of the stack after all other pinned modifiers
+                # Find the last pinned modifier position
+                last_pinned_index = -1
+                for i, m in enumerate(obj.modifiers):
+                    if m.use_pin_to_last:
+                        last_pinned_index = i
+                
+                # If there are other pinned modifiers and our new modifier isn't already at the end
+                if last_pinned_index >= 0 and obj.modifiers.find(mod.name) < last_pinned_index:
+                    # Move our modifier to the end (after the last pinned modifier)
+                    for i in range(obj.modifiers.find(mod.name), last_pinned_index):
+                        bpy.ops.object.modifier_move_down(modifier=mod.name)
             else:
                 self._get_bevel_properties(mod)
                 new = False
