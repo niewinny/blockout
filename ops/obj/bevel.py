@@ -464,7 +464,6 @@ class BevelOperatorBase(bpy.types.Operator):
         scene_props = context.scene.bout.ops.obj.bevel.base
         self.segments = scene_props.segments
         self.harden_normals = scene_props.harden_normals
-        self.limit_method = scene_props.limit_method
         self.angle_limit = scene_props.angle_limit
 
     def _set_scene_properties(self, context):
@@ -472,7 +471,6 @@ class BevelOperatorBase(bpy.types.Operator):
         scene_props = context.scene.bout.ops.obj.bevel.base
         scene_props.segments = self.segments
         scene_props.harden_normals = self.harden_normals
-        scene_props.limit_method = self.limit_method
         scene_props.angle_limit = self.angle_limit
 
     def _get_modifier_count_text(self):
@@ -571,7 +569,6 @@ class BOUT_OT_ModBevelPinned(BevelOperatorBase):
         scene_props = context.scene.bout.ops.obj.bevel.pinned
         self.segments = scene_props.segments
         self.harden_normals = scene_props.harden_normals
-        self.limit_method = scene_props.limit_method
         self.angle_limit = scene_props.angle_limit
     
     def _set_scene_properties(self, context):
@@ -579,7 +576,6 @@ class BOUT_OT_ModBevelPinned(BevelOperatorBase):
         scene_props = context.scene.bout.ops.obj.bevel.pinned
         scene_props.segments = self.segments
         scene_props.harden_normals = self.harden_normals
-        scene_props.limit_method = self.limit_method
         scene_props.angle_limit = self.angle_limit
 
     def _setup_bevel(self, selected_objects, active_object):
@@ -1020,16 +1016,6 @@ class SceneBase(bpy.types.PropertyGroup):
     '''Base scene properties for bevel operators'''
     segments: bpy.props.IntProperty(name='Segments', default=1, min=1, max=32)
     harden_normals: bpy.props.BoolProperty(name='Harden Normals', default=False)
-    limit_method: bpy.props.EnumProperty(
-        name='Limit Method',
-        items=(
-            ('NONE', 'None', 'No limit'),
-            ('ANGLE', 'Angle', 'Limit by angle'),
-            ('WEIGHT', 'Weight', 'Limit by weight'),
-            ('VGROUP', 'Vertex Group', 'Limit by vertex group')
-        ),
-        default='ANGLE'
-    )
     angle_limit: bpy.props.FloatProperty(
         name='Angle', 
         default=0.523599, 
@@ -1046,16 +1032,6 @@ class ScenePinned(bpy.types.PropertyGroup):
     '''Scene properties for pinned bevel operator'''
     segments: bpy.props.IntProperty(name='Segments', default=1, min=1, max=32)
     harden_normals: bpy.props.BoolProperty(name='Harden Normals', default=True)
-    limit_method: bpy.props.EnumProperty(
-        name='Limit Method',
-        items=(
-            ('NONE', 'None', 'No limit'),
-            ('ANGLE', 'Angle', 'Limit by angle'),
-            ('WEIGHT', 'Weight', 'Limit by weight'),
-            ('VGROUP', 'Vertex Group', 'Limit by vertex group')
-        ),
-        default='ANGLE'
-    )
     angle_limit: bpy.props.FloatProperty(
         name='Angle', 
         default=0.523599, 
