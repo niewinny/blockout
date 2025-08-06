@@ -63,6 +63,10 @@ def modal(self, context, event):
 
     view_direction = view3d.region_2d_to_vector_3d(region, rv3d, self.mouse.init)
     normal = tangent.cross(view_direction).normalized()
+    
+    # Apply flip to the normal if needed
+    if flip:
+        normal = -normal
 
     self.data.bisect.plane = (location, normal)
 
