@@ -6,7 +6,7 @@ from gpu_extras.batch import batch_for_shader
 
 class DrawPoints():
     def __init__(self, points, size, color):
-        self.shader = gpu.shader.from_builtin('POINT_UNIFORM_COLOR' if bpy.app.version >= (4, 5, 0) else 'UNIFORM_COLOR')
+        self.shader = gpu.shader.from_builtin('POINT_UNIFORM_COLOR' if bpy.app.version > (4, 5, 0) else 'UNIFORM_COLOR')
         self.size = size
         self.color = color
         self.points = [Vector(p) for p in points]
