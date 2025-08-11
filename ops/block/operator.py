@@ -400,10 +400,12 @@ class Block(bpy.types.Operator):
         
         elif event.type == 'Q' and event.value == 'PRESS' and self.config.type == 'OBJECT':
             self.pref.reveal = True
-
+            ui.update(self, context, event)
+            
 
         elif event.type == 'Q' and event.value == 'RELEASE':
             self.pref.reveal = False
+            ui.update(self, context, event)
 
 
         elif event.type == 'B':

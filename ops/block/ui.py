@@ -65,6 +65,19 @@ def setup(self, context):
     self.ui.interface.create(context, lines=lines)
 
 
+def update(self, context, event):
+    '''Update the UI including infobar and viewport'''
+    from ...utils import infobar
+    
+    # Redraw the infobar with updated hotkeys
+    infobar.draw(context, event, self._infobar, blank=True)
+    
+    # Redraw all 3D viewports
+    for area in context.window.screen.areas:
+        if area.type == 'VIEW_3D':
+            area.tag_redraw()
+
+
 def hotkeys(self, layout, _context, _event):
     '''Draw the infobar hotkeys'''
     factor = 4.0
@@ -125,6 +138,10 @@ def hotkeys(self, layout, _context, _event):
         if self.data.bevel.mode == 'OFFSET':
             row.label(text='Segments', icon='EVENT_S')
             row.separator(factor=factor)
+
+    if not self.pref.reveal:
+        row.label(text='Reveal', icon='EVENT_Q')
+        row.separator(factor=factor)
 
 
 class Theme(bpy.types.PropertyGroup):
