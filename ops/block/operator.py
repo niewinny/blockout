@@ -390,15 +390,21 @@ class Block(bpy.types.Operator):
                         self.edit_mode = 'NONE'
                         return {'RUNNING_MODAL'}
 
-            # Check if Shift is held for object reveal
-            self.pref.reveal = event.shift if self.config.type == 'OBJECT' else False
-
             # Finalize if no early return
             self.store_props()
             self.save_props()
             self._finish(context)
             self._end(context)
             return {'FINISHED'}
+        
+        
+        elif event.type == 'Q' and event.value == 'PRESS' and self.config.type == 'OBJECT':
+            self.pref.reveal = True
+
+
+        elif event.type == 'Q' and event.value == 'RELEASE':
+            self.pref.reveal = False
+
 
         elif event.type == 'B':
             if event.value == 'PRESS':
