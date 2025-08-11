@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 import bpy
 from ...shaders import handle
-from ...utils import addon
+from ...utils import addon, infobar
 
 
 @dataclass
@@ -67,16 +67,9 @@ def setup(self, context):
 
 def update(self, context, event):
     '''Update the UI including infobar and viewport'''
-    from ...utils import infobar
-    
     # Redraw the infobar with updated hotkeys
     infobar.draw(context, event, self._infobar, blank=True)
     
-    # Redraw all 3D viewports
-    for area in context.window.screen.areas:
-        if area.type == 'VIEW_3D':
-            area.tag_redraw()
-
 
 def hotkeys(self, layout, _context, _event):
     '''Draw the infobar hotkeys'''
