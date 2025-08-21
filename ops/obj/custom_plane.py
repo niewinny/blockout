@@ -31,10 +31,33 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
         self.mouse_pos = (event.mouse_region_x, event.mouse_region_y)
         return self.plane(context)
 
-    def find_closest_element(self, obj, hit_loc, face_idx, bm, threshold=0.1):
+    def find_closest_element(self, context, obj, hit_loc, face_idx, bm):
         matrix = obj.matrix_world
         inv_matrix = matrix.inverted()
         local_hit = inv_matrix @ hit_loc
+        
+        # Calculate viewport distance to hit location for dynamic threshold
+        region_data = context.region_data
+        if region_data and hasattr(region_data, 'view_distance'):
+            # Get the view distance (distance from camera to pivot point)
+            view_distance = region_data.view_distance
+        else:
+            # Fallback: calculate distance from view location to hit point
+            view_location = region_data.view_matrix.inverted().translation if region_data else Vector((0, 0, 10))
+            view_distance = (view_location - hit_loc).length
+        
+        # Dynamic thresholds based on viewport distance
+        # When close (distance < 2), use smaller thresholds for precision
+        # When far (distance > 20), use larger thresholds for easier selection
+        distance_factor = min(max(view_distance / 10.0, 0.2), 2.0)  # Clamp between 0.2 and 2.0
+        
+        # Base thresholds (in object space units)
+        base_vert_threshold = 0.05
+        base_edge_threshold = 0.08
+        
+        # Adjust thresholds based on viewport distance
+        vert_threshold = base_vert_threshold * distance_factor
+        edge_threshold = base_edge_threshold * distance_factor
 
         # Check if the face index is valid for this mesh (important for instanced objects)
         if face_idx >= len(bm.faces) or face_idx < 0:
@@ -59,7 +82,7 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
         else:
             face = bm.faces[face_idx]
 
-        # Check vertices first
+        # Check vertices first (highest priority when close)
         closest_vert = None
         min_vert_dist = float('inf')
         for vert in face.verts:
@@ -67,9 +90,6 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
             if dist < min_vert_dist:
                 min_vert_dist = dist
                 closest_vert = vert
-
-        if min_vert_dist < threshold:
-            return 'VERT', closest_vert
 
         # Check edges
         closest_edge = None
@@ -93,9 +113,27 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
                 if dist < min_edge_dist:
                     min_edge_dist = dist
                     closest_edge = edge
-
-        if min_edge_dist < threshold:
-            return 'EDGE', closest_edge
+        
+        # Priority-based selection with distance-adjusted thresholds
+        # When close to the mesh, prioritize vertices and edges
+        # When far from the mesh, make face selection easier
+        
+        if view_distance < 5.0:  # Very close - easier to select verts/edges
+            if min_vert_dist < vert_threshold * 1.5:  # Slightly larger threshold for verts when close
+                return 'VERT', closest_vert
+            if min_edge_dist < edge_threshold * 1.2:  # Slightly larger threshold for edges when close
+                return 'EDGE', closest_edge
+        elif view_distance < 15.0:  # Medium distance - balanced selection
+            if min_vert_dist < vert_threshold:
+                return 'VERT', closest_vert
+            if min_edge_dist < edge_threshold:
+                return 'EDGE', closest_edge
+        else:  # Far away - prioritize face selection
+            # Only select verts/edges if very close to them relative to view distance
+            if min_vert_dist < vert_threshold * 0.5:  # Smaller threshold for verts when far
+                return 'VERT', closest_vert
+            if min_edge_dist < edge_threshold * 0.7:  # Smaller threshold for edges when far
+                return 'EDGE', closest_edge
 
         return 'FACE', face
 
@@ -181,7 +219,7 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
 
         try:
             # Find closest element (vertex, edge, or face)
-            element_type, element = self.find_closest_element(obj, hit_loc, face_idx, bm)
+            element_type, element = self.find_closest_element(context, obj, hit_loc, face_idx, bm)
 
             # Initialize variables
             location = None
