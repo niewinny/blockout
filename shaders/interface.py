@@ -54,8 +54,12 @@ class InterfaceDraw():
 
         # Process each line
         for _line_idx, line in enumerate(self.lines):
-            point = Vector(line["point"])
-            text_tuple = line["text_tuple"]
+            # Ensure point is valid before creating Vector
+            point_data = line.get("point")
+            if not point_data:
+                continue
+            point = Vector(point_data)
+            text_tuple = line.get("text_tuple", [])
             current_x = point.x
             total_boxes = len(text_tuple)
             line_start_vertex = len(vertices)
