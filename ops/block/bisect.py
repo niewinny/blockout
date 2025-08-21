@@ -25,7 +25,7 @@ def modal(self, context, event):
     self.ui.bisect_polyline.callback.update_batch([(point1, point2)])
 
     obj = self.data.obj
-    selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+    selected_objects = self.objects.selected
 
     objs = list(set(selected_objects + [obj]))
     bbox = _bbox_center(objs)
@@ -74,24 +74,19 @@ def modal(self, context, event):
 def execute(self, context, obj, bm, bisect_data):
     '''Bisect the mesh'''
 
-    if self.pref.type == 'EDIT_MESH' or obj.select_get():
-        _bisect(obj, bm, bisect_data)
-        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-
-    selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
-    selected_objects_without_obj = list(set(selected_objects) - {obj})
-    for obj in selected_objects_without_obj:
-        if self.pref.type == 'EDIT_MESH':
+    if self.pref.type == 'EDIT_MESH':
+        edited_objects = [obj for obj in context.objects_in_mode_unique_data if obj.type == 'MESH']
+        for obj in edited_objects:
             bm = bmesh.from_edit_mesh(obj.data)
-        else:
+            _bisect(obj, bm, bisect_data)
+            bmesh.update_edit_mesh(obj.data)
+    else:
+        selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+        for obj in selected_objects:
             bm = bmesh.new()
             bm.from_mesh(obj.data)
-        _bisect(obj, bm, bisect_data)
-        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-
-        if self.pref.type == 'EDIT_MESH':
-            bmesh.update_edit_mesh(obj.data)
-        else:
+            _bisect(obj, bm, bisect_data)
+            self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
             bm.to_mesh(obj.data)
             bm.free()
 

@@ -8,4 +8,5 @@ def set_active_object(context, mouse_pos):
     ray = ray_cast.selected(context, mouse_pos)
     if ray.hit:
         if ray.obj in context.selected_objects:
-            bpy.context.view_layer.objects.active = ray.obj
+            if ray.obj.mode == "EDIT":
+                bpy.context.view_layer.objects.active = ray.obj
