@@ -16,7 +16,6 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
         ('bout.block_mesh_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
         ('bout.set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': [('mode', 'SET')]}),
         ('bout.set_custom_plane', {'type': 'SPACE', 'value': 'PRESS', 'alt': True}, {'properties': [('mode', 'MOVE')]}),
-        ('view3d.edit_mesh_extrude_manifold_normal', {'type': 'E', 'value': 'PRESS'}, {'properties': []}),
         ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG', 'shift': True}, {'properties': [('mode', 'ADD')]}),
         ('bout.block_popup', {'type': 'D', 'value': 'PRESS'}, {}),
     )
