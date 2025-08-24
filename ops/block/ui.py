@@ -94,10 +94,20 @@ def hotkeys(self, layout, _context, _event):
         shape = self.config.shape
         match shape:
             case 'RECTANGLE':
+                if self.mode == 'DRAW':
+                    row.label(text='X Symmetry', icon='EVENT_X')
+                    row.separator(factor=factor)
+                    row.label(text='Y Symmetry', icon='EVENT_Y')
+                    row.separator(factor=factor)
                 row.label(text='Bevel', icon='EVENT_B')
                 row.separator(factor=factor)
             case 'BOX':
-                row.label(text='Symmetry', icon='EVENT_Z')
+                if self.mode == 'DRAW':
+                    row.label(text='X Symmetry', icon='EVENT_X')
+                    row.separator(factor=factor)
+                    row.label(text='Y Symmetry', icon='EVENT_Y')
+                    row.separator(factor=factor)
+                row.label(text='Z Symmetry', icon='EVENT_Z')
                 row.separator(factor=factor)
                 row.label(text='Bevel', icon='EVENT_B')
                 row.separator(factor=factor)

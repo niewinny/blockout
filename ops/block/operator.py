@@ -474,6 +474,19 @@ class Block(bpy.types.Operator):
                         self.edit_mode = 'DELETE'
                         edit.modal(self, context, event)
                         return {'RUNNING_MODAL'}
+                elif self.mode == 'DRAW' and self.config.shape in {'RECTANGLE', 'BOX'}:
+                    # Toggle X symmetry for rectangle/box shapes
+                    self.data.draw.symmetry = (not self.data.draw.symmetry[0], self.data.draw.symmetry[1])
+                    self._header(context)
+                    return {'RUNNING_MODAL'}
+
+        elif event.type == 'Y':
+            if event.value == 'PRESS':
+                if self.mode == 'DRAW' and self.config.shape in {'RECTANGLE', 'BOX'}:
+                    # Toggle Y symmetry for rectangle/box shapes
+                    self.data.draw.symmetry = (self.data.draw.symmetry[0], not self.data.draw.symmetry[1])
+                    self._header(context)
+                    return {'RUNNING_MODAL'}
 
         elif event.type in {'RIGHTMOUSE', 'ESC'}:
             self._cancel(context)
