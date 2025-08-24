@@ -218,24 +218,7 @@ def set_align_rotation_from_vectors(normal, direction):
 
     axis_threshold = 0.999
 
-    # Special cases for axis-aligned normals
-    # When normal is along Y axis (forward/back)
-    if normal.dot(y_pos) > axis_threshold:  # Normal points to +Y
-        # Rotate -90° around X axis: X→X, Y→Z, Z→-Y
-        return [-math.pi/2, 0, 0]
-    elif normal.dot(y_neg) > axis_threshold:  # Normal points to -Y
-        # Rotate 90° around X axis: X→X, Y→-Z, Z→Y
-        return [math.pi/2, 0, 0]
-    
-    # When normal is along X axis (right/left)
-    elif normal.dot(x_pos) > axis_threshold:  # Normal points to +X
-        # Rotate 90° around Y axis: X→Z, Y→Y, Z→-X
-        return [0, math.pi/2, 0]
-    elif normal.dot(x_neg) > axis_threshold:  # Normal points to -X
-        # Rotate -90° around Y axis: X→-Z, Y→Y, Z→X
-        return [0, -math.pi/2, 0]
-
-    # Standard case: create orientation matrix
+    # This now handles ALL cases, including axis-aligned ones
     z_axis = normal
     x_axis = direction
     y_axis = z_axis.cross(x_axis).normalized()
@@ -244,26 +227,6 @@ def set_align_rotation_from_vectors(normal, direction):
     rotation_matrix = Matrix((x_axis, y_axis, z_axis)).transposed().to_3x3()
     euler = rotation_matrix.to_euler('XYZ')
     rotation_radians = [angle for angle in euler]
-
-    # Special handling for up/down facing planes
-    up_vector = Vector((0, 0, 1))
-    dot_product = normal.dot(up_vector)
-
-    if abs(dot_product) > axis_threshold:
-        x_axis_ref = Vector((1, 0, 0))
-        angle_to_x = direction.angle(x_axis_ref)
-
-        if dot_product > 0:  # Facing up
-            if angle_to_x < 0.01 or angle_to_x > (math.pi*2 - 0.01):
-                rotation_radians = [0, 0, 0]
-            else:
-                rotation_radians = [round(r * 100) / 100 for r in rotation_radians]
-        else:  # Facing down
-            if abs(angle_to_x - math.pi) < 0.01:
-                rotation_radians = [math.pi, math.pi, math.pi]
-            else:
-                rotation_radians = [(r + math.pi) % (2 * math.pi) for r in rotation_radians]
-                rotation_radians = [round(r * 100) / 100 for r in rotation_radians]
 
     # Snap angles close to 90° increments to exact values
     half_pi = math.pi/2
@@ -287,26 +250,15 @@ def get_vectors_from_align_rotation(rotation):
     rot_euler = Euler(rotation, 'XYZ')
     rotation_matrix = rot_euler.to_matrix()
 
-    # Handle special cases first
-    zero_rotation = all(abs(angle) < 0.01 for angle in rotation)
-    pi_rotation = all(abs(angle - math.pi) < 0.01 for angle in rotation)
+    # Extract columns from rotation matrix
+    # In a rotation matrix, columns represent the transformed basis vectors
+    # Column 0 (X axis) = direction vector
+    # Column 2 (Z axis) = normal vector
+    direction = Vector((rotation_matrix[0][0], rotation_matrix[1][0], rotation_matrix[2][0]))
+    normal = Vector((rotation_matrix[0][2], rotation_matrix[1][2], rotation_matrix[2][2]))
 
-    if zero_rotation:  # Facing up with direction along X
-        normal = Vector((0, 0, 1))  # Z-up
-        direction = Vector((1, 0, 0))  # X-direction
-    elif pi_rotation:  # Facing down with direction along -X
-        normal = Vector((0, 0, -1))  # Z-down
-        direction = Vector((-1, 0, 0))  # -X direction
-    else:
-        # Extract columns from rotation matrix
-        # In a rotation matrix, columns represent the transformed basis vectors
-        # Column 0 (X axis) = direction vector
-        # Column 2 (Z axis) = normal vector
-        direction = Vector((rotation_matrix[0][0], rotation_matrix[1][0], rotation_matrix[2][0]))
-        normal = Vector((rotation_matrix[0][2], rotation_matrix[1][2], rotation_matrix[2][2]))
-
-        # Ensure vectors are normalized
-        normal = normal.normalized()
-        direction = direction.normalized()
+    # Ensure vectors are normalized
+    normal = normal.normalized()
+    direction = direction.normalized()
 
     return normal, direction
