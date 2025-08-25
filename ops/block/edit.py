@@ -82,7 +82,9 @@ def modal(self, context, event):
 
             for e in face.edges:
                 mid_edge_co = (e.verts[0].co + e.verts[1].co) / 2
-                reg = view3d.location_3d_to_region_2d(region, rv3d, mid_edge_co, default=obj.location)
+                # Transform from object local space to world space for projection
+                mid_edge_co_world = matrix_world @ mid_edge_co
+                reg = view3d.location_3d_to_region_2d(region, rv3d, mid_edge_co_world, default=obj.location)
                 if _is_near(region, mouse, reg):
                     self.edit_mode = 'ADD_VERT'
                     self.edit_point = e.index
@@ -90,7 +92,9 @@ def modal(self, context, event):
                     break
 
             for v in face.verts:
-                reg = view3d.location_3d_to_region_2d(region, rv3d, v.co, default=obj.location)
+                # Transform from object local space to world space for projection
+                v_co_world = matrix_world @ v.co
+                reg = view3d.location_3d_to_region_2d(region, rv3d, v_co_world, default=obj.location)
                 if _is_near(region, mouse, reg):
                     self.edit_mode = 'MOVE'
                     self.edit_point = v.index
@@ -226,17 +230,21 @@ def modal(self, context, event):
 
             for e in face.edges:
                 mid_edge_co = (e.verts[0].co + e.verts[1].co) / 2
-                reg = view3d.location_3d_to_region_2d(region, rv3d, mid_edge_co, default=obj.location)
+                # Transform from object local space to world space for projection
+                mid_edge_co_world = matrix_world @ mid_edge_co
+                reg = view3d.location_3d_to_region_2d(region, rv3d, mid_edge_co_world, default=obj.location)
                 if _is_near(region, mouse, reg):
-                    highlight = [matrix_world  @ mid_edge_co]
+                    highlight = [mid_edge_co_world]
                     self.highlight_type = 'EDGE'
                     self.highlight_index = e.index
                     break
 
             for v in face.verts:
-                reg = view3d.location_3d_to_region_2d(region, rv3d, v.co, default=obj.location)
+                # Transform from object local space to world space for projection
+                v_co_world = matrix_world @ v.co
+                reg = view3d.location_3d_to_region_2d(region, rv3d, v_co_world, default=obj.location)
                 if _is_near(region, mouse, reg):
-                    highlight = [matrix_world @ v.co.copy()]
+                    highlight = [v_co_world]
                     self.highlight_type = 'VERTEX'
                     self.highlight_index = v.index
                     break
