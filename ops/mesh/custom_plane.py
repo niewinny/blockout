@@ -89,6 +89,25 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
 
             normal = direction.cross(direction_y)
 
+        # If not, check if exactly two vertices are selected (use them as an edge)
+        elif len(selected_verts) == 2 and len(selected_edges) == 0:
+            # Use the two selected vertices as if they form an edge
+            v1, v2 = selected_verts[0], selected_verts[1]
+            # Compute the midpoint between the two vertices
+            location = (matrix @ v1.co + matrix @ v2.co) / 2.0
+            
+            # Compute normal as average of vertex normals
+            n1 = (matrix.inverted().transposed()).to_3x3() @ v1.normal.copy()
+            n2 = (matrix.inverted().transposed()).to_3x3() @ v2.normal.copy()
+            sum_normal = (n1 + n2) / 2.0
+            sum_normal.normalize()
+            
+            # Use direction from v1 to v2
+            direction = matrix @ v2.co - matrix @ v1.co
+            direction_y = sum_normal.cross(direction)
+            
+            normal = direction.cross(direction_y)
+
         # If not, check if exactly one vertex is selected
         elif len(selected_verts) == 1:
             # Use the selected vertex
@@ -101,7 +120,7 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
             direction = matrix.to_3x3() @ direction_from_normal(vert.normal.copy())
 
         else:
-            self.report({'ERROR'}, "Please select exactly one face, edge, or vertex")
+            self.report({'ERROR'}, "Please select exactly one face, edge, vertex, or two vertices")
             return {'CANCELLED'}
 
         normal.normalize()
