@@ -196,6 +196,48 @@ def uniform(self, context):
             distance = (ray.location - vert_world).length
             extrusion_candidates.append(distance)
     
+    # Cast from middle of each edge and quarter points
+    for edge in face.edges:
+        edge_verts_world = [obj.matrix_world @ v.co for v in edge.verts]
+        edge_mid = (edge_verts_world[0] + edge_verts_world[1]) / 2.0
+        
+        # Cast from edge middle
+        ray_origin = edge_mid - world_normal * (median_distance + 10.0)
+        ray = ray_cast._ray_cast(context, ray_origin, world_normal, self.objects.selected)
+        
+        if ray.hit:
+            distance = (ray.location - edge_mid).length
+            extrusion_candidates.append(distance)
+        
+        # Cast from midpoint between edge middle and first vertex
+        quarter_point_1 = (edge_mid + edge_verts_world[0]) / 2.0
+        ray_origin = quarter_point_1 - world_normal * (median_distance + 10.0)
+        ray = ray_cast._ray_cast(context, ray_origin, world_normal, self.objects.selected)
+        
+        if ray.hit:
+            distance = (ray.location - quarter_point_1).length
+            extrusion_candidates.append(distance)
+        
+        # Cast from midpoint between edge middle and second vertex
+        quarter_point_2 = (edge_mid + edge_verts_world[1]) / 2.0
+        ray_origin = quarter_point_2 - world_normal * (median_distance + 10.0)
+        ray = ray_cast._ray_cast(context, ray_origin, world_normal, self.objects.selected)
+        
+        if ray.hit:
+            distance = (ray.location - quarter_point_2).length
+            extrusion_candidates.append(distance)
+    
+    # Cast from midpoints between face center and each vertex
+    for vert_world in world_verts:
+        mid_point = (face_center + vert_world) / 2.0
+        
+        ray_origin = mid_point - world_normal * (median_distance + 10.0)
+        ray = ray_cast._ray_cast(context, ray_origin, world_normal, self.objects.selected)
+        
+        if ray.hit:
+            distance = (ray.location - mid_point).length
+            extrusion_candidates.append(distance)
+    
     # Pick the maximum extrusion value
     if extrusion_candidates:
         extrusion_value = max(extrusion_candidates)
