@@ -34,12 +34,14 @@ class BOUT_OT_BlockMeshTool(Block):
         return text
 
     def set_config(self, context):
+        '''Set the config dataclass'''
         config = Config()
         config.shape = addon.pref().tools.block.shape
         config.form = addon.pref().tools.block.form
         config.align = addon.pref().tools.block.align
         config.mode = addon.pref().tools.block.mode
         config.type = 'EDIT_MESH'
+        config.snap = context.scene.tool_settings.use_snap
         return config
 
     def _invoke(self, context, event):

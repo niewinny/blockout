@@ -14,6 +14,7 @@ class Config:
     type: str = 'OBJECT'
     form: bpy.types.PropertyGroup = None
     align: bpy.types.PropertyGroup = None
+    snap: bool = False
 
 
 @dataclass

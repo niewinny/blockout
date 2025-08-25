@@ -236,6 +236,8 @@ class Block(bpy.types.Operator):
         self.pref.type = self.config.type
         self.get_tool_prpoerties()
 
+        print(self.config.snap)
+
         if self.config.type == 'EDIT_MESH':
             if context.active_object and context.active_object.type == 'MESH':
                 context.active_object.select_set(True)
@@ -307,6 +309,10 @@ class Block(bpy.types.Operator):
 
         if event.type == 'MIDDLEMOUSE':
             return {'PASS_THROUGH'}
+        
+        if event.type == 'LEFT_CTRL':
+            if event.value in {'PRESS', 'RELEASE'}:
+                self.config.snap = not self.config.snap
 
         if event.type == 'MOUSEMOVE':
             self.mouse.co = Vector((event.mouse_region_x, event.mouse_region_y))

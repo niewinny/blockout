@@ -56,7 +56,7 @@ def modal(self, context, event):
         self.report({'WARNING'}, "Mouse was outside the drawing plane")
         return
 
-    increments = self.config.align.increments if event.ctrl else 0.0
+    increments = self.config.align.increments if self.config.snap else 0.0
 
     symmetry = self.data.draw.symmetry
 

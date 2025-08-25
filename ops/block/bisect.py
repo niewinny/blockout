@@ -11,7 +11,7 @@ def modal(self, context, event):
 
     depth = rv3d.view_location
 
-    if event.ctrl:
+    if self.config.snap:
         precision = event.shift
         self.mouse.co = _snap(self, context, precision=precision)
 

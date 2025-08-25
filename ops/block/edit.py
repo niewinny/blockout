@@ -39,7 +39,7 @@ def modal(self, context, event):
 
     mouse = self.mouse.co
 
-    increments = self.config.align.increments if event.ctrl else 0.0
+    increments = self.config.align.increments if self.config.snap else 0.0
 
     verts = [bm.verts[i.index] for i in self.data.draw.verts]
 

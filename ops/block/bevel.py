@@ -56,7 +56,7 @@ def modal(self, context, event):
         else:
             self.data.bevel.fill.offset = self.data.bevel.fill.offset_stored + delta_3d * adjustment_factor
 
-        if event.ctrl:
+        if self.config.snap:
             round_to = 2 if event.shift else 1
             self.data.bevel.round.offset = round(self.data.bevel.round.offset, round_to)
             self.data.bevel.fill.offset = round(self.data.bevel.fill.offset, round_to)
