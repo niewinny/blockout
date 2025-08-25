@@ -236,8 +236,6 @@ class Block(bpy.types.Operator):
         self.pref.type = self.config.type
         self.get_tool_prpoerties()
 
-        print(self.config.snap)
-
         if self.config.type == 'EDIT_MESH':
             if context.active_object and context.active_object.type == 'MESH':
                 context.active_object.select_set(True)
