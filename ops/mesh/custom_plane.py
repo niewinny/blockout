@@ -24,8 +24,11 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         return (context.object is not None and context.object.type == 'MESH' and context.mode == 'EDIT_MESH')
+    
+    def invoke(self, context, event):
+        return self.plane(context)
 
-    def execute(self, context):
+    def plane(self, context):
         # Get the active object and its bmesh
         obj = context.active_object
         matrix = obj.matrix_world
