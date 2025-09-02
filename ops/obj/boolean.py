@@ -2,7 +2,7 @@ import bpy
 import bmesh
 from mathutils import Vector
 
-from ...utils import modifier
+from ...utils import modifier, collection
 
 
 def get_solver_items(self, context):
@@ -68,10 +68,12 @@ def get_boolean_properties(solver):
 
 
 def prepare_boolean_object(obj):
-    """Prepare object as boolean source (wireframe, hide render, smooth)"""
+    """Prepare object as boolean source (wireframe, hide render, smooth, move to Cutters collection)"""
     obj.display_type = 'WIRE'
     obj.hide_render = True
     set_smooth(obj)
+    # Move to Cutters collection
+    collection.move_to_cutters_collection(obj)
 
 
 class BooleanOperatorBase(bpy.types.Operator):

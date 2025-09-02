@@ -5,7 +5,7 @@ import mathutils
 from .operator import Block
 from .data import Config, Modifier
 from . import bevel, boolean, weld, draw, extrude
-from ...utils import addon, scene, infobar, modifier
+from ...utils import addon, scene, infobar, modifier, collection
 
 from ...utilsbmesh import bmeshface, rectangle, facet, circle, sphere, corner, ngon
 
@@ -72,8 +72,11 @@ class BOUT_OT_BlockObjTool(Block):
         if mode not in ('ADD', 'BISECT'):
             new_obj.display_type = 'WIRE'
             new_obj.hide_render = True
-
-        context.collection.objects.link(new_obj)
+            # Link to Cutters collection instead of active collection
+            cutters_collection = collection.get_or_create_cutters_collection()
+            cutters_collection.objects.link(new_obj)
+        else:
+            context.collection.objects.link(new_obj)
 
         return new_obj
 
@@ -362,6 +365,8 @@ class BOUT_OT_BlockObjTool(Block):
                 self._create_boolean_modifiers(obj, detected_obj, selected_objs, self.pref.mode)
                 self._set_parent(obj, detected_obj)
 
+                # Move cutter object to Cutters collection before hiding
+                collection.move_to_cutters_collection(obj)
                 obj.hide_set(True)
                 obj.data.shade_smooth()
 
@@ -443,6 +448,8 @@ class BOUT_OT_BlockObjTool(Block):
 
             self._bevel_cleanup(context)
             if self.config.mode != 'ADD':
+                # Ensure cutter object is in Cutters collection
+                collection.move_to_cutters_collection(self.data.obj)
                 self.data.obj.hide_set(True)
                 self.data.obj.data.shade_smooth()
 
