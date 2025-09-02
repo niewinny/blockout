@@ -4,6 +4,7 @@ from . import boolean
 from . import custom_plane
 from . import veil
 from . import apply_modifiers
+from . import clean_cutter
 
 
 class Theme(bpy.types.PropertyGroup):
@@ -28,4 +29,5 @@ classes = (
     *custom_plane.classes,
     *veil.classes,
     *apply_modifiers.classes,
+    *clean_cutter.classes,
 )

@@ -28,6 +28,9 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
         layout.operator("bout.mod_boolean_carve", text="Carve")
 
         layout.separator()
+        layout.operator("bout.clean_cutter")
+        
+        layout.separator()
         layout.operator("bout.apply_modifiers")
 
         layout.separator()
