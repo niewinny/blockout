@@ -192,6 +192,9 @@ $RECYCLE.BIN/
 # Visual Studio Code
 .vscode
 
+# Claude Code
+.claude
+
 # Legacy code
 legacy
 

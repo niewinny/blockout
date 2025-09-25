@@ -18,7 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 bl_info = {
     'name': "Blockout",
     'description': "Mesh Modeling Toolkit",
-    'author': "ChonkyCat.io",
+    'author': "ezelar.com",
     'version': (1, 0, 0),
     'blender': (4, 2, 0),
     'location': 'View3D',
