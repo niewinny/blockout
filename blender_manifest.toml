@@ -15,5 +15,5 @@ tags = ["Modeling", "3D View", "Mesh"]
 blender_version_min = "4.2.0"
 
 license = [
-  "SPDX:GPL-2.0-or-later",
+  "SPDX:GPL-3.0-or-later",
 ]
