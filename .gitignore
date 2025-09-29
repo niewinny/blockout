@@ -193,7 +193,7 @@ $RECYCLE.BIN/
 .vscode
 
 # Claude Code
-.claude
+.claude/
 
 # Legacy code
 legacy
