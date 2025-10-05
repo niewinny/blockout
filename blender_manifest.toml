@@ -8,7 +8,7 @@ type = "add-on"
 
 
 # Optional link to documentation, support, source files, etc
-# website = "http://extensions.blender.org/add-ons/my-example-package/"
+# website = "https://github.com/niewinny/blockout"
 
 
 tags = ["Modeling", "3D View", "Mesh"]
