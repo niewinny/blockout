@@ -3,7 +3,7 @@ import bpy
 
 class BOUT_OT_Veil(bpy.types.Operator):
     """Hide all mesh objects that are set to wire visibility"""
-    bl_idname = "bout.veil"
+    bl_idname = "object.bout_veil"
     bl_label = "Veil Objects"
     bl_description = "Hide all mesh objects that are set to wire visibility"
     bl_options = {'REGISTER', 'UNDO'}
@@ -27,7 +27,7 @@ class BOUT_OT_Veil(bpy.types.Operator):
 
 class BOUT_OT_Unveil(bpy.types.Operator):
     """Unhide all objects used as booleans in selected objects"""
-    bl_idname = "bout.unveil"
+    bl_idname = "object.bout_unveil"
     bl_label = "Unveil Objects"
     bl_description = "Unhide all objects used as booleans in selected objects"
     bl_options = {'REGISTER', 'UNDO'}

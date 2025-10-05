@@ -142,7 +142,7 @@ class BooleanOperatorBase(bpy.types.Operator):
 
 
 class BOUT_OT_ModBoolean(BooleanOperatorBase):
-    bl_idname = "bout.mod_boolean"
+    bl_idname = "object.bout_mod_boolean"
     bl_label = "Boolean"
     bl_description = "Boolean Objects together"
 
@@ -205,7 +205,7 @@ class BOUT_OT_ModBoolean(BooleanOperatorBase):
 
 
 class BOUT_OT_ModBooleanSlice(BooleanOperatorBase):
-    bl_idname = "bout.mod_boolean_slice"
+    bl_idname = "object.bout_mod_boolean_slice"
     bl_label = "Boolean Slice"
     bl_description = "Slice objects into two parts using boolean operations"
 
@@ -294,7 +294,7 @@ class BOUT_OT_ModBooleanSlice(BooleanOperatorBase):
 
 
 class BOUT_OT_ModBooleanCarve(BooleanOperatorBase):
-    bl_idname = "bout.mod_boolean_carve"
+    bl_idname = "object.bout_mod_boolean_carve"
     bl_label = "Boolean Carve"
     bl_description = "Carve into objects using boolean operations"
 

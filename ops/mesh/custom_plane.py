@@ -8,7 +8,7 @@ from ...utils.types import DrawMatrix
 
 
 class BOUT_OT_SetCustomPlane(bpy.types.Operator):
-    bl_idname = "bout.set_custom_plane"
+    bl_idname = "object.bout_set_custom_plane"
     bl_label = "Set Custom Plane"
     bl_description = "Set custom plane based on selected vertex, edge, or face"
     bl_options = {'REGISTER', 'UNDO'}

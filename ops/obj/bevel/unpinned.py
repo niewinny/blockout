@@ -59,7 +59,7 @@ def update_selected_modifier(self, context):
 
 class BOUT_OT_ModBevel(BevelOperatorBase):
     '''Unified bevel operator for unpinned modifiers'''
-    bl_idname = "bout.mod_bevel"
+    bl_idname = "object.bout_mod_bevel"
     bl_label = "Bevel"
     bl_description = "Edit unpinned bevel modifiers"
 

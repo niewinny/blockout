@@ -107,7 +107,7 @@ def perform_deferred_update():
                 return False
 
             active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-            tool = active_tool and active_tool.idname in {'bout.block_obj', 'bout.block_mesh'}
+            tool = active_tool and active_tool.idname in {'object.bout_block_obj', 'object.bout_block_mesh'}
 
             # Clear handlers first
             clear_draw_handlers()
@@ -133,7 +133,7 @@ def perform_deferred_update():
 def update(context):
     '''Update drawing handlers based on current conditions'''
     active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-    tool = active_tool and active_tool.idname in {'bout.block_obj', 'bout.block_mesh'}
+    tool = active_tool and active_tool.idname in {'object.bout_block_obj', 'object.bout_block_mesh'}
 
     clear_draw_handlers()
 

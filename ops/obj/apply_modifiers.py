@@ -41,7 +41,7 @@ class BOUT_PT_ApplyModifiersGroup(PropertyGroup):
 
 
 class BOUT_OT_ApplyModifiers(Operator):
-    bl_idname = "bout.apply_modifiers"
+    bl_idname = "object.bout_apply_modifiers"
     bl_label = "Apply Modifiers"
     bl_options = {'REGISTER', 'UNDO'}
     bl_description = "Apply modifiers with grouping and selective application"

@@ -8,18 +8,18 @@ from .common import draw_align, draw_type, draw_shape
 class BOUT_MT_BlockObj(bpy.types.WorkSpaceTool):
     bl_space_type = 'VIEW_3D'
     bl_context_mode = 'OBJECT'
-    bl_idname = 'bout.block_obj'
+    bl_idname = 'object.bout_block_obj'
     bl_label = 'BlockOut'
     bl_description = f'v: {bl_info["version"][0]}.{bl_info["version"][1]}.{bl_info["version"][2]}\n\nDraw a mesh interactively\n • LMB - Draw a mesh\n • D - open the options Menu\n • SPACE - set custom plane to align to\n • SPACE + ALT - move custom plane'
     bl_icon = (Path(__file__).parent.parent.parent / "icons" / "cat").as_posix()
     bl_keymap = (
-        ('bout.block_obj_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
-        ('bout.obj_set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': [('mode', 'SET')]}),
-        ('bout.obj_set_custom_plane', {'type': 'SPACE', 'value': 'PRESS', 'alt': True}, {'properties': [('mode', 'MOVE')]}),
+        ('object.bout_block_obj_tool', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG'}, {'properties': []}),
+        ('object.bout_obj_set_custom_plane', {'type': 'SPACE', 'value': 'PRESS'}, {'properties': [('mode', 'SET')]}),
+        ('object.bout_obj_set_custom_plane', {'type': 'SPACE', 'value': 'PRESS', 'alt': True}, {'properties': [('mode', 'MOVE')]}),
         ('view3d.select_box', {'type': 'LEFTMOUSE', 'value': 'CLICK_DRAG', 'shift': True}, {'properties': [('mode', 'ADD')]}),
-        ('bout.block_popup', {'type': 'D', 'value': 'PRESS'}, {}),
-        ('bout.mod_bevel', {'type': 'B', 'value': 'PRESS'}, {'properties': [('all_mode', True)]}),
-        ('bout.mod_bevel_pinned', {'type': 'B', 'value': 'PRESS', 'ctrl': True}, {}),
+        ('object.bout_block_popup', {'type': 'D', 'value': 'PRESS'}, {}),
+        ('object.bout_mod_bevel', {'type': 'B', 'value': 'PRESS'}, {'properties': [('all_mode', True)]}),
+        ('object.bout_mod_bevel_pinned', {'type': 'B', 'value': 'PRESS', 'ctrl': True}, {}),
     )
 
     def draw_settings(context, layout, tool):

@@ -10,30 +10,30 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
         layout.operator_context = "INVOKE_DEFAULT"
 
         layout.separator()
-        op = layout.operator("bout.mod_bevel", text="Bevel (Unpinned)")
+        op = layout.operator("object.bout_mod_bevel", text="Bevel (Unpinned)")
         op.all_mode = True
-        layout.operator("bout.mod_bevel_pinned", text="Bevel Pinned")
+        layout.operator("object.bout_mod_bevel_pinned", text="Bevel Pinned")
         layout.separator()
 
         # Standard boolean operations
-        cut_op = layout.operator("bout.mod_boolean", text="Cut")
+        cut_op = layout.operator("object.bout_mod_boolean", text="Cut")
         cut_op.operation = 'DIFFERENCE'
-        union_op = layout.operator("bout.mod_boolean", text="Union")
+        union_op = layout.operator("object.bout_mod_boolean", text="Union")
         union_op.operation = 'UNION'
-        intersect_op = layout.operator("bout.mod_boolean", text="Intersect")
+        intersect_op = layout.operator("object.bout_mod_boolean", text="Intersect")
         intersect_op.operation = 'INTERSECT'
 
         # Special boolean operations
-        layout.operator("bout.mod_boolean_slice", text="Slice")
-        layout.operator("bout.mod_boolean_carve", text="Carve")
+        layout.operator("object.bout_mod_boolean_slice", text="Slice")
+        layout.operator("object.bout_mod_boolean_carve", text="Carve")
 
         layout.separator()
-        layout.operator("bout.clean_cutter")
+        layout.operator("object.bout_clean_cutter")
         
         layout.separator()
-        layout.operator("bout.apply_modifiers")
+        layout.operator("object.bout_apply_modifiers")
 
         layout.separator()
 
-        layout.operator("bout.veil")
-        layout.operator("bout.unveil")
+        layout.operator("object.bout_veil")
+        layout.operator("object.bout_unveil")

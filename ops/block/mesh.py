@@ -10,7 +10,7 @@ from ...utilsbmesh.mesh import set_copy, get_copy, remove_doubles
 
 
 class BOUT_OT_BlockMeshTool(Block):
-    bl_idname = 'bout.block_mesh_tool'
+    bl_idname = 'object.bout_block_mesh_tool'
     bl_label = 'Blockout Block'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Tool for drawing a mesh"

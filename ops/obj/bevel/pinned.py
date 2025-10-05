@@ -6,7 +6,7 @@ from .data import Bevel
 
 class BOUT_OT_ModBevelPinned(BevelOperatorBase):
     '''Bevel operator for last pinned modifier'''
-    bl_idname = "bout.mod_bevel_pinned"
+    bl_idname = "object.bout_mod_bevel_pinned"
     bl_label = "Bevel Pinned"
     bl_description = "Edit last pinned bevel modifier"
 

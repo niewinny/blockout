@@ -64,7 +64,7 @@ class DrawTools():
 
     def tool(self, context):
         active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-        bout_tools = active_tool and (active_tool.idname == 'bout.block_obj' or active_tool.idname == 'bout.block_mesh')
+        bout_tools = active_tool and (active_tool.idname == 'object.bout_block_obj' or active_tool.idname == 'object.bout_block_mesh')
         return bout_tools
 
 

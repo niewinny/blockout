@@ -5,7 +5,7 @@ from ...utils import addon
 
 class BOUT_OT_block_popup(bpy.types.Operator):
     """Show block operations popup"""
-    bl_idname = "bout.block_popup"
+    bl_idname = "object.bout_block_popup"
     bl_label = "Blockout"
     bl_options = {'INTERNAL'}
 

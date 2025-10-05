@@ -2,7 +2,7 @@ import bpy
 
 
 class BOUT_OT_CleanCutter(bpy.types.Operator):
-    bl_idname = "bout.clean_cutter"
+    bl_idname = "object.bout_clean_cutter"
     bl_label = "Clean Cutter"
     bl_description = "Clean selected cutter objects by removing wireframe display, enabling render, and moving to active collection"
     bl_options = {'REGISTER', 'UNDO'}

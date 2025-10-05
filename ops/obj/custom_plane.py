@@ -10,7 +10,7 @@ from ...utils.types import DrawMatrix
 
 
 class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
-    bl_idname = "bout.obj_set_custom_plane"
+    bl_idname = "object.bout_obj_set_custom_plane"
     bl_label = "Set Custom Plane"
     bl_description = "Set custom plane based on raycast hit location"
     bl_options = {'REGISTER', 'UNDO'}

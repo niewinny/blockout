@@ -11,7 +11,7 @@ from ...utilsbmesh import bmeshface, rectangle, facet, circle, sphere, corner, n
 
 
 class BOUT_OT_BlockObjTool(Block):
-    bl_idname = 'bout.block_obj_tool'
+    bl_idname = 'object.bout_block_obj_tool'
     bl_label = 'Blockout Block'
     bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
     bl_description = "Tool for drawing a mesh"
