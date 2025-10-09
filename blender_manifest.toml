@@ -17,3 +17,6 @@ blender_version_min = "4.4.0"
 license = [
   "SPDX:GPL-3.0-or-later",
 ]
+
+[permissions]
+files = "Importing node group from disk"
