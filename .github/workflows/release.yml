@@ -76,9 +76,8 @@ jobs:
           CURR_BODY=$(gh api "repos/${GITHUB_REPOSITORY}/releases/${REL_ID}" --jq '.body // ""')
 
           BANNER=$'[⬇️ Download '"${BASE_NAME}"' version '"${TAG}"']('"${ZIP_URL}"')'
-          NEW_BODY="${CURR_BODY}"
-          if [ -n "${NEW_BODY}" ]; then
-            NEW_BODY="${NEW_BODY}\n\n${BANNER}"
+          if [ -n "${CURR_BODY}" ]; then
+            NEW_BODY=$(printf "%s\n\n%s" "${CURR_BODY}" "${BANNER}")
           else
             NEW_BODY="${BANNER}"
           fi
