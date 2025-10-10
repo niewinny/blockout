@@ -2,10 +2,10 @@ name: Build release ZIP
 
 on:
   release:
-    types: [published]   # run when a release is published
+    types: [published]
 
 permissions:
-  contents: write        # needed to upload assets & edit release body
+  contents: write
 
 jobs:
   build-zip:
@@ -14,27 +14,31 @@ jobs:
       - name: Check out code at the release tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref }}   # tag that triggered the release
+          ref: ${{ github.ref }}
 
-      - name: Prepare clean package (remove dotfiles/dirs)
+      - name: Build ZIP with a top-level folder
         run: |
-          mkdir -p package
-          # copy everything except the git data; we'll remove dotfiles afterward
-          rsync -a --exclude='.git' ./ package/
-          cd package
-          # remove any hidden files & directories recursively (keeps current dir safe)
-          find . -mindepth 1 -name '.*' -exec rm -rf {} +
-
-      - name: Create ZIP (strip -master/-main; no tag in filename)
-        run: |
-          cd package
+          set -euo pipefail
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           BASE_NAME="${REPO_NAME%-master}"
           BASE_NAME="${BASE_NAME%-main}"
+
+          # Stage dir structure: stage/BASE_NAME/<repo files...>
+          STAGE_ROOT="$GITHUB_WORKSPACE/stage"
+          STAGE_DIR="$STAGE_ROOT/$BASE_NAME"
+          mkdir -p "$STAGE_DIR"
+
+          # Copy everything except dotfiles/dirs (.git, .github, .env, etc.) at any depth
+          rsync -a --exclude='.*' "$GITHUB_WORKSPACE"/ "$STAGE_DIR"/
+
+          # Create ZIP that contains the BASE_NAME/ folder at the root
+          cd "$STAGE_ROOT"
           ZIP_NAME="${BASE_NAME}.zip"
-          zip -r "$ZIP_NAME" ./*
+          zip -r "$ZIP_NAME" "$BASE_NAME"
+
           echo "ZIP_NAME=$ZIP_NAME" >> $GITHUB_ENV
           echo "ZIP_PATH=$(pwd)/$ZIP_NAME" >> $GITHUB_ENV
+          echo "BASE_NAME=$BASE_NAME" >> $GITHUB_ENV
 
       - name: Upload ZIP to this release
         uses: softprops/action-gh-release@v2
@@ -74,9 +78,8 @@ jobs:
             const { context, github, core } = require('@actions/github');
             const releaseId = core.getInput('release_id');
             const zipUrl = core.getInput('zip_url');
-            const tag = core.getInput('tag'); // e.g. v1.2.3
+            const tag = core.getInput('tag');
 
-            // Fetch current body to preserve any existing notes
             const { data: rel } = await github.rest.repos.getRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
