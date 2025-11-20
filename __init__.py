@@ -26,7 +26,18 @@ bl_info = {
     "category": "3D View",
 }
 
-from . import registry, preferences, utils, gizmo, ops, tools, ui, btypes
+from . import (  # noqa: E402
+    btypes,
+    gizmo,
+    ops,
+    preferences,
+    registry,
+    tools,
+    ui,
+    utils,
+)
+
+__all__ = ["btypes", "gizmo", "ops", "preferences", "registry", "tools", "ui", "utils"]
 
 
 def register():
