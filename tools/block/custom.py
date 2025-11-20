@@ -1,4 +1,5 @@
 import bpy
+from bpy.app.handlers import persistent
 
 from ...shaders.draw import DrawLine
 from ...utils import addon
@@ -6,6 +7,8 @@ from ...utils.types import DrawMatrix
 from ...utilsbmesh.orientation import get_vectors_from_align_rotation
 
 draw_handlers = []
+undo_post_handlers = []
+redo_post_handlers = []
 
 
 def add_draw_handlers(context):
@@ -134,5 +137,83 @@ def redraw(_, context):
 
 
 def remove():
-    """Remove the depsgraph handler"""
+    """Remove draw handlers"""
     clear_draw_handlers()
+
+
+def perform_deferred_update():
+    """Safely execute the update when it's safe to do so"""
+    # Only update if context is valid
+    if hasattr(bpy, "context"):
+        try:
+            context = bpy.context
+
+            # Access the property from scene data
+            if not context.scene.bout.update:
+                return False
+
+            active_tool = context.workspace.tools.from_space_view3d_mode(
+                context.mode, create=False
+            )
+            tool = active_tool and active_tool.idname in {
+                "object.bout_block_obj",
+                "object.bout_block_mesh",
+            }
+
+            # Clear handlers first
+            clear_draw_handlers()
+
+            # Only add handlers if needed
+            if tool and context.scene.bout.align.mode == "CUSTOM":
+                add_draw_handlers(context)
+
+            # Reset flag
+            context.scene.bout.update = False
+
+        except ReferenceError:
+            # Handle case where objects were deleted during undo
+            clear_draw_handlers()
+        except Exception as e:
+            print(f"Blockout update error: {e}")
+            clear_draw_handlers()
+
+    # Return False to unregister the timer
+    return False
+
+
+@persistent
+def undo(scene):
+    """Handler for post-undo operations to ensure UI updates"""
+    if hasattr(scene, "bout"):
+        scene.bout.update = True
+        bpy.app.timers.register(perform_deferred_update, first_interval=0.1)
+
+
+def register_undo_post():
+    """Register the undo_post handler"""
+    if undo not in bpy.app.handlers.undo_post:
+        bpy.app.handlers.undo_post.append(undo)
+        undo_post_handlers.append(undo)
+
+
+def unregister_undo_post():
+    """Unregister the undo_post handler"""
+    for handler in undo_post_handlers:
+        if handler in bpy.app.handlers.undo_post:
+            bpy.app.handlers.undo_post.remove(handler)
+    undo_post_handlers.clear()
+
+
+def register_redo_post():
+    """Register the redo_post handler"""
+    if undo not in bpy.app.handlers.redo_post:
+        bpy.app.handlers.redo_post.append(undo)
+        redo_post_handlers.append(undo)
+
+
+def unregister_redo_post():
+    """Unregister the redo_post handler"""
+    for handler in redo_post_handlers:
+        if handler in bpy.app.handlers.redo_post:
+            bpy.app.handlers.redo_post.remove(handler)
+    redo_post_handlers.clear()
