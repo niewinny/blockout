@@ -2,6 +2,7 @@
 from mathutils import geometry
 from bpy_extras.view3d_utils import (
     location_3d_to_region_2d,
+    region_2d_to_location_3d,
     region_2d_to_origin_3d,
     region_2d_to_vector_3d,
 )
