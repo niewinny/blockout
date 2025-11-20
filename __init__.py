@@ -20,7 +20,7 @@ bl_info = {
     'description': "Mesh Modeling Toolkit",
     'author': "ezelar.com",
     'version': (1, 1, 1),
-    'blender': (4, 2, 0),
+    'blender': (4, 5, 0),
     'location': 'View3D',
     'wiki_url': '',
     'category': '3D View'}
