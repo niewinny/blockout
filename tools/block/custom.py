@@ -11,7 +11,7 @@ undo_post_handlers = []
 redo_post_handlers = []
 
 
-def add_draw_handlers(context):
+def add_draw_handlers(context, redraw=True):
     """Add draw handlers for the custom plane axes"""
     # Create DrawMatrix from the matrix property
     custom_matrix = DrawMatrix.from_property(context.scene.bout.align.matrix)
@@ -55,10 +55,11 @@ def add_draw_handlers(context):
     draw_handlers.append((x_handler, "WINDOW"))
     draw_handlers.append((y_handler, "WINDOW"))
 
-    # Redraw the area
-    for area in bpy.context.window.screen.areas:
-        if area.type == "VIEW_3D":
-            area.tag_redraw()
+    if redraw:
+        # Redraw the area
+        for area in bpy.context.window.screen.areas:
+            if area.type == "VIEW_3D":
+                area.tag_redraw()
 
 
 def update_location(cls, context):
@@ -89,7 +90,7 @@ def update_rotation(cls, context):
     redraw(cls, context)
 
 
-def clear_draw_handlers():
+def clear_draw_handlers(redraw=True):
     """Remove all draw handlers"""
     try:
         for handler, region_type in draw_handlers:
@@ -100,11 +101,12 @@ def clear_draw_handlers():
                 pass
         draw_handlers.clear()
 
-        # Redraw the area, but only if we have a valid window
-        if hasattr(bpy.context, "window") and bpy.context.window:
-            for area in bpy.context.window.screen.areas:
-                if area.type == "VIEW_3D":
-                    area.tag_redraw()
+        if redraw:
+            # Redraw the area, but only if we have a valid window
+            if hasattr(bpy.context, "window") and bpy.context.window:
+                for area in bpy.context.window.screen.areas:
+                    if area.type == "VIEW_3D":
+                        area.tag_redraw()
     except AttributeError:
         # Context might not be available during certain undo operations
         pass
@@ -120,10 +122,15 @@ def update(context):
         "object.bout_block_mesh",
     }
 
-    clear_draw_handlers()
+    clear_draw_handlers(redraw=False)
 
     if tool and context.scene.bout.align.mode == "CUSTOM":
-        add_draw_handlers(context)
+        add_draw_handlers(context, redraw=False)
+
+    # Redraw the area
+    for area in bpy.context.window.screen.areas:
+        if area.type == "VIEW_3D":
+            area.tag_redraw()
 
 
 def redraw(_, context):
@@ -141,52 +148,16 @@ def remove():
     clear_draw_handlers()
 
 
-def perform_deferred_update():
-    """Safely execute the update when it's safe to do so"""
-    # Only update if context is valid
-    if hasattr(bpy, "context"):
-        try:
-            context = bpy.context
-
-            # Access the property from scene data
-            if not context.scene.bout.update:
-                return False
-
-            active_tool = context.workspace.tools.from_space_view3d_mode(
-                context.mode, create=False
-            )
-            tool = active_tool and active_tool.idname in {
-                "object.bout_block_obj",
-                "object.bout_block_mesh",
-            }
-
-            # Clear handlers first
-            clear_draw_handlers()
-
-            # Only add handlers if needed
-            if tool and context.scene.bout.align.mode == "CUSTOM":
-                add_draw_handlers(context)
-
-            # Reset flag
-            context.scene.bout.update = False
-
-        except ReferenceError:
-            # Handle case where objects were deleted during undo
-            clear_draw_handlers()
-        except Exception as e:
-            print(f"Blockout update error: {e}")
-            clear_draw_handlers()
-
-    # Return False to unregister the timer
-    return False
-
-
 @persistent
 def undo(scene):
-    """Handler for post-undo operations to ensure UI updates"""
-    if hasattr(scene, "bout"):
-        scene.bout.update = True
-        bpy.app.timers.register(perform_deferred_update, first_interval=0.1)
+    """Handler for post-undo/redo operations to ensure UI updates"""
+    if not hasattr(scene, "bout"):
+        return
+
+    try:
+        update(bpy.context)
+    except Exception:
+        clear_draw_handlers()
 
 
 def register_undo_post():

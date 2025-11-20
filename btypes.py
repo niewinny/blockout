@@ -1,4 +1,5 @@
 import bpy
+
 from . import ops, tools
 from .tools.block import custom
 
@@ -43,22 +44,10 @@ class Align(bpy.types.PropertyGroup):
         size=16,
         subtype="MATRIX",
         default=(
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            1.0,
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
         ),
         update=custom.redraw,
     )
@@ -83,11 +72,6 @@ class Scene(bpy.types.PropertyGroup):
     ops: bpy.props.PointerProperty(type=ops.Scene)
     axis: bpy.props.PointerProperty(type=SceneAxis)
     align: bpy.props.PointerProperty(type=Align)
-    update: bpy.props.BoolProperty(
-        name="Update Needed",
-        description="Internal property to track if UI update is needed after undo/redo",
-        default=False,
-    )
 
 
 class ThemeAxis(bpy.types.PropertyGroup):
