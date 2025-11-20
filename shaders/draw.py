@@ -539,7 +539,7 @@ class DrawBMeshFaces:
                                 face_indices[tri[2]],
                             )
                         )
-                except:
+                except Exception:
                     # Fallback to simple fan triangulation if tessellation fails
                     for i in range(1, len(face_indices) - 1):
                         self.indices.append(
