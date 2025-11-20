@@ -41,10 +41,10 @@ def create(bm, plane, direction=None, subd=1, radius=None):
     result = bmesh.ops.create_cube(
         bm,
         size=0.001,  # Starting with a unit cube
-        matrix=matrix
+        matrix=matrix,
     )
 
-    cube_verts = result['verts']
+    cube_verts = result["verts"]
 
     # Step 2: Subdivide the cube if needed to get more detail
     if subd > 0:
@@ -56,13 +56,10 @@ def create(bm, plane, direction=None, subd=1, radius=None):
 
         # Subdivide the cube
         subd_result = bmesh.ops.subdivide_edges(
-            bm,
-            edges=edges,
-            cuts=subd,
-            use_grid_fill=True
+            bm, edges=edges, cuts=subd, use_grid_fill=True
         )
 
-        for f in subd_result['geom']:
+        for f in subd_result["geom"]:
             if isinstance(f, bmesh.types.BMFace):
                 f.select = True
                 faces.append(f)
@@ -80,7 +77,6 @@ def create(bm, plane, direction=None, subd=1, radius=None):
     bm.faces.ensure_lookup_table()
     bm.faces.index_update()
 
-
     if radius is None:
         initial_tiny_radius = 0.0001
     else:
@@ -96,7 +92,6 @@ def create(bm, plane, direction=None, subd=1, radius=None):
             local_co = Vector((initial_tiny_radius, 0, 0))
         v.co = local_co + matrix.translation
 
-
     bm.select_flush(True)
 
     faces_indexes = [f.index for f in faces]
@@ -105,16 +100,16 @@ def create(bm, plane, direction=None, subd=1, radius=None):
 
 
 def set_radius(faces, plane, loc, direction, snap_value=0):
-    '''
+    """
     Set the radius for sphere faces based on distance from center to mouse point.
-    
+
     :param faces: List of Face objects making up the sphere
     :param plane: A tuple (location, normal) defining the orientation and center
     :param loc: Location vector for calculating radius
     :param direction: Direction vector to define orientation
     :param snap_value: Snap value for radius
     :return: Tuple of (radius, point_3d) where point_3d is the point on sphere surface
-    '''
+    """
     # Unpack plane data
     location, normal = plane
     normal = normal.normalized()
@@ -153,7 +148,7 @@ def set_radius(faces, plane, loc, direction, snap_value=0):
     for f in faces:
         for v in f.verts:
             verts.add(v)
-    
+
     # Update the positions of the vertices
     for v in verts:
         local_co = v.co - location

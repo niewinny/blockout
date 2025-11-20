@@ -10,12 +10,21 @@ def bevel(bm, cylinder_faces, bevel_offset=0.0, bevel_segments=5):
         bevel_edges = set(face.edges)
         edges = list(bevel_edges)
 
-        result = bmesh.ops.bevel(bm, geom=edges, offset=bevel_offset, profile=0.5, offset_type='OFFSET', affect='EDGES', clamp_overlap=True, segments=bevel_segments)
-        for v in result['verts']:
+        result = bmesh.ops.bevel(
+            bm,
+            geom=edges,
+            offset=bevel_offset,
+            profile=0.5,
+            offset_type="OFFSET",
+            affect="EDGES",
+            clamp_overlap=True,
+            segments=bevel_segments,
+        )
+        for v in result["verts"]:
             v.select = True
-        for e in result['edges']:
+        for e in result["edges"]:
             e.select = True
-        for f in result['faces']:
+        for f in result["faces"]:
             f.select = True
         bm.select_flush(True)
 

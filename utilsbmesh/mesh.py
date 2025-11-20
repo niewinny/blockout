@@ -53,7 +53,13 @@ def merge_copy(obj, bm, mesh_data=None):
     if not mesh_data:
         return
 
-    bm.from_mesh(mesh_data, face_normals=True, vertex_normals=True, use_shape_key=False, shape_key_index=0)
+    bm.from_mesh(
+        mesh_data,
+        face_normals=True,
+        vertex_normals=True,
+        use_shape_key=False,
+        shape_key_index=0,
+    )
 
     bm.verts.ensure_lookup_table()
     bm.verts.index_update()
@@ -80,4 +86,3 @@ def remove_doubles(bm, verts_indicies):
     bm.edges.index_update()
     bm.faces.ensure_lookup_table()
     bm.faces.index_update()
-

@@ -4,16 +4,16 @@ from mathutils import Matrix, Vector
 
 
 def create(bm, plane):
-    '''Create a ngon face'''
+    """Create a ngon face"""
 
     location, normal = plane
     v1 = bm.verts.new(location)
     v2 = bm.verts.new(location)
     v3 = bm.verts.new(location)
 
-    edge1 = bm.edges.new((v1, v2))
-    edge2 = bm.edges.new((v2, v3))
-    edge3 = bm.edges.new((v3, v1))
+    bm.edges.new((v1, v2))
+    bm.edges.new((v2, v3))
+    bm.edges.new((v3, v1))
 
     face = bm.faces.new((v1, v2, v3))
     face_index = face.index
@@ -29,14 +29,27 @@ def create(bm, plane):
 
     bm.select_flush(True)
 
-    return [face_index], [DrawVert(index=v1.index, co=v1.co), DrawVert(index=v2.index, co=v2.co), DrawVert(index=v3.index, co=v3.co)]
+    return [face_index], [
+        DrawVert(index=v1.index, co=v1.co),
+        DrawVert(index=v2.index, co=v2.co),
+        DrawVert(index=v3.index, co=v3.co),
+    ]
 
 
-def set_xy(bm, vert_index, plane, loc, direction, local_space=False, snap_value=0, symmetry=(False, False)):
-    '''
+def set_xy(
+    bm,
+    vert_index,
+    plane,
+    loc,
+    direction,
+    local_space=False,
+    snap_value=0,
+    symmetry=(False, False),
+):
+    """
     Move a single ngon vertex to the given xy location in the plane's local coordinate system.
     Updates vert.co and returns (dx, dy), point_3d.
-    '''
+    """
 
     vert = bm.verts[vert_index]
 
@@ -90,7 +103,7 @@ def set_xy(bm, vert_index, plane, loc, direction, local_space=False, snap_value=
 
 
 def add_vert(bm, index):
-    '''Add a vertex to the ngon'''
+    """Add a vertex to the ngon"""
 
     edge = bm.edges[index]
     result = bmesh.ops.bisect_edges(bm, edges=[edge], cuts=1)
@@ -102,25 +115,25 @@ def add_vert(bm, index):
     bm.faces.ensure_lookup_table()
     bm.faces.index_update()
 
-    verts = [v for v in result['geom_split'] if isinstance(v, bmesh.types.BMVert)]
+    verts = [v for v in result["geom_split"] if isinstance(v, bmesh.types.BMVert)]
 
     # Check if any vertices were created
     if not verts:
         # Fallback: split the edge manually
         v1, v2 = edge.verts
         midpoint = (v1.co + v2.co) / 2
-        
+
         # Create new vertex at midpoint
         new_vert = bm.verts.new(midpoint)
-        
+
         # Split the edge by creating two new edges and removing the old one
-        new_edge1 = bm.edges.new([v1, new_vert])
-        new_edge2 = bm.edges.new([new_vert, v2])
-        
+        bm.edges.new([v1, new_vert])
+        bm.edges.new([new_vert, v2])
+
         # Update any faces that used the old edge
         for face in list(edge.link_faces):
             face_verts = list(face.verts)
-            
+
             # Find where to insert the new vertex in the face
             for i, vert in enumerate(face_verts):
                 next_vert = face_verts[(i + 1) % len(face_verts)]
@@ -131,15 +144,15 @@ def add_vert(bm, index):
                     else:
                         face_verts.insert(i + 1, new_vert)
                     break
-            
+
             # Remove old face and create new one
             bm.faces.remove(face)
             new_face = bm.faces.new(face_verts)
             new_face.select_set(True)
-        
+
         # Remove the old edge
         bm.edges.remove(edge)
-        
+
         # Update lookup tables
         bm.verts.ensure_lookup_table()
         bm.verts.index_update()
@@ -147,14 +160,14 @@ def add_vert(bm, index):
         bm.edges.index_update()
         bm.faces.ensure_lookup_table()
         bm.faces.index_update()
-        
+
         verts = [new_vert]
 
     return verts
 
 
 def new(bm, verts_list):
-    '''Create a ngon face'''
+    """Create a ngon face"""
 
     verts = []
     for v in verts_list:
@@ -170,21 +183,21 @@ def new(bm, verts_list):
 
 
 def fix_winding_order(bm, face_index, plane_normal):
-    '''Fix the winding order of a face to match the plane normal'''
-    
+    """Fix the winding order of a face to match the plane normal"""
+
     face = bm.faces[face_index]
     face_verts = list(face.verts)
-    
+
     # Need at least 3 vertices to determine winding
     if len(face_verts) < 3:
         return face_index
-    
+
     # Calculate current face normal based on first 3 vertices
     v0, v1, v2 = face_verts[0].co, face_verts[1].co, face_verts[2].co
     edge1 = v1 - v0
     edge2 = v2 - v0
     current_normal = edge1.cross(edge2).normalized()
-    
+
     # Check if it matches plane normal
     if current_normal.dot(plane_normal) < 0:
         # Reverse the vertex order to fix the winding
@@ -194,39 +207,39 @@ def fix_winding_order(bm, face_index, plane_normal):
         new_face.select_set(True)
         bm.faces.ensure_lookup_table()
         return new_face.index
-    
+
     return face_index
 
 
 def dissolve_vert(bm, vert_index, face_index):
-    '''Dissolve a vertex from an n-gon face'''
-    
+    """Dissolve a vertex from an n-gon face"""
+
     face = bm.faces[face_index]
     face_verts = list(face.verts)
-    
+
     # Need at least 4 vertices to dissolve one (maintain triangle)
     if len(face_verts) <= 3:
         return None, face_index
-    
+
     # Find the vertex to dissolve
     vert_to_remove = bm.verts[vert_index]
     if vert_to_remove not in face_verts:
         return None, face_index
-    
+
     # Remove the vertex from the face
     face_verts.remove(vert_to_remove)
-    
+
     # Delete the old face
     bm.faces.remove(face)
-    
+
     # Create new face without the dissolved vertex
     new_face = bm.faces.new(face_verts)
     new_face.select_set(True)
-    
+
     # Clean up the vertex if it has no more connections
     if len(vert_to_remove.link_faces) == 0:
         bm.verts.remove(vert_to_remove)
-    
+
     # Update lookup tables
     bm.verts.ensure_lookup_table()
     bm.verts.index_update()
@@ -234,12 +247,12 @@ def dissolve_vert(bm, vert_index, face_index):
     bm.edges.index_update()
     bm.faces.ensure_lookup_table()
     bm.faces.index_update()
-    
+
     return vert_to_remove, new_face.index
 
 
 def store(self):
-    '''Store the ngon face'''
+    """Store the ngon face"""
 
     self.pref.ngon.clear()
     if self.data.draw.faces:

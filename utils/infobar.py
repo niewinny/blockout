@@ -1,6 +1,4 @@
-
 def draw(context, event, func, blank=False):
-
     def header(self, context):
         if blank:
             infobar_blank(self, context, event, func)
@@ -25,17 +23,17 @@ def infobar_blank(self, context, event, func):
 def infobar_main(self, context, event, func):
     layout = self.layout
     row = self.layout.row(align=True)
-    row.label(text='', icon='MOUSE_MOVE')
-    row.label(text='Adjust')
+    row.label(text="", icon="MOUSE_MOVE")
+    row.label(text="Adjust")
     row.separator(factor=8.0)
-    row.label(text='', icon='MOUSE_LMB')
-    row.label(text='Confirm')
+    row.label(text="", icon="MOUSE_LMB")
+    row.label(text="Confirm")
     row.separator(factor=8.0)
-    row.label(text='', icon='MOUSE_MMB')
-    row.label(text='Rotate View')
+    row.label(text="", icon="MOUSE_MMB")
+    row.label(text="Rotate View")
     row.separator(factor=8.0)
-    row.label(text='', icon='MOUSE_RMB')
-    row.label(text='Cancel')
+    row.label(text="", icon="MOUSE_RMB")
+    row.label(text="Cancel")
     row.separator(factor=8.0)
 
     if func:
@@ -45,7 +43,6 @@ def infobar_main(self, context, event, func):
 
 
 def infobar_copiedlines(layout, context):
-
     layout.separator_spacer()
 
     # Report Messages
@@ -54,7 +51,7 @@ def infobar_copiedlines(layout, context):
     layout.separator_spacer()
 
     row = layout.row()
-    row.alignment = 'RIGHT'
+    row.alignment = "RIGHT"
 
     # Stats & Info
     row.label(text=context.screen.statusbar_info(), translate=False)

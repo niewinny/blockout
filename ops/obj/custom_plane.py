@@ -3,8 +3,11 @@ import bmesh
 from mathutils import Vector
 
 from ...utils.scene import ray_cast
-from ...utils import addon
-from ...utilsbmesh.orientation import direction_from_normal, face_bbox_center, set_align_rotation_from_vectors
+from ...utilsbmesh.orientation import (
+    direction_from_normal,
+    face_bbox_center,
+    set_align_rotation_from_vectors,
+)
 from ...utils.view3d import region_2d_to_origin_3d, region_2d_to_vector_3d
 from ...utils.types import DrawMatrix
 
@@ -13,19 +16,22 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
     bl_idname = "object.bout_obj_set_custom_plane"
     bl_label = "Set Custom Plane"
     bl_description = "Set custom plane based on raycast hit location"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     mode: bpy.props.EnumProperty(
         name="Mode",
         description="Mode",
-        items=[('SET', 'Set', 'Set'),
-               ('MOVE', 'Move', 'Move'),
-               ('ROTATE', 'Rotate', 'Rotate')],
-        default='SET')
+        items=[
+            ("SET", "Set", "Set"),
+            ("MOVE", "Move", "Move"),
+            ("ROTATE", "Rotate", "Rotate"),
+        ],
+        default="SET",
+    )
 
     @classmethod
     def poll(cls, context):
-        return context.mode == 'OBJECT'
+        return context.mode == "OBJECT"
 
     def invoke(self, context, event):
         self.mouse_pos = (event.mouse_region_x, event.mouse_region_y)
@@ -35,48 +41,54 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
         matrix = obj.matrix_world
         inv_matrix = matrix.inverted()
         local_hit = inv_matrix @ hit_loc
-        
+
         # Calculate viewport distance to hit location for dynamic threshold
         region_data = context.region_data
-        if region_data and hasattr(region_data, 'view_distance'):
+        if region_data and hasattr(region_data, "view_distance"):
             # Get the view distance (distance from camera to pivot point)
             view_distance = region_data.view_distance
         else:
             # Fallback: calculate distance from view location to hit point
-            view_location = region_data.view_matrix.inverted().translation if region_data else Vector((0, 0, 10))
+            view_location = (
+                region_data.view_matrix.inverted().translation
+                if region_data
+                else Vector((0, 0, 10))
+            )
             view_distance = (view_location - hit_loc).length
-        
+
         # Dynamic thresholds based on viewport distance
         # When close (distance < 2), use smaller thresholds for precision
         # When far (distance > 20), use larger thresholds for easier selection
-        distance_factor = min(max(view_distance / 10.0, 0.2), 2.0)  # Clamp between 0.2 and 2.0
-        
+        distance_factor = min(
+            max(view_distance / 10.0, 0.2), 2.0
+        )  # Clamp between 0.2 and 2.0
+
         # Base thresholds (in object space units)
         base_vert_threshold = 0.05
         base_edge_threshold = 0.08
-        
+
         # Adjust thresholds based on viewport distance
         vert_threshold = base_vert_threshold * distance_factor
         edge_threshold = base_edge_threshold * distance_factor
 
         # Check if the face index is valid for this mesh (important for instanced objects)
         if face_idx >= len(bm.faces) or face_idx < 0:
-            self.report({'INFO'}, "Fallback: Geometry is not real")
+            self.report({"INFO"}, "Fallback: Geometry is not real")
             # Face index is out of bounds - this can happen with instanced objects
             # Fall back to finding the closest face to the hit location
             closest_face = None
-            min_dist = float('inf')
+            min_dist = float("inf")
             for face in bm.faces:
                 face_center = face.calc_center_median()
                 dist = (face_center - local_hit).length
                 if dist < min_dist:
                     min_dist = dist
                     closest_face = face
-            
+
             if closest_face is None:
                 # If no faces found, return a fallback
                 # Create a dummy face-like result
-                return 'FACE', None
+                return "FACE", None
 
             face = closest_face
         else:
@@ -84,7 +96,7 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
 
         # Check vertices first (highest priority when close)
         closest_vert = None
-        min_vert_dist = float('inf')
+        min_vert_dist = float("inf")
         for vert in face.verts:
             dist = (vert.co - local_hit).length
             if dist < min_vert_dist:
@@ -93,16 +105,16 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
 
         # Check edges
         closest_edge = None
-        min_edge_dist = float('inf')
+        min_edge_dist = float("inf")
         for edge in face.edges:
             # Calculate distance to edge
             edge_vec = edge.verts[1].co - edge.verts[0].co
             edge_len = edge_vec.length
-            
+
             # Skip zero-length edges (overlapping vertices)
             if edge_len < 1e-6:  # Use small epsilon for floating point comparison
                 continue
-            
+
             edge_dir = edge_vec / edge_len
             v1_to_hit = local_hit - edge.verts[0].co
             proj_len = v1_to_hit.dot(edge_dir)
@@ -113,37 +125,45 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
                 if dist < min_edge_dist:
                     min_edge_dist = dist
                     closest_edge = edge
-        
+
         # Priority-based selection with distance-adjusted thresholds
         # When close to the mesh, prioritize vertices and edges
         # When far from the mesh, make face selection easier
-        
+
         if view_distance < 5.0:  # Very close - easier to select verts/edges
-            if min_vert_dist < vert_threshold * 1.5:  # Slightly larger threshold for verts when close
-                return 'VERT', closest_vert
-            if min_edge_dist < edge_threshold * 1.2:  # Slightly larger threshold for edges when close
-                return 'EDGE', closest_edge
+            if (
+                min_vert_dist < vert_threshold * 1.5
+            ):  # Slightly larger threshold for verts when close
+                return "VERT", closest_vert
+            if (
+                min_edge_dist < edge_threshold * 1.2
+            ):  # Slightly larger threshold for edges when close
+                return "EDGE", closest_edge
         elif view_distance < 15.0:  # Medium distance - balanced selection
             if min_vert_dist < vert_threshold:
-                return 'VERT', closest_vert
+                return "VERT", closest_vert
             if min_edge_dist < edge_threshold:
-                return 'EDGE', closest_edge
+                return "EDGE", closest_edge
         else:  # Far away - prioritize face selection
             # Only select verts/edges if very close to them relative to view distance
-            if min_vert_dist < vert_threshold * 0.5:  # Smaller threshold for verts when far
-                return 'VERT', closest_vert
-            if min_edge_dist < edge_threshold * 0.7:  # Smaller threshold for edges when far
-                return 'EDGE', closest_edge
+            if (
+                min_vert_dist < vert_threshold * 0.5
+            ):  # Smaller threshold for verts when far
+                return "VERT", closest_vert
+            if (
+                min_edge_dist < edge_threshold * 0.7
+            ):  # Smaller threshold for edges when far
+                return "EDGE", closest_edge
 
-        return 'FACE', face
+        return "FACE", face
 
     def plane(self, context):
-        if self.mode == 'SET':
-            if context.scene.bout.align.mode == 'CUSTOM':
-                context.scene.bout.align.mode = 'FACE'
-                self.report({'INFO'}, "Custom plane disabled")
+        if self.mode == "SET":
+            if context.scene.bout.align.mode == "CUSTOM":
+                context.scene.bout.align.mode = "FACE"
+                self.report({"INFO"}, "Custom plane disabled")
                 context.area.tag_redraw()
-                return {'FINISHED'}
+                return {"FINISHED"}
 
         old_matrix = DrawMatrix.from_property(context.scene.bout.align.matrix)
         old_location = old_matrix.location
@@ -157,11 +177,15 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
             possible_normals = [
                 Vector((1.0, 0.0, 0.0)),
                 Vector((0.0, 1.0, 0.0)),
-                Vector((0.0, 0.0, 1.0))
+                Vector((0.0, 0.0, 1.0)),
             ]
             hits = []
-            origin = region_2d_to_origin_3d(context.region, context.region_data, self.mouse_pos)
-            direction = region_2d_to_vector_3d(context.region, context.region_data, self.mouse_pos)
+            origin = region_2d_to_origin_3d(
+                context.region, context.region_data, self.mouse_pos
+            )
+            direction = region_2d_to_vector_3d(
+                context.region, context.region_data, self.mouse_pos
+            )
 
             for n in possible_normals:
                 denom = direction.dot(n)
@@ -175,15 +199,17 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
                 location = Vector((0.0, 0.0, 0.0))
                 direction = direction_from_normal(normal)
             else:
-                self.report({'WARNING'}, "No object found under cursor, using default plane at (0,0,0)")
+                self.report(
+                    {"WARNING"},
+                    "No object found under cursor, using default plane at (0,0,0)",
+                )
                 location = Vector((0.0, 0.0, 0.0))
                 normal = Vector((0.0, 0.0, 1.0))
                 direction = direction_from_normal(normal)
 
-            
-            if self.mode == 'ROTATE':
+            if self.mode == "ROTATE":
                 location = old_location
-            if self.mode == 'MOVE':
+            if self.mode == "MOVE":
                 normal = old_normal
                 direction = old_direction
 
@@ -194,12 +220,14 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
             # Convert to property format and update the matrix property
             context.scene.bout.align.matrix = draw_matrix.to_property()
             context.scene.bout.align.location = location
-            context.scene.bout.align.rotation = set_align_rotation_from_vectors(normal, direction)
+            context.scene.bout.align.rotation = set_align_rotation_from_vectors(
+                normal, direction
+            )
 
-            context.scene.bout.align.mode = 'CUSTOM'
+            context.scene.bout.align.mode = "CUSTOM"
             context.area.tag_redraw()
 
-            return {'FINISHED'}
+            return {"FINISHED"}
 
         obj = ray.obj
         matrix = obj.matrix_world
@@ -219,18 +247,20 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
 
         try:
             # Find closest element (vertex, edge, or face)
-            element_type, element = self.find_closest_element(context, obj, hit_loc, face_idx, bm)
+            element_type, element = self.find_closest_element(
+                context, obj, hit_loc, face_idx, bm
+            )
 
             # Initialize variables
             location = None
             normal = None
             direction = None
-            
+
             # Cache inverse transpose matrix for normal transformation
             # This is the mathematically correct way to transform normals when non-uniform scaling is present
             inv_trans_matrix = (matrix.inverted().transposed()).to_3x3()
 
-            if element_type == 'VERT':
+            if element_type == "VERT":
                 # Use the vertex
                 vert = element
                 location = matrix @ vert.co
@@ -240,7 +270,7 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
                 # Use direction_from_normal to compute direction
                 direction = matrix.to_3x3() @ direction_from_normal(vert.normal)
 
-            elif element_type == 'EDGE':
+            elif element_type == "EDGE":
                 # Use the selected edge
                 edge = element
                 # Compute the midpoint of the edge
@@ -271,13 +301,12 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
                     location = face_bbox_center(face, matrix)
                     direction = matrix.to_3x3() @ face.calc_tangent_edge()
 
-
             normal.normalize()
             direction.normalize()
 
-            if self.mode == 'ROTATE':
+            if self.mode == "ROTATE":
                 location = old_location
-            if self.mode == 'MOVE':
+            if self.mode == "MOVE":
                 normal = old_normal
                 direction = old_direction
 
@@ -288,18 +317,18 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
             # Convert to property format and update the matrix property
             context.scene.bout.align.matrix = draw_matrix.to_property()
             context.scene.bout.align.location = location
-            context.scene.bout.align.rotation = set_align_rotation_from_vectors(normal, direction)
+            context.scene.bout.align.rotation = set_align_rotation_from_vectors(
+                normal, direction
+            )
 
-            context.scene.bout.align.mode = 'CUSTOM'
+            context.scene.bout.align.mode = "CUSTOM"
             context.area.tag_redraw()
 
         finally:
             bm.free()
             del obj_eval
 
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
-classes = (
-    BOUT_OT_ObjSetCustomPlane,
-)
+classes = (BOUT_OT_ObjSetCustomPlane,)

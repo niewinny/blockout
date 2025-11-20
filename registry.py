@@ -1,5 +1,4 @@
 from bpy.utils import register_class, unregister_class, register_tool, unregister_tool
-import bpy
 from . import btypes, ops, ui, preferences, tools, gizmo, keymap, handlers
 
 
@@ -13,9 +12,7 @@ classes = (
 )
 
 
-
 def register():
-
     for cls in classes:
         register_class(cls)
 
@@ -29,7 +26,6 @@ def register():
 
 
 def unregister():
-
     ui.unregister()
     handlers.unregister()
     keymap.unregister()

@@ -17,7 +17,7 @@ def extrude(bm, face, plane, dz):
     result = bmesh.ops.extrude_face_region(bm, geom=[face])
 
     # Move the new vertices along the normal by dz units
-    new_geom = result['geom']
+    new_geom = result["geom"]
     new_verts = [elem for elem in new_geom if isinstance(elem, bmesh.types.BMVert)]
     for v in new_verts:
         v.co += normal * dz
@@ -53,7 +53,11 @@ def extrude(bm, face, plane, dz):
     for side_face in side_faces:
         for edge in side_face.edges:
             for linked_face in edge.link_faces:
-                if (linked_face != top_face and linked_face != side_face and linked_face not in side_faces):
+                if (
+                    linked_face != top_face
+                    and linked_face != side_face
+                    and linked_face not in side_faces
+                ):
                     bot_face = linked_face
                     bot_face.select_set(True)
                     break
@@ -65,16 +69,18 @@ def extrude(bm, face, plane, dz):
         raise ValueError("Bottom face not found after extrusion.")
 
     # Collect the indices in the desired order
-    new_face_indices = [bot_face.index] + [f.index for f in side_faces] + [top_face.index]
+    new_face_indices = (
+        [bot_face.index] + [f.index for f in side_faces] + [top_face.index]
+    )
 
     return new_face_indices
 
 
 def set_z(face, normal, dz, verts=None, snap_value=0):
-    '''
+    """
     Set the vertices of the extrusion along the extrusion direction based on the mouse position,
     with an optional snap value for the extrusion distance.
-    '''
+    """
 
     # Normalize the direction vector
     normal = normal.normalized()
@@ -94,23 +100,32 @@ def set_z(face, normal, dz, verts=None, snap_value=0):
 
 
 def bevel_verts(bm, face, bevel_offset=0.0, bevel_segments=1):
-    '''Bevel the face region'''
+    """Bevel the face region"""
 
     if bevel_offset != 0.0:
         rectangle_verts = [v for v in face.verts]
 
-        result = bmesh.ops.bevel(bm, geom=rectangle_verts, offset=bevel_offset, profile=0.5, offset_type='OFFSET', affect='VERTICES', clamp_overlap=True, segments=bevel_segments)
+        result = bmesh.ops.bevel(
+            bm,
+            geom=rectangle_verts,
+            offset=bevel_offset,
+            profile=0.5,
+            offset_type="OFFSET",
+            affect="VERTICES",
+            clamp_overlap=True,
+            segments=bevel_segments,
+        )
 
-        for v in result['verts']:
+        for v in result["verts"]:
             v.select = True
-        for e in result['edges']:
+        for e in result["edges"]:
             e.select = True
-        for f in result['faces']:
+        for f in result["faces"]:
             f.select = True
         bm.select_flush(True)
 
-        if result['verts']:
-            face = result['verts'][0].link_faces[0]
+        if result["verts"]:
+            face = result["verts"][0].link_faces[0]
 
         bm.verts.ensure_lookup_table()
         bm.verts.index_update()
@@ -123,16 +138,25 @@ def bevel_verts(bm, face, bevel_offset=0.0, bevel_segments=1):
 
 
 def bevel_edges(bm, edges, bevel_offset=0.0, bevel_segments=1):
-    '''Bevel the edges'''
+    """Bevel the edges"""
 
     if bevel_offset != 0.0:
-        result = bmesh.ops.bevel(bm, geom=edges, offset=bevel_offset, profile=0.5, offset_type='OFFSET', affect='EDGES', clamp_overlap=True, segments=bevel_segments)
+        result = bmesh.ops.bevel(
+            bm,
+            geom=edges,
+            offset=bevel_offset,
+            profile=0.5,
+            offset_type="OFFSET",
+            affect="EDGES",
+            clamp_overlap=True,
+            segments=bevel_segments,
+        )
 
-        for v in result['verts']:
+        for v in result["verts"]:
             v.select = True
-        for e in result['edges']:
+        for e in result["edges"]:
             e.select = True
-        for f in result['faces']:
+        for f in result["faces"]:
             f.select = True
         bm.select_flush(True)
 
@@ -143,14 +167,14 @@ def bevel_edges(bm, edges, bevel_offset=0.0, bevel_segments=1):
         bm.faces.ensure_lookup_table()
         bm.faces.index_update()
 
-        return [v.index for v in result['verts']]
+        return [v.index for v in result["verts"]]
 
     return []
 
 
 def remove_doubles(bm, face):
-    '''Remove double vertices'''
-    
+    """Remove double vertices"""
+
     # Check if face is valid before proceeding
     if not face or not face.is_valid:
         return
@@ -169,22 +193,20 @@ def remove_doubles(bm, face):
 
 
 def solidify(bm, faces):
-    '''Solidufy the selected faces'''
+    """Solidufy the selected faces"""
 
     dup_result = bmesh.ops.duplicate(bm, geom=faces)
-    duplicated_geom = dup_result['geom']
+    duplicated_geom = dup_result["geom"]
 
     # Extract only the duplicated faces
-    duplicated_faces = [elem for elem in duplicated_geom if isinstance(elem, bmesh.types.BMFace)]
+    duplicated_faces = [
+        elem for elem in duplicated_geom if isinstance(elem, bmesh.types.BMFace)
+    ]
 
     # Apply inset to the duplicated faces
     if duplicated_faces:
         inset_result = bmesh.ops.inset_region(
-            bm, 
-            faces=duplicated_faces, 
-            thickness=0.001,
-            depth=0.001,
-            use_outset=False
+            bm, faces=duplicated_faces, thickness=0.001, depth=0.001, use_outset=False
         )
 
         # Select all the original faces and new inset faces
@@ -194,7 +216,7 @@ def solidify(bm, faces):
 
         # Select original faces
         for face in faces:
-            if face.is_valid:  
+            if face.is_valid:
                 face.select = True
                 face.normal_flip()
 
@@ -202,9 +224,9 @@ def solidify(bm, faces):
         for face in duplicated_faces:
             if face.is_valid:
                 face.select = True
-  
-        if 'faces' in inset_result:
-            for face in inset_result['faces']:
+
+        if "faces" in inset_result:
+            for face in inset_result["faces"]:
                 if face.is_valid:
                     face.select = True
 

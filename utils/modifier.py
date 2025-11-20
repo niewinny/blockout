@@ -15,7 +15,7 @@ def add(obj, _name, _type):
     :return: Modifier object
     """
 
-    if obj and obj.type == 'MESH':
+    if obj and obj.type == "MESH":
         modifier = obj.modifiers.new(name=_name, type=_type)
         modifier.show_expanded = False
 
@@ -64,7 +64,14 @@ def _auto_smooth_file_path():
     blender_exe_path = bpy.app.binary_path
     blender_dir = os.path.dirname(blender_exe_path)
     blender_version = ".".join(bpy.app.version_string.split(".")[:2])
-    asset_file = os.path.join(blender_dir, blender_version, "datafiles", "assets", "geometry_nodes", "smooth_by_angle.blend")
+    asset_file = os.path.join(
+        blender_dir,
+        blender_version,
+        "datafiles",
+        "assets",
+        "geometry_nodes",
+        "smooth_by_angle.blend",
+    )
 
     if not os.path.exists(asset_file):
         print(f"Asset file not found: {asset_file}")
@@ -97,12 +104,12 @@ def auto_smooth(obj):
             return None
 
     for modifier in obj.modifiers:
-        if modifier.type == 'NODES':
+        if modifier.type == "NODES":
             if modifier.node_group:
                 if modifier.node_group.name == node_group_name:
                     return None
 
-    modifier = obj.modifiers.new(name=node_group_name, type='NODES')
+    modifier = obj.modifiers.new(name=node_group_name, type="NODES")
     modifier.node_group = node_group
     modifier.use_pin_to_last = True
     modifier.show_expanded = False

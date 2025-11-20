@@ -1,4 +1,4 @@
-'''This module is a collection of gizmos for Addon'''
+"""This module is a collection of gizmos for Addon"""
 
 import bpy
 from . import group

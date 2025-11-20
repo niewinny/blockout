@@ -1,15 +1,15 @@
-'''Geometry functions'''
+"""Geometry functions"""
 
 
 def distance_point_to_segment(p, v1, v2) -> float:
-    '''Calculate the distance between a point and a segment
+    """Calculate the distance between a point and a segment
 
     Args:
         p (Vector): Point
         v1 (Vector): Segment start
         v2 (Vector): Segment end
 
-    '''
+    """
 
     v = v2 - v1
     w = p - v1

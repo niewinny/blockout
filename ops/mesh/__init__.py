@@ -1,6 +1,4 @@
 from . import custom_plane
 
 
-classes = (
-    *custom_plane.classes,
-)
+classes = (*custom_plane.classes,)

@@ -1,4 +1,4 @@
-'''
+"""
 Copyright (C) 2015-2024 Team C All Rights Reserved
 
 This program is free software: you can redistribute it and/or modify
@@ -13,17 +13,18 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-'''
+"""
 
 bl_info = {
-    'name': "Blockout",
-    'description': "Mesh Modeling Toolkit",
-    'author': "ezelar.com",
-    'version': (1, 1, 1),
-    'blender': (4, 5, 0),
-    'location': 'View3D',
-    'wiki_url': '',
-    'category': '3D View'}
+    "name": "Blockout",
+    "description": "Mesh Modeling Toolkit",
+    "author": "ezelar.com",
+    "version": (1, 1, 1),
+    "blender": (4, 5, 0),
+    "location": "View3D",
+    "wiki_url": "",
+    "category": "3D View",
+}
 
 from . import registry, preferences, utils, gizmo, ops, tools, ui, btypes
 

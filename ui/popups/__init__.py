@@ -1,6 +1,4 @@
 from . import block
 
 
-classes = (
-    *block.classes,
-)
+classes = (*block.classes,)

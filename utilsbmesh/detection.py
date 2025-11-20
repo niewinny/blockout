@@ -2,12 +2,17 @@ from dataclasses import dataclass
 import numpy as np
 from mathutils import Vector
 from mathutils.bvhtree import BVHTree
-from bpy_extras.view3d_utils import region_2d_to_origin_3d, region_2d_to_vector_3d, location_3d_to_region_2d
+from bpy_extras.view3d_utils import (
+    region_2d_to_origin_3d,
+    region_2d_to_vector_3d,
+    location_3d_to_region_2d,
+)
 
 
 @dataclass
 class _Vert:
     """Vertex class to handle vertex detection."""
+
     index: int = -1
     co: Vector = Vector((0, 0, 0))
     radius: float = 50.0  # Default radius
@@ -16,6 +21,7 @@ class _Vert:
 @dataclass
 class _Edge:
     """Edge class to handle edge detection."""
+
     index: int = -1
     length: float = 0.0
     radius: float = 50.0  # Default radius
@@ -24,6 +30,7 @@ class _Edge:
 @dataclass
 class _Face:
     """Face class to handle face detection."""
+
     index: int = -1
     normal: Vector = Vector((0, 0, 0))
     hit_loc: Vector = Vector((0, 0, 0))
@@ -32,6 +39,7 @@ class _Face:
 @dataclass
 class _Radius:
     """Radius class to handle radius detection."""
+
     vert: float = 50.0
     edge: float = 50.0
 
@@ -61,7 +69,9 @@ class Closest:
 
     def detect(self, context, bm, point):
         """Detect the closest element under the mouse cursor."""
-        _direction, _origin, local_origin, local_direction = self._get_ray(context, point)
+        _direction, _origin, local_origin, local_direction = self._get_ray(
+            context, point
+        )
         hit_loc, index = self._ray_cast(local_origin, local_direction)
 
         if index is None:
@@ -92,17 +102,25 @@ class Closest:
 
     def _ray_cast(self, local_origin, local_direction):
         """Perform a ray cast and return the hit location and face index."""
-        hit_loc, _normal, index, _dist = self.bvh.ray_cast(local_origin, local_direction)
+        hit_loc, _normal, index, _dist = self.bvh.ray_cast(
+            local_origin, local_direction
+        )
         return hit_loc, index
 
     def _detect_closest_vertex(self, context, point, face):
         """Detect the closest vertex on the given face."""
         verts = [v for v in face.verts]
         verts_2d, valid_indices = self._verts_to_2darray(context, verts)
-        closest_vert, closest_vert_2d = self._get_closest_vert(point, verts, verts_2d, valid_indices)
+        closest_vert, closest_vert_2d = self._get_closest_vert(
+            point, verts, verts_2d, valid_indices
+        )
 
-        if closest_vert and self._is_within_radius(point, closest_vert_2d, self.radius.vert):
-            return _Vert(index=closest_vert.index, co=closest_vert.co, radius=self.radius.vert)
+        if closest_vert and self._is_within_radius(
+            point, closest_vert_2d, self.radius.vert
+        ):
+            return _Vert(
+                index=closest_vert.index, co=closest_vert.co, radius=self.radius.vert
+            )
         else:
             return None
 
@@ -112,7 +130,7 @@ class Closest:
         rv3d = context.region_data
         matrix = context.edit_object.matrix_world
         closest_edge = None
-        min_dist = float('inf')
+        min_dist = float("inf")
         hit_loc_2d = location_3d_to_region_2d(region, rv3d, matrix @ hit_loc)
         if hit_loc_2d is None:
             return None
@@ -122,16 +140,24 @@ class Closest:
             p2 = edge.verts[1].co
 
             closest_point = self._closest_point_on_edge(p1, p2, hit_loc)
-            closest_point_2d = location_3d_to_region_2d(region, rv3d, matrix @ closest_point)
+            closest_point_2d = location_3d_to_region_2d(
+                region, rv3d, matrix @ closest_point
+            )
 
-            if closest_point_2d is not None and self._is_within_radius(hit_loc_2d, closest_point_2d, self.radius.edge):
+            if closest_point_2d is not None and self._is_within_radius(
+                hit_loc_2d, closest_point_2d, self.radius.edge
+            ):
                 dist = np.linalg.norm(np.array(hit_loc_2d) - np.array(closest_point_2d))
                 if dist < min_dist:
                     min_dist = dist
                     closest_edge = edge
 
         if closest_edge:
-            return _Edge(index=closest_edge.index, length=closest_edge.calc_length(), radius=self.radius.edge)
+            return _Edge(
+                index=closest_edge.index,
+                length=closest_edge.calc_length(),
+                radius=self.radius.edge,
+            )
         else:
             return None
 

@@ -5,7 +5,7 @@ import bmesh
 
 
 def modal(self, context, event):
-    '''Bisect the mesh'''
+    """Bisect the mesh"""
     region = context.region
     rv3d = context.region_data
 
@@ -16,8 +16,18 @@ def modal(self, context, event):
         self.mouse.co = _snap(self, context, precision=precision)
 
     # Convert 2D mouse positions to 3D points
-    point1 = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.init, depth + rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)))
-    point2 = view3d.region_2d_to_location_3d(region, rv3d, self.mouse.co, depth + rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)))
+    point1 = view3d.region_2d_to_location_3d(
+        region,
+        rv3d,
+        self.mouse.init,
+        depth + rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)),
+    )
+    point2 = view3d.region_2d_to_location_3d(
+        region,
+        rv3d,
+        self.mouse.co,
+        depth + rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)),
+    )
 
     # Update Line
     self.ui.bisect_line.callback.update_batch((point1, point2))
@@ -63,7 +73,7 @@ def modal(self, context, event):
 
     view_direction = view3d.region_2d_to_vector_3d(region, rv3d, self.mouse.init)
     normal = tangent.cross(view_direction).normalized()
-    
+
     # Apply flip to the normal if needed
     if flip:
         normal = -normal
@@ -72,16 +82,20 @@ def modal(self, context, event):
 
 
 def execute(self, context, obj, bm, bisect_data):
-    '''Bisect the mesh'''
+    """Bisect the mesh"""
 
-    if self.pref.type == 'EDIT_MESH':
-        edited_objects = [obj for obj in context.objects_in_mode_unique_data if obj.type == 'MESH']
+    if self.pref.type == "EDIT_MESH":
+        edited_objects = [
+            obj for obj in context.objects_in_mode_unique_data if obj.type == "MESH"
+        ]
         for obj in edited_objects:
             bm = bmesh.from_edit_mesh(obj.data)
             _bisect(obj, bm, bisect_data)
             bmesh.update_edit_mesh(obj.data)
     else:
-        selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+        selected_objects = [
+            obj for obj in context.selected_objects if obj.type == "MESH"
+        ]
         for obj in selected_objects:
             bm = bmesh.new()
             bm.from_mesh(obj.data)
@@ -90,11 +104,11 @@ def execute(self, context, obj, bm, bisect_data):
             bm.to_mesh(obj.data)
             bm.free()
 
-    return {'FINISHED'}
+    return {"FINISHED"}
 
 
 def _bisect(obj, bm, bisect_data):
-    '''Bisect the mesh'''
+    """Bisect the mesh"""
 
     plane_co_global = bisect_data[0]
     plane_no_global = bisect_data[1]
@@ -112,26 +126,38 @@ def _bisect(obj, bm, bisect_data):
         plane_no = -plane_no
 
     clear_outer = False
-    if mode == 'CUT':
+    if mode == "CUT":
         clear_outer = True
 
     # Perform bisect
-    geom_cut = bmesh.ops.bisect_plane(bm, geom=geom, plane_co=plane_co, plane_no=plane_no, clear_outer=clear_outer, clear_inner=False, use_snap_center=False)
+    geom_cut = bmesh.ops.bisect_plane(
+        bm,
+        geom=geom,
+        plane_co=plane_co,
+        plane_no=plane_no,
+        clear_outer=clear_outer,
+        clear_inner=False,
+        use_snap_center=False,
+    )
 
     # Select the newly cut geometry
-    for geom_elem in geom_cut['geom_cut']:
+    for geom_elem in geom_cut["geom_cut"]:
         geom_elem.select = True
 
     if clear_outer:
-        bmesh.ops.contextual_create(bm, geom=geom_cut['geom_cut'], mat_nr=0)
+        bmesh.ops.contextual_create(bm, geom=geom_cut["geom_cut"], mat_nr=0)
 
 
 def _snap(self, context, precision=False):
     """Snap the mouse position to the nearest angle increment."""
     tool_settings = context.scene.tool_settings
-    angle_increment = getattr(tool_settings, 'snap_angle_increment_3d', math.radians(15))
+    angle_increment = getattr(
+        tool_settings, "snap_angle_increment_3d", math.radians(15)
+    )
     if precision:
-        angle_increment = getattr(tool_settings, 'snap_angle_increment_3d_precision', math.radians(5))
+        angle_increment = getattr(
+            tool_settings, "snap_angle_increment_3d_precision", math.radians(5)
+        )
 
     delta = self.mouse.co - self.mouse.init
     angle = math.atan2(delta.y, delta.x)
@@ -148,8 +174,8 @@ def _bbox_center(objs):
         return Vector((0, 0, 0))
 
     # Initialize bounds in world space
-    world_min = Vector((float('inf'),) * 3)
-    world_max = Vector((float('-inf'),) * 3)
+    world_min = Vector((float("inf"),) * 3)
+    world_max = Vector((float("-inf"),) * 3)
 
     for obj in objs:
         # Get mesh bounds in world space
@@ -168,7 +194,7 @@ def _bbox_center(objs):
             world_max.z = max(world_max.z, world_vertex.z)
 
     # Calculate center in world space
-    if world_min.x != float('inf'):
+    if world_min.x != float("inf"):
         world_center = (world_min + world_max) * 0.5
         return world_center
 

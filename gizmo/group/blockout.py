@@ -7,19 +7,20 @@ from ..types import move, arrow
 
 @dataclass
 class Gizmo:
-    '''Dataclass for the gizmo.'''
+    """Dataclass for the gizmo."""
+
     extrude: arrow.Draw = None
     translate: move.Draw = None
     bevel: arrow.Draw = None
 
 
 class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
-    bl_idname = 'BOUT_GGT_Blockout'
-    bl_label = 'Blockout Gizmo'
-    bl_space_type = 'VIEW_3D'
-    bl_context_mode = 'EDIT_MESH'
-    bl_region_type = 'WINDOW'
-    bl_options = {'3D'}
+    bl_idname = "BOUT_GGT_Blockout"
+    bl_label = "Blockout Gizmo"
+    bl_space_type = "VIEW_3D"
+    bl_context_mode = "EDIT_MESH"
+    bl_region_type = "WINDOW"
+    bl_options = {"3D"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -27,21 +28,26 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
 
     @classmethod
     def poll(cls, context):
-        active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-        blockout_tool = active_tool and (active_tool.idname == 'object.bout_block_obj' or active_tool.idname == 'object.bout_block_mesh')
-        return (context.space_data.show_gizmo_tool and
-                context.edit_object and
-                blockout_tool)
+        active_tool = context.workspace.tools.from_space_view3d_mode(
+            context.mode, create=False
+        )
+        blockout_tool = active_tool and (
+            active_tool.idname == "object.bout_block_obj"
+            or active_tool.idname == "object.bout_block_mesh"
+        )
+        return (
+            context.space_data.show_gizmo_tool and context.edit_object and blockout_tool
+        )
 
     def setup(self, context):
-        '''Setup the gizmos.'''
+        """Setup the gizmos."""
         self.gizmos.clear()
         self.create_extrude_gizmo(context)
         self.create_bevel_gizmo(context)
         self.create_translate_gizmo(context)
 
     def refresh(self, context):
-        '''Refresh the gizmos.'''
+        """Refresh the gizmos."""
         modals = context.window.modal_operators
         if any(modal.bl_idname for modal in modals):
             self.remove_gizmos()
@@ -51,7 +57,7 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
         self.update_translate_gizmo(context)
 
     def remove_gizmos(self):
-        '''Remove all gizmos.'''
+        """Remove all gizmos."""
         if self.gizmo.extrude:
             self.gizmos.remove(self.gizmo.extrude.gz)
             self.gizmo.extrude = None
@@ -65,13 +71,18 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
     def create_translate_gizmo(self, context):
         matrix = self.compute_translate_gizmo_matrix(context)
         if matrix is not None:
-            self.gizmo.translate = move.Draw(self, matrix, (1, 1, 0), 0.5, 0.2, hide_select=False)
-            self.gizmo.translate.operator('transform.translate', {
-                'release_confirm': True,
-            })
+            self.gizmo.translate = move.Draw(
+                self, matrix, (1, 1, 0), 0.5, 0.2, hide_select=False
+            )
+            self.gizmo.translate.operator(
+                "transform.translate",
+                {
+                    "release_confirm": True,
+                },
+            )
 
     def update_translate_gizmo(self, context):
-        '''Update the translate gizmo.'''
+        """Update the translate gizmo."""
         matrix = self.compute_translate_gizmo_matrix(context)
         if matrix is not None:
             if self.gizmo.translate:
@@ -84,23 +95,26 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
                 self.gizmo.translate = None
 
     def create_extrude_gizmo(self, context):
-        '''Create the extrude gizmo.'''
+        """Create the extrude gizmo."""
         matrix = self.compute_extrude_gizmo_matrix(context)
         if matrix is not None:
             self.gizmo.extrude = arrow.Draw(self, matrix)
-            self.gizmo.extrude.operator('mesh.extrude_manifold', {
-                'MESH_OT_extrude_region': {
-                    "use_dissolve_ortho_edges": True,
+            self.gizmo.extrude.operator(
+                "mesh.extrude_manifold",
+                {
+                    "MESH_OT_extrude_region": {
+                        "use_dissolve_ortho_edges": True,
+                    },
+                    "TRANSFORM_OT_translate": {
+                        "orient_type": "NORMAL",
+                        "constraint_axis": (False, False, True),
+                        "release_confirm": True,
+                    },
                 },
-                'TRANSFORM_OT_translate': {
-                    "orient_type": 'NORMAL',
-                    "constraint_axis": (False, False, True),
-                    "release_confirm": True,
-                },
-            })
+            )
 
     def update_extrude_gizmo(self, context):
-        '''Update the extrude gizmo.'''
+        """Update the extrude gizmo."""
         matrix = self.compute_extrude_gizmo_matrix(context)
         if matrix is not None:
             if self.gizmo.extrude:
@@ -113,25 +127,28 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
                 self.gizmo.extrude = None
 
     def create_bevel_gizmo(self, context):
-        '''Create the bevel gizmo.'''
+        """Create the bevel gizmo."""
 
         matrix = self.compute_bevel_gizmo_matrix(context)
         if matrix is not None:
             self.gizmo.bevel = arrow.Draw(self, matrix)
-            self.gizmo.bevel.gz.draw_options = {'ORIGIN'}
+            self.gizmo.bevel.gz.draw_options = {"ORIGIN"}
             self.gizmo.bevel.gz.length = 0.0
             self.gizmo.bevel.gz.scale_basis = 0.2
-            self.gizmo.bevel.gz.draw_style = 'CROSS'
-            self.gizmo.bevel.operator('mesh.bevel', {
-                'affect': 'EDGES',
-                'offset_type': 'OFFSET',
-                'segments': 1,
-                'profile': 0.5,
-                "release_confirm": True,
-            })
+            self.gizmo.bevel.gz.draw_style = "CROSS"
+            self.gizmo.bevel.operator(
+                "mesh.bevel",
+                {
+                    "affect": "EDGES",
+                    "offset_type": "OFFSET",
+                    "segments": 1,
+                    "profile": 0.5,
+                    "release_confirm": True,
+                },
+            )
 
     def update_bevel_gizmo(self, context):
-        '''Update the bevel gizmo.'''
+        """Update the bevel gizmo."""
         matrix = self.compute_bevel_gizmo_matrix(context)
         if matrix is not None:
             if self.gizmo.bevel:
@@ -144,7 +161,7 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
                 self.gizmo.bevel = None
 
     def compute_extrude_gizmo_matrix(self, context):
-        '''Compute the matrix for the extrude gizmo.'''
+        """Compute the matrix for the extrude gizmo."""
         obj = context.edit_object
         me = obj.data
         bm = bmesh.from_edit_mesh(me)
@@ -172,13 +189,15 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
             return None
         avg_normal.normalize()
 
-        if context.scene.tool_settings.transform_pivot_point == 'ACTIVE_ELEMENT':
+        if context.scene.tool_settings.transform_pivot_point == "ACTIVE_ELEMENT":
             active_face = bm.select_history.active
             if active_face and isinstance(active_face, bmesh.types.BMFace):
                 avg_normal = active_face.normal
 
         # Create a rotation matrix directly from the average normal
-        quat = avg_normal.to_track_quat('Z', 'Y')  # Adjusted to ensure correct orientation
+        quat = avg_normal.to_track_quat(
+            "Z", "Y"
+        )  # Adjusted to ensure correct orientation
         rotation_matrix = quat.to_matrix().to_4x4()
 
         # Extract location, rotation, and scale from the object's transformation matrix
@@ -189,12 +208,14 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
 
         # Reconstruct the transformation matrix without scaling the rotation
         rot_matrix = rot.to_matrix().to_4x4()
-        world_matrix = Matrix.Translation(scaled_translation) @ rot_matrix @ rotation_matrix
+        world_matrix = (
+            Matrix.Translation(scaled_translation) @ rot_matrix @ rotation_matrix
+        )
 
         return world_matrix
 
     def compute_bevel_gizmo_matrix(self, context):
-        '''Compute the matrix for the bevel gizmo.'''
+        """Compute the matrix for the bevel gizmo."""
         obj = context.edit_object
         me = obj.data
         bm = bmesh.from_edit_mesh(me)
@@ -213,8 +234,12 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
         else:
             last_selected_edge = selected_edges[-1]
 
-        edge_center = (last_selected_edge.verts[0].co + last_selected_edge.verts[1].co) / 2
-        edge_direction = (last_selected_edge.verts[1].co - last_selected_edge.verts[0].co).normalized()
+        edge_center = (
+            last_selected_edge.verts[0].co + last_selected_edge.verts[1].co
+        ) / 2
+        edge_direction = (
+            last_selected_edge.verts[1].co - last_selected_edge.verts[0].co
+        ).normalized()
 
         # Compute the average normal of the linked faces of the last selected edge
         face_normals = [face.normal for face in last_selected_edge.link_faces]
@@ -244,12 +269,14 @@ class BOUT_GGT_Blockout(bpy.types.GizmoGroup):
 
         # Reconstruct the transformation matrix without scaling the rotation
         rot_matrix = rot.to_matrix().to_4x4()
-        world_matrix = Matrix.Translation(scaled_translation) @ rot_matrix @ rotation_matrix
+        world_matrix = (
+            Matrix.Translation(scaled_translation) @ rot_matrix @ rotation_matrix
+        )
 
         return world_matrix
 
     def compute_translate_gizmo_matrix(self, context):
-        '''Compute the matrix for the translate gizmo based on the active vertex.'''
+        """Compute the matrix for the translate gizmo based on the active vertex."""
         obj = context.edit_object
         me = obj.data
         bm = bmesh.from_edit_mesh(me)

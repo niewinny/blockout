@@ -2,15 +2,16 @@ from mathutils import Matrix, Vector
 import math
 import bmesh
 
+
 def create(bm, plane, verts_number, direction=None):
-    '''
+    """
     Create a circle face with specified number of vertices
-    
+
     :param bm: The bmesh object to modify
     :param plane: A tuple (location, normal) defining the orientation and center
     :param verts_number: Number of vertices in the circle
     :param direction: Optional direction vector to define orientation. If None, one will be generated
-    '''
+    """
     location, normal = plane
     normal = normal.normalized()
 
@@ -38,7 +39,7 @@ def create(bm, plane, verts_number, direction=None):
         cap_ends=True,
         radius=0.0,  # Small initial diameter
         segments=verts_number,
-        matrix=matrix
+        matrix=matrix,
     )
 
     bm.verts.ensure_lookup_table()
@@ -47,7 +48,7 @@ def create(bm, plane, verts_number, direction=None):
     bm.faces.ensure_lookup_table()
     bm.faces.index_update()
 
-    vert = result['verts'][0]
+    vert = result["verts"][0]
     face = vert.link_faces[0]
     face.normal_update()
     face.select_set(True)
@@ -57,10 +58,10 @@ def create(bm, plane, verts_number, direction=None):
 
 
 def set_xy(face, plane, loc, direction, radius=None, local_space=False, snap_value=0):
-    '''
+    """
     Expand the circle face. If `radius` is provided, it will be used directly.
     Otherwise, the `loc` parameter is used to compute the radius.
-    
+
     :param face: The face to modify
     :param plane: A tuple (location, normal) defining the orientation and center
     :param direction: Direction vector to define orientation of the circle
@@ -68,7 +69,7 @@ def set_xy(face, plane, loc, direction, radius=None, local_space=False, snap_val
     :param radius: The desired radius of the circle. If provided, this is used directly
     :param local_space: Whether loc is in local space
     :param snap_value: Snap value for radius
-    '''
+    """
     # Unpack plane data
     location, normal = plane
     normal = normal.normalized()

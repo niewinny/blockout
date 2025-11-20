@@ -2,7 +2,7 @@ from mathutils import Matrix, Vector
 
 
 def create(bm, plane):
-    '''Create a rectangle face'''
+    """Create a rectangle face"""
 
     location, normal = plane
     v1 = bm.verts.new(location)
@@ -24,13 +24,21 @@ def create(bm, plane):
     return [face.index]
 
 
-def set_xy(face, plane, loc, direction, local_space=False, snap_value=0, symmetry=(False, False)):
-    '''
+def set_xy(
+    face,
+    plane,
+    loc,
+    direction,
+    local_space=False,
+    snap_value=0,
+    symmetry=(False, False),
+):
+    """
     Expand the rectangle face. The `loc` parameter is always provided.
     If `local_space` is True, `loc` is given in the plane's local coordinate system.
     If `local_space` is False, `loc` is given in global coordinate system and will be transformed.
     If `symy` or `symx` is True, the rectangle will be symmetric along the x-axis or y-axis of the plane's local coordinate system.
-    '''
+    """
 
     symx, symy = symmetry
 

@@ -23,12 +23,12 @@ class DrawMatrix:
     mat: Matrix = field(default_factory=lambda: Matrix.Identity(4))
 
     @classmethod
-    def new(cls) -> 'DrawMatrix':
+    def new(cls) -> "DrawMatrix":
         """Create a new blank DrawMatrix with identity matrix."""
         return cls(Matrix.Identity(4))
 
     @classmethod
-    def from_property(cls, matrix_prop) -> 'DrawMatrix':
+    def from_property(cls, matrix_prop) -> "DrawMatrix":
         """Create a DrawMatrix from a float vector property."""
         # Convert the float vector (flat list of 16 values) to a 4x4 matrix
         matrix = Matrix(matrix_prop)
@@ -38,13 +38,27 @@ class DrawMatrix:
         """Convert this matrix to a format suitable for a float vector property."""
         # Flatten the matrix to a list of 16 values in column-major order
         return [
-            self.mat[0][0], self.mat[1][0], self.mat[2][0], self.mat[3][0],
-            self.mat[0][1], self.mat[1][1], self.mat[2][1], self.mat[3][1],
-            self.mat[0][2], self.mat[1][2], self.mat[2][2], self.mat[3][2],
-            self.mat[0][3], self.mat[1][3], self.mat[2][3], self.mat[3][3]
+            self.mat[0][0],
+            self.mat[1][0],
+            self.mat[2][0],
+            self.mat[3][0],
+            self.mat[0][1],
+            self.mat[1][1],
+            self.mat[2][1],
+            self.mat[3][1],
+            self.mat[0][2],
+            self.mat[1][2],
+            self.mat[2][2],
+            self.mat[3][2],
+            self.mat[0][3],
+            self.mat[1][3],
+            self.mat[2][3],
+            self.mat[3][3],
         ]
 
-    def from_plane(self, plane: Tuple[Vector, Vector], direction: Vector) -> 'DrawMatrix':
+    def from_plane(
+        self, plane: Tuple[Vector, Vector], direction: Vector
+    ) -> "DrawMatrix":
         """Update this matrix in-place from a plane (origin, normal) and in-plane X direction."""
         origin, normal = plane
         basis = _orthonormal_basis(normal, direction)
@@ -66,7 +80,7 @@ class DrawMatrix:
         normal = self.normal.normalized()
         return origin, x_dir, normal
 
-    def to_local(self, obj) -> 'DrawMatrix':
+    def to_local(self, obj) -> "DrawMatrix":
         """Transform this matrix from world to local space of the given object."""
         world_to_local = obj.matrix_world.inverted_safe()
         self.mat = world_to_local @ self.mat
@@ -98,10 +112,10 @@ class DrawMatrix:
         return self.mat.copy()
 
 
-
 @dataclass
 class DrawVert:
-    '''Dataclass for storing options'''
+    """Dataclass for storing options"""
+
     index: int = -1
     co: Vector = Vector()
     region: Vector = Vector()

@@ -5,16 +5,21 @@ from ..utils import view3d
 
 
 def direction_from_closest_edge(obj, face, loc):
-    '''
+    """
     Get the direction from the closest edge
 
     :param obj: Object containing the face
     :param face: Face to find the closest edge for
     :param loc: Location to measure distance from
     :return: Direction vector along the closest edge
-    '''
+    """
     matrix = obj.matrix_world
-    edge = min(face.edges, key=lambda e: geom.distance_point_to_segment(loc, matrix @ e.verts[0].co, matrix @ e.verts[1].co))
+    edge = min(
+        face.edges,
+        key=lambda e: geom.distance_point_to_segment(
+            loc, matrix @ e.verts[0].co, matrix @ e.verts[1].co
+        ),
+    )
 
     # get loop for the edge that is also in the face
     loop = next((loop for loop in edge.link_loops if loop.face == face), None)
@@ -29,12 +34,12 @@ def direction_from_closest_edge(obj, face, loc):
 
 
 def direction_from_normal(normal):
-    '''
+    """
     Get the direction vector perpendicular to a normal
 
     :param normal: Normal vector
     :return: Direction vector perpendicular to the normal
-    '''
+    """
     up_vector = Vector((0, 0, 1))
     if abs(normal.dot(up_vector)) > 0.9999:
         up_vector = Vector((0, 1, 0))
@@ -45,7 +50,7 @@ def direction_from_normal(normal):
 
 
 def snap_plane(plane, snap_plane, direction, snap_value):
-    '''
+    """
     Snap a point onto a plane and then onto a grid in that plane along the given direction
     and its perpendicular direction.
 
@@ -54,7 +59,7 @@ def snap_plane(plane, snap_plane, direction, snap_value):
     :param direction: Vector, a direction vector lying in the plane
     :param snap_value: Float, the grid spacing to snap to
     :return: Tuple (snapped_point, normal), the snapped point on the plane and the normal
-    '''
+    """
 
     if plane[0] is None:
         return plane
@@ -88,7 +93,7 @@ def snap_plane(plane, snap_plane, direction, snap_value):
 
 
 def point_on_axis(region, rv3d, plane, direction, point, distance):
-    '''
+    """
     Get the closest point on the plane along the given axis within the given distance
 
     :param region: Region for 2D to 3D conversion
@@ -98,7 +103,7 @@ def point_on_axis(region, rv3d, plane, direction, point, distance):
     :param point: Point to project onto the axis
     :param distance: Maximum distance for snapping
     :return: Tuple (point, (snap_x, snap_y)) with the snapped point and snap status
-    '''
+    """
 
     if not point:
         return None, (None, None)
@@ -187,11 +192,7 @@ def face_bbox_center(face, matrix):
     )
 
     # 6. Convert that center back into 3D world space
-    bbox_center_world = (
-        location_world +
-        center_2d[0] * x_axis +
-        center_2d[1] * y_axis
-    )
+    bbox_center_world = location_world + center_2d[0] * x_axis + center_2d[1] * y_axis
 
     return bbox_center_world
 
@@ -209,14 +210,13 @@ def set_align_rotation_from_vectors(normal, direction):
     direction = direction.normalized()
 
     # Handle exact axis-aligned cases for precision
-    x_pos = Vector((1, 0, 0))
-    x_neg = Vector((-1, 0, 0))
-    y_pos = Vector((0, 1, 0))
-    y_neg = Vector((0, -1, 0))
-    z_pos = Vector((0, 0, 1))
-    z_neg = Vector((0, 0, -1))
+    Vector((1, 0, 0))
+    Vector((-1, 0, 0))
+    Vector((0, 1, 0))
+    Vector((0, -1, 0))
+    Vector((0, 0, 1))
+    Vector((0, 0, -1))
 
-    axis_threshold = 0.999
 
     # This now handles ALL cases, including axis-aligned ones
     z_axis = normal
@@ -225,11 +225,11 @@ def set_align_rotation_from_vectors(normal, direction):
     x_axis = y_axis.cross(z_axis).normalized()
 
     rotation_matrix = Matrix((x_axis, y_axis, z_axis)).transposed().to_3x3()
-    euler = rotation_matrix.to_euler('XYZ')
+    euler = rotation_matrix.to_euler("XYZ")
     rotation_radians = [angle for angle in euler]
 
     # Snap angles close to 90° increments to exact values
-    half_pi = math.pi/2
+    half_pi = math.pi / 2
     for i, angle in enumerate(rotation_radians):
         if abs(angle % half_pi) < 0.01 or abs(angle % half_pi - half_pi) < 0.01:
             rotation_radians[i] = round(angle / half_pi) * half_pi
@@ -247,15 +247,19 @@ def get_vectors_from_align_rotation(rotation):
     """
 
     # Convert Euler angles to a rotation matrix
-    rot_euler = Euler(rotation, 'XYZ')
+    rot_euler = Euler(rotation, "XYZ")
     rotation_matrix = rot_euler.to_matrix()
 
     # Extract columns from rotation matrix
     # In a rotation matrix, columns represent the transformed basis vectors
     # Column 0 (X axis) = direction vector
     # Column 2 (Z axis) = normal vector
-    direction = Vector((rotation_matrix[0][0], rotation_matrix[1][0], rotation_matrix[2][0]))
-    normal = Vector((rotation_matrix[0][2], rotation_matrix[1][2], rotation_matrix[2][2]))
+    direction = Vector(
+        (rotation_matrix[0][0], rotation_matrix[1][0], rotation_matrix[2][0])
+    )
+    normal = Vector(
+        (rotation_matrix[0][2], rotation_matrix[1][2], rotation_matrix[2][2])
+    )
 
     # Ensure vectors are normalized
     normal = normal.normalized()

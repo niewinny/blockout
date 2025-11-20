@@ -1,9 +1,9 @@
 from ...utils import modifier, addon
 
 
-def add_modifier(bool_obj, obj, operation='DIFFERENCE'):
-    '''Add the boolean modifier'''
-    mod = modifier.add(bool_obj, "Boolean", 'BOOLEAN')
+def add_modifier(bool_obj, obj, operation="DIFFERENCE"):
+    """Add the boolean modifier"""
+    mod = modifier.add(bool_obj, "Boolean", "BOOLEAN")
     mod.operation = operation
     mod.solver = addon.pref().tools.block.align.solver
     mod.object = obj
@@ -13,7 +13,7 @@ def add_modifier(bool_obj, obj, operation='DIFFERENCE'):
 
 
 def clear_modifiers(modifiers):
-    '''Clear all boolean modifiers'''
+    """Clear all boolean modifiers"""
     if not modifiers.booleans:
         return
 

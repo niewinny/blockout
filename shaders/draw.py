@@ -4,9 +4,12 @@ from mathutils import Vector
 import mathutils.geometry
 from gpu_extras.batch import batch_for_shader
 
-class DrawPoints():
+
+class DrawPoints:
     def __init__(self, points, size, color):
-        self.shader = gpu.shader.from_builtin('POINT_UNIFORM_COLOR' if bpy.app.version > (4, 5, 0) else 'UNIFORM_COLOR')
+        self.shader = gpu.shader.from_builtin(
+            "POINT_UNIFORM_COLOR" if bpy.app.version > (4, 5, 0) else "UNIFORM_COLOR"
+        )
         self.size = size
         self.color = color
         self.points = [Vector(p) for p in points]
@@ -14,9 +17,11 @@ class DrawPoints():
 
     def create_batch(self):
         if not self.points or len(self.points) < 1:
-            return batch_for_shader(self.shader, 'POINTS', {"pos": []})
-        vertices = [p.to_3d() if hasattr(p, 'to_3d') else Vector(p) for p in self.points]
-        return batch_for_shader(self.shader, 'POINTS', {"pos": vertices})
+            return batch_for_shader(self.shader, "POINTS", {"pos": []})
+        vertices = [
+            p.to_3d() if hasattr(p, "to_3d") else Vector(p) for p in self.points
+        ]
+        return batch_for_shader(self.shader, "POINTS", {"pos": vertices})
 
     def update_batch(self, points=None, color=None, size=None):
         if points is not None:
@@ -44,33 +49,38 @@ class DrawPoints():
             self.batch = self.create_batch()
         width = context.area.width
         height = context.area.height
-        quad_view = getattr(context.space_data, 'region_quadviews', None)
+        quad_view = getattr(context.space_data, "region_quadviews", None)
         if quad_view:
             width /= 2
             height /= 2
-        gpu.state.depth_test_set('NONE')
+        gpu.state.depth_test_set("NONE")
         self.shader.bind()
-        self.shader.uniform_float('color', self.color)
+        self.shader.uniform_float("color", self.color)
         gpu.state.point_size_set(self.size)
-        gpu.state.blend_set('ALPHA')
+        gpu.state.blend_set("ALPHA")
         self.batch.draw(self.shader)
 
 
-class DrawTools():
+class DrawTools:
     def draw_tool(self, context):
         tools_active = self.tool(context)
         if tools_active:
             self.draw(context)
 
     def tool(self, context):
-        active_tool = context.workspace.tools.from_space_view3d_mode(context.mode, create=False)
-        bout_tools = active_tool and (active_tool.idname == 'object.bout_block_obj' or active_tool.idname == 'object.bout_block_mesh')
+        active_tool = context.workspace.tools.from_space_view3d_mode(
+            context.mode, create=False
+        )
+        bout_tools = active_tool and (
+            active_tool.idname == "object.bout_block_obj"
+            or active_tool.idname == "object.bout_block_mesh"
+        )
         return bout_tools
 
 
-class DrawGradient():
+class DrawGradient:
     def __init__(self, points, colors):
-        self.shader = gpu.shader.from_builtin('SMOOTH_COLOR')
+        self.shader = gpu.shader.from_builtin("SMOOTH_COLOR")
         self.points = [Vector(pt) for pt in points]
         self.colors = colors
         self.batch = None
@@ -81,9 +91,16 @@ class DrawGradient():
 
     def setup_batch(self, points, colors):
         if points is None or len(points) < 2:
-            return batch_for_shader(self.shader, 'TRIS', {"pos": [], "color": []}, indices=[])
+            return batch_for_shader(
+                self.shader, "TRIS", {"pos": [], "color": []}, indices=[]
+            )
         vertices = [point.to_2d() for point in self.points]
-        return batch_for_shader(self.shader, 'TRIS', {"pos": vertices, "color": colors}, indices=[(0, 1, 2), (2, 3, 0)])
+        return batch_for_shader(
+            self.shader,
+            "TRIS",
+            {"pos": vertices, "color": colors},
+            indices=[(0, 1, 2), (2, 3, 0)],
+        )
 
     def update_batch(self, points, colors=None):
         self.points = [Vector(pt) for pt in points]
@@ -105,9 +122,9 @@ class DrawGradient():
             width /= 2
             height /= 2
 
-        gpu.state.depth_test_set('NONE')
+        gpu.state.depth_test_set("NONE")
         self.shader.bind()
-        gpu.state.blend_set('ALPHA')
+        gpu.state.blend_set("ALPHA")
         self.batch.draw(self.shader)
 
     def line_width(self, width):
@@ -119,7 +136,7 @@ class DrawGradient():
 
 class DrawLine(DrawTools):
     def __init__(self, points, width, color, depth=False):
-        shader_name = 'POLYLINE_FLAT_COLOR'
+        shader_name = "POLYLINE_FLAT_COLOR"
         self.shader = gpu.shader.from_builtin(shader_name)
         self.width = width
         self.color = color
@@ -132,14 +149,21 @@ class DrawLine(DrawTools):
 
     def setup_batch(self, points, color):
         if points is None or len(points) < 2:
-            return batch_for_shader(self.shader, 'LINES', {"pos": [], "color": []}, indices=[])
+            return batch_for_shader(
+                self.shader, "LINES", {"pos": [], "color": []}, indices=[]
+            )
         direction = (points[1] - points[0]).normalized()
         extension_factor = 1e4
         point_a_far = points[0] - direction * extension_factor
         point_b_far = points[1] + direction * extension_factor
         vertices = [point_a_far[:], point_b_far[:]]
         vertex_colors = [color for _ in vertices]
-        return batch_for_shader(self.shader, 'LINES', {"pos": vertices, "color": vertex_colors}, indices=[(0, 1)])
+        return batch_for_shader(
+            self.shader,
+            "LINES",
+            {"pos": vertices, "color": vertex_colors},
+            indices=[(0, 1)],
+        )
 
     def update_batch(self, points, color=None):
         self.points = [Vector(p) for p in points]
@@ -148,19 +172,19 @@ class DrawLine(DrawTools):
         self.batch = self.setup_batch(self.points, self.color)
 
     def clear(self):
-        '''Clear the points list'''
+        """Clear the points list"""
         points = []
         self.update_batch(points)
 
     def depth_test_set(self, value):
-        value = 'GREATER_EQUAL' if self.depth else 'NONE'
+        value = "GREATER_EQUAL" if self.depth else "NONE"
         gpu.state.depth_test_set(value)
 
     def viewport_size(self, width, height):
-        self.shader.uniform_float('viewportSize', (width, height))
+        self.shader.uniform_float("viewportSize", (width, height))
 
     def line_width(self, width):
-        self.shader.uniform_float('lineWidth', width)
+        self.shader.uniform_float("lineWidth", width)
 
     def draw(self, context):
         if not self.points or len(self.points) < 1:
@@ -176,17 +200,17 @@ class DrawLine(DrawTools):
             width /= 2
             height /= 2
 
-        self.depth_test_set('NONE')
+        self.depth_test_set("NONE")
         self.shader.bind()
         self.viewport_size(width, height)
         self.line_width(self.width)
-        gpu.state.blend_set('ALPHA')
+        gpu.state.blend_set("ALPHA")
         self.batch.draw(self.shader)
 
 
-class DrawPolyline():
+class DrawPolyline:
     def __init__(self, points, width, color):
-        shader_name = 'POLYLINE_FLAT_COLOR'
+        shader_name = "POLYLINE_FLAT_COLOR"
         self.shader = gpu.shader.from_builtin(shader_name)
         self.width = width
         self.color = color
@@ -194,14 +218,19 @@ class DrawPolyline():
         self.batch = None
 
     def create_batch(self):
-        '''Create a batch for the shader'''
+        """Create a batch for the shader"""
 
         vertices = [point for edge in self.points for point in edge]
         indices = [(i, i + 1) for i in range(0, len(vertices), 2)]
-        return batch_for_shader(self.shader, 'LINES', {"pos": vertices, "color": [self.color]*len(vertices)}, indices=indices)
+        return batch_for_shader(
+            self.shader,
+            "LINES",
+            {"pos": vertices, "color": [self.color] * len(vertices)},
+            indices=indices,
+        )
 
     def update_batch(self, points, color=None, width=None):
-        '''Update the batch with new points'''
+        """Update the batch with new points"""
         self.points = points
         if color:
             self.color = color
@@ -210,15 +239,15 @@ class DrawPolyline():
         self.batch = self.create_batch()
 
     def clear(self):
-        '''Clear the points list'''
+        """Clear the points list"""
         points = []
         self.update_batch(points)
 
     def line_width(self, width):
-        self.shader.uniform_float('lineWidth', width)
+        self.shader.uniform_float("lineWidth", width)
 
     def viewport_size(self, width, height):
-        self.shader.uniform_float('viewportSize', (width, height))
+        self.shader.uniform_float("viewportSize", (width, height))
 
     def draw(self, context):
         if not self.points or len(self.points) < 1:
@@ -234,17 +263,17 @@ class DrawPolyline():
             width /= 2
             height /= 2
 
-        gpu.state.depth_test_set('NONE')
+        gpu.state.depth_test_set("NONE")
         self.shader.bind()
         self.viewport_size(width, height)
         self.line_width(self.width)
-        gpu.state.blend_set('ALPHA')
+        gpu.state.blend_set("ALPHA")
         self.batch.draw(self.shader)
 
 
-class DrawPlane():
+class DrawPlane:
     def __init__(self, plane_co, plane_no, size=1.0, color=(1.0, 1.0, 1.0, 1.0)):
-        self.shader = gpu.shader.from_builtin('FLAT_COLOR')
+        self.shader = gpu.shader.from_builtin("FLAT_COLOR")
         self.plane_co = Vector(plane_co)
         self.plane_no = Vector(plane_no).normalized()
         self.size = size
@@ -271,7 +300,9 @@ class DrawPlane():
         indices = [(0, 1, 2), (2, 3, 0)]
         colors = [self.color] * 4
 
-        return batch_for_shader(self.shader, 'TRIS', {"pos": vertices, "color": colors}, indices=indices)
+        return batch_for_shader(
+            self.shader, "TRIS", {"pos": vertices, "color": colors}, indices=indices
+        )
 
     def update_batch(self, plane_co=None, plane_no=None, size=None, color=None):
         if plane_co:
@@ -295,10 +326,10 @@ class DrawPlane():
             width /= 2
             height /= 2
 
-        gpu.state.depth_test_set('NONE')
+        gpu.state.depth_test_set("NONE")
         self.shader.bind()
         self.shader.uniform_float("color", self.color)
-        gpu.state.blend_set('ALPHA')
+        gpu.state.blend_set("ALPHA")
         self.batch.draw(self.shader)
 
     def line_width(self, width):
@@ -308,14 +339,14 @@ class DrawPlane():
         pass
 
 
-class DrawFace():
+class DrawFace:
     def __init__(self, points, color):
         self.points = points
         self.color = color
         self.width = 1
 
         # Create shader but not batch yet
-        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        self.shader = gpu.shader.from_builtin("UNIFORM_COLOR")
         self.batch = None
 
     def create_batch(self):
@@ -324,7 +355,7 @@ class DrawFace():
         attributes = {"pos": vertices}
 
         # Create a batch for the shader
-        return batch_for_shader(self.shader, 'TRIS', attributes, indices=indices)
+        return batch_for_shader(self.shader, "TRIS", attributes, indices=indices)
 
     def update_batch(self, points):
         vertices = points
@@ -332,7 +363,7 @@ class DrawFace():
         attributes = {"pos": vertices}
 
         # Update batch for the shader
-        self.batch = batch_for_shader(self.shader, 'TRIS', attributes, indices=indices)
+        self.batch = batch_for_shader(self.shader, "TRIS", attributes, indices=indices)
 
     def draw(self, context):
         if not self.points or len(self.points) < 3:
@@ -348,10 +379,10 @@ class DrawFace():
             width /= 2
             height /= 2
 
-        gpu.state.depth_test_set('NONE')
+        gpu.state.depth_test_set("NONE")
         self.shader.bind()
-        self.shader.uniform_float('color', self.color)
-        gpu.state.blend_set('ALPHA')
+        self.shader.uniform_float("color", self.color)
+        gpu.state.blend_set("ALPHA")
         self.batch.draw(self.shader)
 
     def line_width(self, width):
@@ -362,8 +393,10 @@ class DrawFace():
 
 
 class DrawGrid(DrawTools):
-    def __init__(self, origin, normal, direction, spacing, size, color=(1.0, 1.0, 1.0, 1.0)):
-        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+    def __init__(
+        self, origin, normal, direction, spacing, size, color=(1.0, 1.0, 1.0, 1.0)
+    ):
+        self.shader = gpu.shader.from_builtin("UNIFORM_COLOR")
         self.origin = Vector(origin)
         self.normal = Vector(normal).normalized()
         self.direction = Vector(direction).normalized()
@@ -406,9 +439,13 @@ class DrawGrid(DrawTools):
         indices = [(i, i + 1) for i in range(0, len(vertices), 2)]
 
         # Create and return the batch
-        return batch_for_shader(self.shader, 'LINES', {"pos": vertices}, indices=indices)
+        return batch_for_shader(
+            self.shader, "LINES", {"pos": vertices}, indices=indices
+        )
 
-    def update_batch(self, origin=None, normal=None, spacing=None, size=None, color=None):
+    def update_batch(
+        self, origin=None, normal=None, spacing=None, size=None, color=None
+    ):
         if origin:
             self.origin = Vector(origin)
         if normal:
@@ -432,10 +469,10 @@ class DrawGrid(DrawTools):
             width /= 2
             height /= 2
 
-        gpu.state.depth_test_set('NONE')
+        gpu.state.depth_test_set("NONE")
         self.shader.bind()
-        self.shader.uniform_float('color', self.color)
-        gpu.state.blend_set('ALPHA')
+        self.shader.uniform_float("color", self.color)
+        gpu.state.blend_set("ALPHA")
         self.batch.draw(self.shader)
 
     def line_width(self, width):
@@ -445,9 +482,9 @@ class DrawGrid(DrawTools):
         pass
 
 
-class DrawBMeshFaces():
+class DrawBMeshFaces:
     def __init__(self, obj, faces, color=(1.0, 1.0, 1.0, 1.0)):
-        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        self.shader = gpu.shader.from_builtin("UNIFORM_COLOR")
         self.color = color
         self.faces = faces
         self.obj = obj
@@ -457,9 +494,10 @@ class DrawBMeshFaces():
         self.indices = []
 
     def create_batch(self):
-
         if not self.faces:
-            return batch_for_shader(self.shader, 'TRIS', {"pos": self.vertices}, indices=self.indices)
+            return batch_for_shader(
+                self.shader, "TRIS", {"pos": self.vertices}, indices=self.indices
+            )
 
         self.vertices = []
         self.indices = []
@@ -487,20 +525,30 @@ class DrawBMeshFaces():
             if len(face_indices) >= 3:
                 # Get the actual 3D coordinates for tessellation
                 face_verts_co = [self.vertices[idx] for idx in face_indices]
-                
+
                 # Use Blender's tessellation function
                 try:
                     # tessellate_polygon returns indices for triangulation
                     tris = mathutils.geometry.tessellate_polygon([face_verts_co])
                     for tri in tris:
                         # Map local indices to our global vertex indices
-                        self.indices.append((face_indices[tri[0]], face_indices[tri[1]], face_indices[tri[2]]))
+                        self.indices.append(
+                            (
+                                face_indices[tri[0]],
+                                face_indices[tri[1]],
+                                face_indices[tri[2]],
+                            )
+                        )
                 except:
                     # Fallback to simple fan triangulation if tessellation fails
                     for i in range(1, len(face_indices) - 1):
-                        self.indices.append((face_indices[0], face_indices[i], face_indices[i + 1]))
+                        self.indices.append(
+                            (face_indices[0], face_indices[i], face_indices[i + 1])
+                        )
 
-        return batch_for_shader(self.shader, 'TRIS', {"pos": self.vertices}, indices=self.indices)
+        return batch_for_shader(
+            self.shader, "TRIS", {"pos": self.vertices}, indices=self.indices
+        )
 
     def update_batch(self, bmesh_faces, color=None):
         self.faces = bmesh_faces
@@ -528,10 +576,10 @@ class DrawBMeshFaces():
             width /= 2
             height /= 2
 
-        gpu.state.depth_test_set('NONE')
+        gpu.state.depth_test_set("NONE")
         self.shader.bind()
-        self.shader.uniform_float('color', self.color)
-        gpu.state.blend_set('ALPHA')
+        self.shader.uniform_float("color", self.color)
+        gpu.state.blend_set("ALPHA")
         self.batch.draw(self.shader)
 
     def line_width(self, width):

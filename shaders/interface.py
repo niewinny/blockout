@@ -6,9 +6,9 @@ import blf
 import math
 
 
-class InterfaceDraw():
+class InterfaceDraw:
     def __init__(self, lines, text_size=10, padding=14, text_padding=12, segments=16):
-        self.shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+        self.shader = gpu.shader.from_builtin("UNIFORM_COLOR")
         self.lines = lines  # List of dictionaries with keys "point" and "text_tuple"
         self.text_size = text_size
         self.padding = padding
@@ -25,7 +25,7 @@ class InterfaceDraw():
         self.batch = None  # Will be created in draw() with proper DPI
 
     def create_circle_vertices(self, center_x, center_y, start_angle, end_angle):
-        '''Create vertices for a circle arc'''
+        """Create vertices for a circle arc"""
         vertices = []
         # Add center point
         vertices.append((center_x, center_y))
@@ -40,13 +40,17 @@ class InterfaceDraw():
         return vertices
 
     def create_batch(self, dpi):
-        '''Create a batch for the shader'''
+        """Create a batch for the shader"""
         # Set font size with DPI and UI scale compensation
         ui_scale = bpy.context.preferences.view.ui_scale
         font_size = int(self.text_size * (dpi / 72.0) * ui_scale)
         blf.size(self.font_id, font_size)
-        self.text_height = blf.dimensions(self.font_id, "Tg")[1]  # Use "Tg" to get max height including descenders
-        self.box_height = self.text_height * 2.5  # Scale box height relative to text height
+        self.text_height = blf.dimensions(self.font_id, "Tg")[
+            1
+        ]  # Use "Tg" to get max height including descenders
+        self.box_height = (
+            self.text_height * 2.5
+        )  # Scale box height relative to text height
         self.radius = self.box_height / 2
 
         vertices = []
@@ -80,7 +84,7 @@ class InterfaceDraw():
                 # Remove text padding where there's a cap
                 if is_first:  # Remove left text_padding if first (has cap)
                     box_width -= self.text_padding
-                if is_last:   # Remove right text_padding if last (has cap)
+                if is_last:  # Remove right text_padding if last (has cap)
                     box_width -= self.text_padding
 
                 box_widths.append(box_width)
@@ -101,67 +105,91 @@ class InterfaceDraw():
                 # Left circle - only for first box
                 if is_first:
                     left_center_x = current_x + self.radius
-                    left_verts = self.create_circle_vertices(left_center_x, y, math.pi*3/2, math.pi/2)
+                    left_verts = self.create_circle_vertices(
+                        left_center_x, y, math.pi * 3 / 2, math.pi / 2
+                    )
                     vertices.extend(left_verts)
 
                     # Create indices for left circle
                     for j in range(len(left_verts) - 2):
-                        indices.extend([(line_start_vertex + start_idx,
-                                         line_start_vertex + start_idx + j + 1,
-                                         line_start_vertex + start_idx + j + 2)])
+                        indices.extend(
+                            [
+                                (
+                                    line_start_vertex + start_idx,
+                                    line_start_vertex + start_idx + j + 1,
+                                    line_start_vertex + start_idx + j + 2,
+                                )
+                            ]
+                        )
                     start_idx = len(vertices) - line_start_vertex
 
                 # Rectangle middle
                 rect_left = current_x + (self.radius if is_first else 0)
                 rect_right = rect_left + box_width
-                vertices.extend([
-                    (rect_left, y - self.radius),    # Bottom-left
-                    (rect_right, y - self.radius),   # Bottom-right
-                    (rect_right, y + self.radius),   # Top-right
-                    (rect_left, y + self.radius),    # Top-left
-                ])
+                vertices.extend(
+                    [
+                        (rect_left, y - self.radius),  # Bottom-left
+                        (rect_right, y - self.radius),  # Bottom-right
+                        (rect_right, y + self.radius),  # Top-right
+                        (rect_left, y + self.radius),  # Top-left
+                    ]
+                )
 
                 # Rectangle indices
-                indices.extend([
-                    (line_start_vertex + start_idx,
-                     line_start_vertex + start_idx + 1,
-                     line_start_vertex + start_idx + 2),
-                    (line_start_vertex + start_idx,
-                     line_start_vertex + start_idx + 2,
-                     line_start_vertex + start_idx + 3),
-                ])
+                indices.extend(
+                    [
+                        (
+                            line_start_vertex + start_idx,
+                            line_start_vertex + start_idx + 1,
+                            line_start_vertex + start_idx + 2,
+                        ),
+                        (
+                            line_start_vertex + start_idx,
+                            line_start_vertex + start_idx + 2,
+                            line_start_vertex + start_idx + 3,
+                        ),
+                    ]
+                )
 
                 # Right circle - only for last box
                 if is_last:
                     right_center_x = rect_right
-                    right_verts = self.create_circle_vertices(right_center_x, y, -math.pi/2, math.pi/2)
+                    right_verts = self.create_circle_vertices(
+                        right_center_x, y, -math.pi / 2, math.pi / 2
+                    )
                     right_start_idx = len(vertices) - line_start_vertex
                     vertices.extend(right_verts)
 
                     # Create indices for right circle
                     for j in range(len(right_verts) - 2):
-                        indices.extend([(line_start_vertex + right_start_idx,
-                                         line_start_vertex + right_start_idx + j + 1,
-                                         line_start_vertex + right_start_idx + j + 2)])
+                        indices.extend(
+                            [
+                                (
+                                    line_start_vertex + right_start_idx,
+                                    line_start_vertex + right_start_idx + j + 1,
+                                    line_start_vertex + right_start_idx + j + 2,
+                                )
+                            ]
+                        )
 
                 # Update x position for next box
                 current_x = rect_right
 
-        return batch_for_shader(self.shader, 'TRIS', {"pos": vertices}, indices=indices)
+        return batch_for_shader(self.shader, "TRIS", {"pos": vertices}, indices=indices)
 
     def update_batch(self, lines=None):
-        '''Update the batch with new lines'''
+        """Update the batch with new lines"""
         if lines is not None:
             self.lines = lines
         self.batch = None  # Force recreation on next draw
 
     def clear(self):
-        '''Clear all lines'''
+        """Clear all lines"""
         self.lines = []
         self.batch = None  # Force recreation on next draw
 
     def draw(self, context):
-        '''Draw the interface'''
+        """Draw the interface"""
         # Get DPI and UI scale, recreate batch if needed
         dpi = context.preferences.system.dpi
         ui_scale = context.preferences.view.ui_scale
@@ -190,12 +218,14 @@ class InterfaceDraw():
                 is_last = i == len(text_tuple) - 1
 
                 # Start with text width
-                box_width = text_width + self.text_padding * 2  # Always add padding for middle boxes
+                box_width = (
+                    text_width + self.text_padding * 2
+                )  # Always add padding for middle boxes
 
                 # Remove padding where there's a cap
                 if is_first:  # Remove left padding if first (has cap)
                     box_width -= self.text_padding
-                if is_last:   # Remove right padding if last (has cap)
+                if is_last:  # Remove right padding if last (has cap)
                     box_width -= self.text_padding
 
                 box_widths.append(box_width)

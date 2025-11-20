@@ -4,7 +4,7 @@ from . import bmeshface
 
 
 def create(bm, plane):
-    '''Create a corner shape with two connected faces'''
+    """Create a corner shape with two connected faces"""
     location, normal = plane
 
     # Create 6 vertices at the initial location
@@ -34,12 +34,12 @@ def create(bm, plane):
 
 
 def set_xy(faces, plane, loc, direction, rotations, local_space=False, snap_value=0):
-    '''
+    """
     Configure the corner shape. The `loc` parameter is always provided.
     If `local_space` is True, `loc` is given in the plane's local coordinate system.
     If `local_space` is False, `loc` is given in global coordinate system and will be transformed.
     The corner parameter defines the normal of the second plane.
-    '''
+    """
     # Get the two faces from the faces list
     face1 = faces[0]
     face2 = faces[1]
@@ -153,7 +153,7 @@ def set_xy(faces, plane, loc, direction, rotations, local_space=False, snap_valu
 
 def extrude(bm, faces, direction, base_normal, rotations, dz):
     """Extrude the corner shape by manually creating faces instead of using extrude_face_region.
-    
+
     Args:
         bm: The BMesh object
         faces: List of BMFace objects to extrude
@@ -169,16 +169,15 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
     mid_faces = []
     new_faces = []
     mid_edge = None
-    
+
     # Generate normals from base_normal and rotations
     rot_min, rot_max = rotations
     rot_matrix_min = Matrix.Rotation(rot_min, 4, direction)
     rot_matrix_max = Matrix.Rotation(rot_max, 4, direction)
-    
+
     normal1 = rot_matrix_min @ base_normal
     normal2 = rot_matrix_max @ base_normal
-    normals = (normal1, normal2)
-    
+
     # Calculate average normal for the extrusion
     normal = (normal1 + normal2) / 2
     normal.normalize()
@@ -218,7 +217,7 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
         for edge in faces[1].edges:
             if edge in face1_edges:
                 shared_edges.add(edge)
-    
+
     # Create side faces (mid faces) connecting old and new vertices, but skip shared edges
     for face in faces:
         # For each edge in the face
@@ -226,7 +225,7 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
             # Skip the edge if it's a shared edge (the middle edge)
             if edge in shared_edges:
                 continue
-                
+
             v1, v2 = edge.verts
             new_v1 = new_verts_map[v1.index]
             new_v2 = new_verts_map[v2.index]
@@ -291,37 +290,46 @@ def offset(bm, faces_indexes, direction, base_normal, rotations, dz):
     rot_min, rot_max = rotations
     rot_matrix_min = Matrix.Rotation(rot_min, 4, direction)
     rot_matrix_max = Matrix.Rotation(rot_max, 4, direction)
-    
+
     normal1 = rot_matrix_min @ base_normal
     normal2 = rot_matrix_max @ base_normal
-    
+
     offset_faces_indexes = [faces_indexes[0], faces_indexes[1]]
     faces = [bmeshface.from_index(bm, index) for index in offset_faces_indexes]
     normals = [normal1, normal2]
-    
+
     for face, normal in zip(faces, normals):
         for v in face.verts:
             v.co += normal * dz
 
 
 def bevel(bm, edge, bevel_offset=0.0, bevel_segments=1):
-    '''Bevel the edges'''
+    """Bevel the edges"""
 
     if bevel_offset != 0.0:
-        result = bmesh.ops.bevel(bm, geom=[edge], offset=bevel_offset, profile=0.5, offset_type='OFFSET', affect='EDGES', clamp_overlap=True, segments=bevel_segments)
+        result = bmesh.ops.bevel(
+            bm,
+            geom=[edge],
+            offset=bevel_offset,
+            profile=0.5,
+            offset_type="OFFSET",
+            affect="EDGES",
+            clamp_overlap=True,
+            segments=bevel_segments,
+        )
 
-        for v in result['verts']:
+        for v in result["verts"]:
             v.select = True
-        for e in result['edges']:
+        for e in result["edges"]:
             e.select = True
-        for f in result['faces']:
+        for f in result["faces"]:
             f.select = True
 
         # expand selection to all connected faces
-        initial_faces = set(result['faces'])
+        initial_faces = set(result["faces"])
         all_connected_faces = set(initial_faces)
         queue = list(initial_faces)
-        
+
         while queue:
             f = queue.pop()
             for e in f.edges:
@@ -329,7 +337,7 @@ def bevel(bm, edge, bevel_offset=0.0, bevel_segments=1):
                     if linked_face not in all_connected_faces:
                         all_connected_faces.add(linked_face)
                         queue.append(linked_face)
-        
+
         for f in all_connected_faces:
             f.select = True
         bm.select_flush(True)
@@ -341,6 +349,6 @@ def bevel(bm, edge, bevel_offset=0.0, bevel_segments=1):
         bm.faces.ensure_lookup_table()
         bm.faces.index_update()
 
-        return [v.index for v in result['verts']]
+        return [v.index for v in result["verts"]]
 
     return []

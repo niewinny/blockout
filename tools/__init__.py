@@ -1,11 +1,7 @@
 from . import block
 
 
-types_classes = (
-    *block.types_classes,
-)
+types_classes = (*block.types_classes,)
 
 
-classes = (
-    *block.classes,
-)
+classes = (*block.classes,)

@@ -17,11 +17,11 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
 
         # Standard boolean operations
         cut_op = layout.operator("object.bout_mod_boolean", text="Cut")
-        cut_op.operation = 'DIFFERENCE'
+        cut_op.operation = "DIFFERENCE"
         union_op = layout.operator("object.bout_mod_boolean", text="Union")
-        union_op.operation = 'UNION'
+        union_op.operation = "UNION"
         intersect_op = layout.operator("object.bout_mod_boolean", text="Intersect")
-        intersect_op.operation = 'INTERSECT'
+        intersect_op.operation = "INTERSECT"
 
         # Special boolean operations
         layout.operator("object.bout_mod_boolean_slice", text="Slice")
@@ -29,7 +29,7 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
 
         layout.separator()
         layout.operator("object.bout_clean_cutter")
-        
+
         layout.separator()
         layout.operator("object.bout_apply_modifiers")
 

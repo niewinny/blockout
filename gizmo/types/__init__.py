@@ -1,6 +1,4 @@
 from . import face
 
 
-classes = (
-    face.BOUT_FaceGizmo,
-)
+classes = (face.BOUT_FaceGizmo,)

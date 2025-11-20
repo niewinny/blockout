@@ -2,14 +2,12 @@ import bpy
 from . import object
 
 
-classes = (
-    object.BOUT_MT_ObjectMode,
-)
+classes = (object.BOUT_MT_ObjectMode,)
 
 
 def add_to_context_menu(self, context):
     """Add BOUT_MT_ObjectMode to the context menu"""
-    if context.mode == 'OBJECT':
+    if context.mode == "OBJECT":
         self.layout.separator()
         self.layout.menu("BOUT_MT_ObjectMode")
 

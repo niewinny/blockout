@@ -11,14 +11,14 @@ from ...utilsbmesh import bmeshface, rectangle, facet, circle, sphere, corner, n
 
 
 class BOUT_OT_BlockObjTool(Block):
-    bl_idname = 'object.bout_block_obj_tool'
-    bl_label = 'Blockout Block'
-    bl_options = {'REGISTER', 'UNDO', 'BLOCKING'}
+    bl_idname = "object.bout_block_obj_tool"
+    bl_label = "Blockout Block"
+    bl_options = {"REGISTER", "UNDO", "BLOCKING"}
     bl_description = "Tool for drawing a mesh"
 
     @classmethod
     def poll(cls, context):
-        return context.area.type == 'VIEW_3D'
+        return context.area.type == "VIEW_3D"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -28,35 +28,41 @@ class BOUT_OT_BlockObjTool(Block):
         return ray
 
     def _header_text(self):
-        '''Set the header text'''
+        """Set the header text"""
         pref = addon.pref().tools.block
         text = f"Shape: {pref.shape.capitalize()}"
 
         return text
 
     def set_config(self, context):
-        '''Set the config dataclass'''
+        """Set the config dataclass"""
         config = Config()
         config.shape = addon.pref().tools.block.shape
         config.form = addon.pref().tools.block.form
         config.align = addon.pref().tools.block.align
         config.mode = addon.pref().tools.block.mode
-        config.type = 'OBJECT'
+        config.type = "OBJECT"
         config.snap = context.scene.tool_settings.use_snap
         return config
 
     def _invoke(self, context, event):
-        '''Invoke the operator'''
-        if self.mode == 'BISECT':
+        """Invoke the operator"""
+        if self.mode == "BISECT":
             return
         self.objects.created = self.data.obj
-        if self.mode == 'DRAW' and self.config.mode == 'SLICE':
+        if self.mode == "DRAW" and self.config.mode == "SLICE":
             self.objects.duplicated = self._duplicate_objects(context)
 
     def get_object(self, context):
-        if self.mode == 'BISECT':
-            active_obj = context.active_object if context.active_object and context.active_object.type == 'MESH' else None
-            selected_objects = [obj for obj in context.selected_objects if obj.type == 'MESH']
+        if self.mode == "BISECT":
+            active_obj = (
+                context.active_object
+                if context.active_object and context.active_object.type == "MESH"
+                else None
+            )
+            selected_objects = [
+                obj for obj in context.selected_objects if obj.type == "MESH"
+            ]
 
             if active_obj:
                 return active_obj
@@ -65,12 +71,12 @@ class BOUT_OT_BlockObjTool(Block):
                 active_obj = selected_objects[0] if selected_objects else None
                 return active_obj
 
-        new_mesh = bpy.data.meshes.new('BlockOut')
-        new_obj = bpy.data.objects.new('BlockOut', new_mesh)
+        new_mesh = bpy.data.meshes.new("BlockOut")
+        new_obj = bpy.data.objects.new("BlockOut", new_mesh)
 
         mode = addon.pref().tools.block.mode
-        if mode not in ('ADD', 'BISECT'):
-            new_obj.display_type = 'WIRE'
+        if mode not in ("ADD", "BISECT"):
+            new_obj.display_type = "WIRE"
             new_obj.hide_render = True
             # Link to Cutters collection instead of active collection
             cutters_collection = collection.get_or_create_cutters_collection()
@@ -82,14 +88,13 @@ class BOUT_OT_BlockObjTool(Block):
 
     def build_bmesh(self, obj):
         bm = bmesh.new()
-        if self.mode == 'BISECT':
+        if self.mode == "BISECT":
             mesh = obj.data
             bm.from_mesh(mesh)
 
         return bm
 
     def build_geometry(self, obj, bm):
-
         mode = self.pref.mode
         offset = self.pref.offset
         bevel_round_enable = self.pref.bevel.round.enable
@@ -107,17 +112,26 @@ class BOUT_OT_BlockObjTool(Block):
         extrusion = self.pref.extrusion
         symmetry_extrude = self.pref.symmetry_extrude
         symmetry_draw = (self.pref.symmetry_draw_x, self.pref.symmetry_draw_y)
-        detected_obj = bpy.data.objects[self.pref.detected] if self.pref.detected else None
+        detected_obj = (
+            bpy.data.objects[self.pref.detected] if self.pref.detected else None
+        )
 
         shape = self.pref.shape
 
         match shape:
-            case 'RECTANGLE':
+            case "RECTANGLE":
                 faces_indexes = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
+                rectangle.set_xy(
+                    face,
+                    plane,
+                    self.shape.rectangle.co,
+                    direction,
+                    local_space=True,
+                    symmetry=symmetry_draw,
+                )
                 facet.set_z(face, normal, offset)
-                if mode == 'ADD':
+                if mode == "ADD":
                     bevel.mod.verts(obj, bevel_round)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 else:
@@ -126,24 +140,42 @@ class BOUT_OT_BlockObjTool(Block):
                     bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                     self._add_boolean(obj, detected_obj, extruded_faces[0])
-            case 'BOX':
+            case "BOX":
                 faces_indexes = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                rectangle.set_xy(face, plane, self.shape.rectangle.co, direction, local_space=True, symmetry=symmetry_draw)
+                rectangle.set_xy(
+                    face,
+                    plane,
+                    self.shape.rectangle.co,
+                    direction,
+                    local_space=True,
+                    symmetry=symmetry_draw,
+                )
                 facet.set_z(face, normal, offset)
                 extruded_faces = facet.extrude(bm, face, plane, extrusion)
                 self._recalculate_normals(bm, extruded_faces)
                 if symmetry_extrude:
-                    facet.set_z(bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion)
+                    facet.set_z(
+                        bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
+                    )
                 bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._add_boolean(obj, detected_obj, extruded_faces[0])
-            case 'CIRCLE':
-                faces_indexes = circle.create(bm, plane, verts_number=self.shape.circle.verts)
+            case "CIRCLE":
+                faces_indexes = circle.create(
+                    bm, plane, verts_number=self.shape.circle.verts
+                )
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                circle.set_xy(face, plane, None, direction, radius=self.shape.circle.radius, local_space=True)
+                circle.set_xy(
+                    face,
+                    plane,
+                    None,
+                    direction,
+                    radius=self.shape.circle.radius,
+                    local_space=True,
+                )
                 facet.set_z(face, normal, offset)
-                if mode == 'ADD':
+                if mode == "ADD":
                     bevel.mod.verts(obj, bevel_round)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 else:
@@ -152,36 +184,64 @@ class BOUT_OT_BlockObjTool(Block):
                     bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                     self._add_boolean(obj, detected_obj, extruded_faces[0])
-            case 'CYLINDER':
-                faces_indexes = circle.create(bm, plane, verts_number=self.shape.circle.verts)
+            case "CYLINDER":
+                faces_indexes = circle.create(
+                    bm, plane, verts_number=self.shape.circle.verts
+                )
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                circle.set_xy(face, plane, None, direction, radius=self.shape.circle.radius, local_space=True)
+                circle.set_xy(
+                    face,
+                    plane,
+                    None,
+                    direction,
+                    radius=self.shape.circle.radius,
+                    local_space=True,
+                )
                 facet.set_z(face, normal, offset)
                 extruded_faces = facet.extrude(bm, face, plane, extrusion)
                 self._recalculate_normals(bm, extruded_faces)
                 if symmetry_extrude:
-                    facet.set_z(bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion)
+                    facet.set_z(
+                        bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
+                    )
                 bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._add_boolean(obj, detected_obj, extruded_faces[0])
-            case 'SPHERE':
-                sphere.create(bm, plane, direction, radius=self.shape.sphere.radius, subd=self.shape.sphere.subd)
+            case "SPHERE":
+                sphere.create(
+                    bm,
+                    plane,
+                    direction,
+                    radius=self.shape.sphere.radius,
+                    subd=self.shape.sphere.subd,
+                )
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._add_boolean(obj, detected_obj, extruded_faces[0])
-            case 'CORNER':
+            case "CORNER":
                 faces_indexes = corner.create(bm, plane)
                 faces = [bmeshface.from_index(bm, index) for index in faces_indexes]
-                corner.set_xy(faces, plane, self.shape.corner.co, direction, (self.shape.corner.min, self.shape.corner.max), local_space=True)
+                corner.set_xy(
+                    faces,
+                    plane,
+                    self.shape.corner.co,
+                    direction,
+                    (self.shape.corner.min, self.shape.corner.max),
+                    local_space=True,
+                )
                 rotations = (self.shape.corner.min, self.shape.corner.max)
-                extruded_face_indexes, edge_index = corner.extrude(bm, faces, direction, normal, rotations, extrusion)
-                corner.offset(bm, extruded_face_indexes, direction, normal, rotations, offset)
+                extruded_face_indexes, edge_index = corner.extrude(
+                    bm, faces, direction, normal, rotations, extrusion
+                )
+                corner.offset(
+                    bm, extruded_face_indexes, direction, normal, rotations, offset
+                )
                 bevel.mod.edges(bm, obj, [edge_index], bevel_round)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._add_boolean(obj, detected_obj, extruded_face_indexes[0])
-            case 'NGON':
+            case "NGON":
                 face = ngon.new(bm, self.pref.ngon)
                 facet.set_z(face, normal, offset)
-                if mode == 'ADD':
+                if mode == "ADD":
                     bevel.mod.verts(obj, bevel_round)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 else:
@@ -190,7 +250,7 @@ class BOUT_OT_BlockObjTool(Block):
                     bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                     self._add_boolean(obj, detected_obj, extruded_faces[0])
-            case 'NHEDRON':
+            case "NHEDRON":
                 face = ngon.new(bm, self.pref.ngon)
                 facet.set_z(face, normal, offset)
                 extruded_faces = facet.extrude(bm, face, plane, extrusion)
@@ -225,29 +285,46 @@ class BOUT_OT_BlockObjTool(Block):
         super()._bevel_invoke(context, event)
         bm = self.data.bm
 
-        angle, affect = 'ANGLE', 'VERTICES'
+        angle, affect = "ANGLE", "VERTICES"
 
-        if self.shape.volume == '3D':
-            set_round_edges_indexes = [e.index for e in self.data.extrude.edges if e.position == 'MID']
-            set_fill_edges_indexes = [e.index for e in self.data.extrude.edges if e.position == 'END']
+        if self.shape.volume == "3D":
+            set_round_edges_indexes = [
+                e.index for e in self.data.extrude.edges if e.position == "MID"
+            ]
+            set_fill_edges_indexes = [
+                e.index for e in self.data.extrude.edges if e.position == "END"
+            ]
 
-            bevel.set_edge_weight(bm, set_round_edges_indexes, type='ROUND')
-            bevel.set_edge_weight(bm, set_fill_edges_indexes, type='FILL')
+            bevel.set_edge_weight(bm, set_round_edges_indexes, type="ROUND")
+            bevel.set_edge_weight(bm, set_fill_edges_indexes, type="FILL")
 
-            angle, affect = 'WEIGHT', 'EDGES'
+            angle, affect = "WEIGHT", "EDGES"
 
         if not self.modifiers.bevels:
-            mod, type = bevel.add_modifier(self.data.obj, 0.0, self.data.bevel.round.segments, type='ROUND', limit_method=angle, affect=affect)
-            self.modifiers.bevels.append(Modifier(obj=self.data.obj, mod=mod, type=type))
-            mod, type = weld.add_modifier(self.data.obj, type='ROUND')
+            mod, type = bevel.add_modifier(
+                self.data.obj,
+                0.0,
+                self.data.bevel.round.segments,
+                type="ROUND",
+                limit_method=angle,
+                affect=affect,
+            )
+            self.modifiers.bevels.append(
+                Modifier(obj=self.data.obj, mod=mod, type=type)
+            )
+            mod, type = weld.add_modifier(self.data.obj, type="ROUND")
             self.modifiers.welds.append(Modifier(obj=self.data.obj, mod=mod, type=type))
-            mod, type = bevel.add_modifier(self.data.obj, 0.0, self.data.bevel.fill.segments, type='FILL')
-            self.modifiers.bevels.append(Modifier(obj=self.data.obj, mod=mod, type=type))
-            mod, type = weld.add_modifier(self.data.obj, type='FILL')
+            mod, type = bevel.add_modifier(
+                self.data.obj, 0.0, self.data.bevel.fill.segments, type="FILL"
+            )
+            self.modifiers.bevels.append(
+                Modifier(obj=self.data.obj, mod=mod, type=type)
+            )
+            mod, type = weld.add_modifier(self.data.obj, type="FILL")
             self.modifiers.welds.append(Modifier(obj=self.data.obj, mod=mod, type=type))
         else:
             for m in self.modifiers.bevels:
-                if m.type == 'FILL':
+                if m.type == "FILL":
                     m.mod.segments = self.data.bevel.fill.segments
 
         self._boolean(self.pref.mode, self.data.obj)
@@ -259,55 +336,57 @@ class BOUT_OT_BlockObjTool(Block):
             return
 
         for m in self.modifiers.bevels[:]:
-            if m.type == 'ROUND' and self.data.bevel.round.offset <= 0.0:
+            if m.type == "ROUND" and self.data.bevel.round.offset <= 0.0:
                 modifier.remove(m.obj, m.mod)
                 self.modifiers.bevels.remove(m)
-            elif m.type == 'FILL' and self.data.bevel.fill.offset <= 0.0:
+            elif m.type == "FILL" and self.data.bevel.fill.offset <= 0.0:
                 modifier.remove(m.obj, m.mod)
                 self.modifiers.bevels.remove(m)
 
         for m in self.modifiers.welds[:]:
-            if m.type == 'ROUND' and self.data.bevel.round.offset <= 0.0:
+            if m.type == "ROUND" and self.data.bevel.round.offset <= 0.0:
                 modifier.remove(m.obj, m.mod)
                 self.modifiers.welds.remove(m)
-            elif m.type == 'FILL' and self.data.bevel.fill.offset <= 0.0:
+            elif m.type == "FILL" and self.data.bevel.fill.offset <= 0.0:
                 modifier.remove(m.obj, m.mod)
                 self.modifiers.welds.remove(m)
 
-        if not any(mod.type == 'ROUND' for mod in self.modifiers.bevels):
-            bevel.del_edge_weight(self.data.bm, type='ROUND')
+        if not any(mod.type == "ROUND" for mod in self.modifiers.bevels):
+            bevel.del_edge_weight(self.data.bm, type="ROUND")
             self.pref.bevel.round.enable = False
 
-        if not any(mod.type == 'FILL' for mod in self.modifiers.bevels):
-            bevel.del_edge_weight(self.data.bm, type='FILL')
+        if not any(mod.type == "FILL" for mod in self.modifiers.bevels):
+            bevel.del_edge_weight(self.data.bm, type="FILL")
             self.pref.bevel.fill.enable = False
 
-        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=False)
+        self.update_bmesh(
+            self.data.obj, self.data.bm, loop_triangles=True, destructive=False
+        )
 
     def _bevel_modal(self, context, event):
         super()._bevel_modal(context, event)
-        if self.data.bevel.mode == 'OFFSET':
-            if self.data.bevel.type == 'ROUND':
+        if self.data.bevel.mode == "OFFSET":
+            if self.data.bevel.type == "ROUND":
                 offset = self.data.bevel.round.offset
                 for mod in self.modifiers.bevels:
-                    if mod.type == 'ROUND':
+                    if mod.type == "ROUND":
                         mod.mod.width = offset
             else:
                 offset = self.data.bevel.fill.offset
                 for mod in self.modifiers.bevels:
-                    if mod.type == 'FILL':
+                    if mod.type == "FILL":
                         mod.mod.width = offset
 
-        if self.data.bevel.mode == 'SEGMENTS':
-            if self.data.bevel.type == 'ROUND':
+        if self.data.bevel.mode == "SEGMENTS":
+            if self.data.bevel.type == "ROUND":
                 segments = self.data.bevel.round.segments
                 for mod in self.modifiers.bevels:
-                    if mod.type == 'ROUND':
+                    if mod.type == "ROUND":
                         mod.mod.segments = segments
             else:
                 segments = self.data.bevel.fill.segments
                 for mod in self.modifiers.bevels:
-                    if mod.type == 'FILL':
+                    if mod.type == "FILL":
                         mod.mod.segments = segments
 
         created_obj = self.objects.created
@@ -341,15 +420,23 @@ class BOUT_OT_BlockObjTool(Block):
         return duplicated
 
     def _add_boolean(self, obj, detected_obj, face_index):
-        if self.pref.mode != 'ADD':
-            if self.shape.volume == '3D':
+        if self.pref.mode != "ADD":
+            if self.shape.volume == "3D":
                 context = bpy.context
-                selected_objs = [o for o in context.selected_objects if o.type == 'MESH']
+                selected_objs = [
+                    o for o in context.selected_objects if o.type == "MESH"
+                ]
 
-                if self.pref.mode == 'CARVE':
-                    self._add_carve_obj(bpy.context, obj, face_index, self.pref.offset, self.pref.plane.normal)
+                if self.pref.mode == "CARVE":
+                    self._add_carve_obj(
+                        bpy.context,
+                        obj,
+                        face_index,
+                        self.pref.offset,
+                        self.pref.plane.normal,
+                    )
 
-                if self.pref.mode == 'SLICE':
+                if self.pref.mode == "SLICE":
                     _selected = selected_objs[:]
                     _selected_set = set(_selected + [detected_obj])
                     selected = list(_selected_set)
@@ -360,9 +447,11 @@ class BOUT_OT_BlockObjTool(Block):
                         new_obj.data = o.data.copy()
                         context.collection.objects.link(new_obj)
                         created_objs.append(new_obj)
-                    self._create_boolean_modifiers(obj, None, created_objs, 'INTERSECT')
+                    self._create_boolean_modifiers(obj, None, created_objs, "INTERSECT")
 
-                self._create_boolean_modifiers(obj, detected_obj, selected_objs, self.pref.mode)
+                self._create_boolean_modifiers(
+                    obj, detected_obj, selected_objs, self.pref.mode
+                )
                 self._set_parent(obj, detected_obj)
 
                 # Move cutter object to Cutters collection before hiding
@@ -371,23 +460,27 @@ class BOUT_OT_BlockObjTool(Block):
                 obj.data.shade_smooth()
 
     def _boolean(self, mode, obj):
-        if mode != 'ADD':
-            if self.shape.volume == '3D':
-
+        if mode != "ADD":
+            if self.shape.volume == "3D":
                 if not self.modifiers.booleans:
                     selected = self.objects.selected[:]
                     detected = bpy.data.objects[self.objects.detected]
 
-                    self._create_boolean_modifiers(obj, detected, selected, mode, append=True)
+                    self._create_boolean_modifiers(
+                        obj, detected, selected, mode, append=True
+                    )
                     self._set_parent(obj, detected)
 
-                    if self.config.mode == 'SLICE':
+                    if self.config.mode == "SLICE":
                         duplicated_objs = self.objects.duplicated[:]
-                        self._create_boolean_modifiers(obj, None, duplicated_objs, 'INTERSECT', append=True)
+                        self._create_boolean_modifiers(
+                            obj, None, duplicated_objs, "INTERSECT", append=True
+                        )
 
-
-    def _create_boolean_modifiers(self, obj, bool_obj, selected_objs, mode, append=False):
-        '''Create the boolean modifiers'''
+    def _create_boolean_modifiers(
+        self, obj, bool_obj, selected_objs, mode, append=False
+    ):
+        """Create the boolean modifiers"""
         _selected = selected_objs
         if bool_obj:
             _selected_set = set(_selected + [bool_obj])
@@ -396,20 +489,22 @@ class BOUT_OT_BlockObjTool(Block):
         selected = list(_selected_set)
         for sel_obj in selected:
             match mode:
-                case 'UNION': operation = 'UNION'
-                case 'CUT': operation = 'DIFFERENCE'
-                case 'INTERSECT': operation = 'INTERSECT'
-                case _: operation = 'DIFFERENCE'
+                case "UNION":
+                    operation = "UNION"
+                case "CUT":
+                    operation = "DIFFERENCE"
+                case "INTERSECT":
+                    operation = "INTERSECT"
+                case _:
+                    operation = "DIFFERENCE"
             mod = boolean.add_modifier(sel_obj, obj, operation)
             if append:
                 self.modifiers.booleans.append(Modifier(obj=sel_obj, mod=mod))
 
-
     def _add_carve_obj(self, context, obj, face_index, offset, normal):
-
         new_obj = obj.copy()
         new_obj.data = obj.data.copy()
-        new_obj.display_type = 'TEXTURED'
+        new_obj.display_type = "TEXTURED"
         new_obj.hide_render = False
         context.collection.objects.link(new_obj)
 
@@ -423,31 +518,42 @@ class BOUT_OT_BlockObjTool(Block):
         bm.free()
 
     def _reveal_objects(self, context, obj):
-        '''Reveal the created objects'''
-        bpy.ops.object.select_all(action='DESELECT')
+        """Reveal the created objects"""
+        bpy.ops.object.select_all(action="DESELECT")
         obj.hide_set(False)
         obj.select_set(True)
         context.view_layer.objects.active = obj
 
-
     def _finish(self, context):
         super()._finish(context)
 
-        if self.mode != 'BISECT':
-
-            if self.config.mode != 'ADD':
-                if self.shape.volume == '2D':
+        if self.mode != "BISECT":
+            if self.config.mode != "ADD":
+                if self.shape.volume == "2D":
                     extrude.uniform(self, context)
                     if self.data.bevel.round.enable and self.data.extrude.faces:
-                        bevel.uniform(self, self.data.bm, self.data.obj, self.data.extrude.faces)
-                        self.update_bmesh(self.data.obj, self.data.bm, loop_triangles=True, destructive=False)
+                        bevel.uniform(
+                            self, self.data.bm, self.data.obj, self.data.extrude.faces
+                        )
+                        self.update_bmesh(
+                            self.data.obj,
+                            self.data.bm,
+                            loop_triangles=True,
+                            destructive=False,
+                        )
                     self._boolean(self.config.mode, self.data.obj)
 
-            if self.config.mode == 'CARVE':
-                self._add_carve_obj(context, self.data.obj, self.data.extrude.faces[0], self.config.align.offset, self.data.draw.matrix.normal)
+            if self.config.mode == "CARVE":
+                self._add_carve_obj(
+                    context,
+                    self.data.obj,
+                    self.data.extrude.faces[0],
+                    self.config.align.offset,
+                    self.data.draw.matrix.normal,
+                )
 
             self._bevel_cleanup(context)
-            if self.config.mode != 'ADD':
+            if self.config.mode != "ADD":
                 # Ensure cutter object is in Cutters collection
                 collection.move_to_cutters_collection(self.data.obj)
                 self.data.obj.hide_set(True)
@@ -520,6 +626,4 @@ class BOUT_OT_BlockObjTool(Block):
                 bpy.data.meshes.remove(mesh_data)
 
 
-classes = (
-    BOUT_OT_BlockObjTool,
-)
+classes = (BOUT_OT_BlockObjTool,)

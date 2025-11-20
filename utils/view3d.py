@@ -1,11 +1,13 @@
-import bpy
 
 from mathutils import geometry
-from bpy_extras.view3d_utils import region_2d_to_origin_3d, region_2d_to_vector_3d, location_3d_to_region_2d, region_2d_to_location_3d
+from bpy_extras.view3d_utils import (
+    region_2d_to_origin_3d,
+    region_2d_to_vector_3d,
+)
 
 
 def region_2d_to_plane_3d(region, re3d, point, plane, matrix=None):
-    '''
+    """
     Return the 3D point on a plane in world space from a 2D point in the region.
 
     :param region: The region.
@@ -20,15 +22,13 @@ def region_2d_to_plane_3d(region, re3d, point, plane, matrix=None):
     :type matrix: :class:`mathutils.Matrix`
     :return: The 3D point on the plane.
     :rtype: :class:`mathutils.Vector`
-    '''
+    """
 
     # Get mouse origin and direction in world space
     location, normal = plane
 
-    mouse_origin_world = region_2d_to_origin_3d(
-        region, re3d, point)
-    mouse_direction_world = region_2d_to_vector_3d(
-        region, re3d, point)
+    mouse_origin_world = region_2d_to_origin_3d(region, re3d, point)
+    mouse_direction_world = region_2d_to_vector_3d(region, re3d, point)
 
     mouse_origin = mouse_origin_world
     mouse_direction = mouse_direction_world
@@ -42,13 +42,14 @@ def region_2d_to_plane_3d(region, re3d, point, plane, matrix=None):
 
     # Intersect the mouse ray with the plane in object space
     mouse_point_on_plane = geometry.intersect_line_plane(
-        mouse_origin, mouse_origin + mouse_direction, location, normal)
+        mouse_origin, mouse_origin + mouse_direction, location, normal
+    )
 
     return mouse_point_on_plane
 
 
 def get_mouse_region_prev(event):
-    '''Get the previous mouse coordinates in region space'''
+    """Get the previous mouse coordinates in region space"""
 
     mouse_x = event.mouse_x
     mouse_y = event.mouse_y
@@ -85,10 +86,8 @@ def region_2d_to_line_3d(region, rv3d, point, line_origin, line_direction, matri
     """
 
     # Get the 3D ray from the 2D point
-    ray_origin = region_2d_to_origin_3d(
-        region, rv3d, point)
-    ray_direction = region_2d_to_vector_3d(
-        region, rv3d, point)
+    ray_origin = region_2d_to_origin_3d(region, rv3d, point)
+    ray_direction = region_2d_to_vector_3d(region, rv3d, point)
 
     if matrix:
         # Apply transformation to the line
@@ -98,8 +97,10 @@ def region_2d_to_line_3d(region, rv3d, point, line_origin, line_direction, matri
 
     # Compute the closest point between the ray and the line
     intersection = geometry.intersect_line_line(
-        ray_origin, ray_origin + ray_direction,
-        line_origin, line_origin + line_direction
+        ray_origin,
+        ray_origin + ray_direction,
+        line_origin,
+        line_origin + line_direction,
     )
 
     if intersection is not None:

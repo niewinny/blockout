@@ -2,8 +2,11 @@ import bpy
 import bmesh
 from mathutils import Vector
 
-from ...utilsbmesh.orientation import direction_from_normal, face_bbox_center, set_align_rotation_from_vectors
-from ...utils import addon
+from ...utilsbmesh.orientation import (
+    direction_from_normal,
+    face_bbox_center,
+    set_align_rotation_from_vectors,
+)
 from ...utils.types import DrawMatrix
 
 
@@ -11,20 +14,27 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
     bl_idname = "object.bout_set_custom_plane"
     bl_label = "Set Custom Plane"
     bl_description = "Set custom plane based on selected vertex, edge, or face"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     mode: bpy.props.EnumProperty(
         name="Mode",
         description="Mode",
-        items=[('SET', 'Set', 'Set'),
-               ('MOVE', 'Move', 'Move'),
-               ('ROTATE', 'Rotate', 'Rotate')],
-        default='SET')
+        items=[
+            ("SET", "Set", "Set"),
+            ("MOVE", "Move", "Move"),
+            ("ROTATE", "Rotate", "Rotate"),
+        ],
+        default="SET",
+    )
 
     @classmethod
     def poll(cls, context):
-        return (context.object is not None and context.object.type == 'MESH' and context.mode == 'EDIT_MESH')
-    
+        return (
+            context.object is not None
+            and context.object.type == "MESH"
+            and context.mode == "EDIT_MESH"
+        )
+
     def invoke(self, context, event):
         return self.plane(context)
 
@@ -35,12 +45,12 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
         me = obj.data
         bm = bmesh.from_edit_mesh(me)
 
-        if self.mode == 'SET':
-            if context.scene.bout.align.mode == 'CUSTOM':
-                context.scene.bout.align.mode = 'FACE'
-                self.report({'INFO'}, "Custom plane disabled")
+        if self.mode == "SET":
+            if context.scene.bout.align.mode == "CUSTOM":
+                context.scene.bout.align.mode = "FACE"
+                self.report({"INFO"}, "Custom plane disabled")
                 context.area.tag_redraw()
-                return {'FINISHED'}
+                return {"FINISHED"}
 
         old_matrix = DrawMatrix.from_property(context.scene.bout.align.matrix)
         old_location = old_matrix.location
@@ -95,17 +105,17 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
             v1, v2 = selected_verts[0], selected_verts[1]
             # Compute the midpoint between the two vertices
             location = (matrix @ v1.co + matrix @ v2.co) / 2.0
-            
+
             # Compute normal as average of vertex normals
             n1 = (matrix.inverted().transposed()).to_3x3() @ v1.normal.copy()
             n2 = (matrix.inverted().transposed()).to_3x3() @ v2.normal.copy()
             sum_normal = (n1 + n2) / 2.0
             sum_normal.normalize()
-            
+
             # Use direction from v1 to v2
             direction = matrix @ v2.co - matrix @ v1.co
             direction_y = sum_normal.cross(direction)
-            
+
             normal = direction.cross(direction_y)
 
         # If not, check if exactly one vertex is selected
@@ -120,15 +130,18 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
             direction = matrix.to_3x3() @ direction_from_normal(vert.normal.copy())
 
         else:
-            self.report({'ERROR'}, "Please select exactly one face, edge, vertex, or two vertices")
-            return {'CANCELLED'}
+            self.report(
+                {"ERROR"},
+                "Please select exactly one face, edge, vertex, or two vertices",
+            )
+            return {"CANCELLED"}
 
         normal.normalize()
         direction.normalize()
 
-        if self.mode == 'ROTATE':
+        if self.mode == "ROTATE":
             location = old_location
-        if self.mode == 'MOVE':
+        if self.mode == "MOVE":
             normal = old_normal
             direction = old_direction
 
@@ -139,15 +152,15 @@ class BOUT_OT_SetCustomPlane(bpy.types.Operator):
         # Convert to property format and update the matrix property
         context.scene.bout.align.matrix = draw_matrix.to_property()
         context.scene.bout.align.location = location
-        context.scene.bout.align.rotation = set_align_rotation_from_vectors(normal, direction)
+        context.scene.bout.align.rotation = set_align_rotation_from_vectors(
+            normal, direction
+        )
 
-        context.scene.bout.align.mode = 'CUSTOM'
-        self.report({'INFO'}, "Custom plane set based on selection")
+        context.scene.bout.align.mode = "CUSTOM"
+        self.report({"INFO"}, "Custom plane set based on selection")
 
         context.area.tag_redraw()
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
-classes = (
-    BOUT_OT_SetCustomPlane,
-)
+classes = (BOUT_OT_SetCustomPlane,)
