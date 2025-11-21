@@ -27,6 +27,10 @@ class BOUT_OT_block_popup(bpy.types.Operator):
             ("CIRCLE", "MESH_CIRCLE"),
             ("SPHERE", "MESH_UVSPHERE"),
             ("CORNER", "AREA_DOCK"),
+            ("TRIANGLE", "MESH_CONE"),
+            ("", ""),
+            ("", ""),
+            ("", ""),
         ]
         for shape, icon in shapes:
             if shape:

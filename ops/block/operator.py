@@ -1,14 +1,11 @@
-import bpy
 import bmesh
-
+import bpy
 from mathutils import Vector
 
-from .data import CreatedData, Config, Objects, Mouse, Pref, Shape, Modifiers
-
-from . import bevel, draw, extrude, ui, orientation, bisect, edit
-
-from ...utils import addon, scene, infobar, view3d
+from ...utils import addon, infobar, scene, view3d
 from ...utilsbmesh import facet
+from . import bevel, bisect, draw, edit, extrude, orientation, ui
+from .data import Config, CreatedData, Modifiers, Mouse, Objects, Pref, Shape
 
 
 class Block(bpy.types.Operator):
@@ -79,6 +76,19 @@ class Block(bpy.types.Operator):
             case "RECTANGLE":
                 col = layout.column(align=True)
                 col.prop(self.shape.rectangle, "co", text="Dimensions")
+                col = layout.column(align=True, heading="Symmetry")
+                row = col.row(align=True)
+                row.prop(self.pref, "symmetry_draw_x", toggle=True)
+                row.prop(self.pref, "symmetry_draw_y", toggle=True)
+                layout.prop(self.pref, "offset", text="Offset")
+                col = layout.column(align=True, heading="Bevel")
+                row = col.row(align=True)
+                row.prop(self.pref.bevel.round, "enable", text="Round", toggle=True)
+                row.prop(self.pref.bevel.round, "offset", text="")
+                row.prop(self.pref.bevel.round, "segments", text="")
+            case "TRIANGLE":
+                col = layout.column(align=True)
+                col.prop(self.shape.triangle, "co", text="Dimensions")
                 col = layout.column(align=True, heading="Symmetry")
                 row = col.row(align=True)
                 row.prop(self.pref, "symmetry_draw_x", toggle=True)
@@ -457,10 +467,11 @@ class Block(bpy.types.Operator):
                     "CORNER",
                     "NGON",
                     "NHEDRON",
+                    "TRIANGLE",
                 }:
                     self.data.bevel.mode = "OFFSET"
 
-                    if self.config.shape in {"RECTANGLE", "NGON"}:
+                    if self.config.shape in {"RECTANGLE", "NGON", "TRIANGLE"}:
                         self.data.bevel.type = "ROUND"
 
                     if self.config.shape == "CYLINDER":
@@ -515,6 +526,10 @@ class Block(bpy.types.Operator):
             if event.value == "PRESS":
                 if self.mode == "BISECT":
                     self.data.bisect.flip = not self.data.bisect.flip
+                elif self.mode == "DRAW" and self.config.shape == "TRIANGLE":
+                    self.shape.triangle.flip = not self.shape.triangle.flip
+                    self._header(context)
+                    return {"RUNNING_MODAL"}
 
         elif event.type == "Z":
             if event.value == "PRESS":
@@ -531,7 +546,13 @@ class Block(bpy.types.Operator):
                         self.edit_mode = "DELETE"
                         edit.modal(self, context, event)
                         return {"RUNNING_MODAL"}
-                elif self.mode == "DRAW" and self.config.shape in {"RECTANGLE", "BOX"}:
+                        edit.modal(self, context, event)
+                        return {"RUNNING_MODAL"}
+                elif self.mode == "DRAW" and self.config.shape in {
+                    "RECTANGLE",
+                    "BOX",
+                    "TRIANGLE",
+                }:
                     # Toggle X symmetry for rectangle/box shapes
                     self.data.draw.symmetry = (
                         not self.data.draw.symmetry[0],
@@ -542,7 +563,11 @@ class Block(bpy.types.Operator):
 
         elif event.type == "Y":
             if event.value == "PRESS":
-                if self.mode == "DRAW" and self.config.shape in {"RECTANGLE", "BOX"}:
+                if self.mode == "DRAW" and self.config.shape in {
+                    "RECTANGLE",
+                    "BOX",
+                    "TRIANGLE",
+                }:
                     # Toggle Y symmetry for rectangle/box shapes
                     self.data.draw.symmetry = (
                         self.data.draw.symmetry[0],
@@ -633,6 +658,9 @@ class Block(bpy.types.Operator):
         else:
             match shape:
                 case "RECTANGLE":
+                    dimentions = f" Dx:{x_length:.4f},  Dy:{y_length:.4f}"
+                case "TRIANGLE":
+                    x_length, y_length = self.shape.triangle.co
                     dimentions = f" Dx:{x_length:.4f},  Dy:{y_length:.4f}"
                 case "CIRCLE":
                     dimentions = f" Radius:{radius:.4f}"

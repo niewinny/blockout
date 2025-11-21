@@ -1,22 +1,23 @@
-import bpy
 import bmesh
+import bpy
 
-from . import draw, extrude
-from .operator import Block
-from .data import Config
 from ...utils import addon, scene
 from ...utilsbmesh import (
     bmeshedge,
     bmeshface,
-    rectangle,
-    facet,
     circle,
-    cylinder,
-    sphere,
     corner,
+    cylinder,
+    facet,
     ngon,
+    rectangle,
+    sphere,
+    triangle,
 )
-from ...utilsbmesh.mesh import set_copy, get_copy, remove_doubles
+from ...utilsbmesh.mesh import get_copy, remove_doubles, set_copy
+from . import draw, extrude
+from .data import Config
+from .operator import Block
 
 
 class BOUT_OT_BlockMeshTool(Block):
@@ -294,6 +295,35 @@ class BOUT_OT_BlockMeshTool(Block):
                     remove_doubles(bm, verts_indicies)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._boolean(self.pref.mode, obj, bm, ui)
+            case "TRIANGLE":
+                faces_indexes = triangle.create(bm, plane)
+                face = bmeshface.from_index(bm, faces_indexes[0])
+                triangle.set_xy(
+                    face,
+                    plane,
+                    self.shape.triangle.co,
+                    direction,
+                    local_space=True,
+                    symmetry=symmetry_draw,
+                    flip=self.shape.triangle.flip,
+                )
+                facet.set_z(face, normal, offset)
+                if self.pref.bevel.round.enable:
+                    face_index = facet.bevel_verts(
+                        bm,
+                        face,
+                        self.pref.bevel.round.offset,
+                        bevel_segments=self.pref.bevel.round.segments,
+                    )
+                    face = bmeshface.from_index(bm, face_index)
+                    facet.remove_doubles(bm, face)
+
+                if mode != "ADD":
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if mode != "ADD":
+                    self._boolean(self.pref.mode, obj, bm, ui)
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 

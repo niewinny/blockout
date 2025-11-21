@@ -1,6 +1,5 @@
 import bpy
 
-
 shapes = [
     ("BOX", "Box", "Box", "MESH_CUBE", 1),
     ("CYLINDER", "Cylinder", "Cylinder", "MESH_CYLINDER", 2),
@@ -10,6 +9,7 @@ shapes = [
     ("CIRCLE", "Circle", "Circle", "MESH_CIRCLE", 6),
     ("SPHERE", "Sphere", "Sphere", "MESH_UVSPHERE", 7),
     ("CORNER", "Corner", "Corner", "AREA_DOCK", 8),
+    ("TRIANGLE", "Triangle", "Triangle", "MESH_CONE", 9),
 ]
 
 

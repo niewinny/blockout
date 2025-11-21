@@ -1,13 +1,21 @@
-import bpy
 import bmesh
+import bpy
 import mathutils
 
-from .operator import Block
+from ...utils import addon, collection, infobar, modifier, scene
+from ...utilsbmesh import (
+    bmeshface,
+    circle,
+    corner,
+    facet,
+    ngon,
+    rectangle,
+    sphere,
+    triangle,
+)
+from . import bevel, boolean, draw, extrude, weld
 from .data import Config, Modifier
-from . import bevel, boolean, weld, draw, extrude
-from ...utils import addon, scene, infobar, modifier, collection
-
-from ...utilsbmesh import bmeshface, rectangle, facet, circle, sphere, corner, ngon
+from .operator import Block
 
 
 class BOUT_OT_BlockObjTool(Block):
@@ -258,6 +266,28 @@ class BOUT_OT_BlockObjTool(Block):
                 bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._add_boolean(obj, detected_obj, extruded_faces[0])
+            case "TRIANGLE":
+                faces_indexes = triangle.create(bm, plane)
+                face = bmeshface.from_index(bm, faces_indexes[0])
+                triangle.set_xy(
+                    face,
+                    plane,
+                    self.shape.triangle.co,
+                    direction,
+                    local_space=True,
+                    symmetry=symmetry_draw,
+                    flip=self.shape.triangle.flip,
+                )
+                facet.set_z(face, normal, offset)
+                if mode == "ADD":
+                    bevel.mod.verts(obj, bevel_round)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                else:
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
+                    bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                    self._add_boolean(obj, detected_obj, extruded_faces[0])
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 

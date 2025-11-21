@@ -1,8 +1,10 @@
 import math
-import bpy
-import bmesh
-from mathutils import Vector
 from dataclasses import dataclass, field
+
+import bmesh
+import bpy
+from mathutils import Vector
+
 from ...utils.types import DrawMatrix, DrawVert
 
 
@@ -178,6 +180,19 @@ class Rectangle(bpy.types.PropertyGroup):
     )
 
 
+class Triangle(bpy.types.PropertyGroup):
+    """PropertyGroup for storing triangle data"""
+
+    flip: bpy.props.BoolProperty(name="Flip", description="Flip", default=False)
+    co: bpy.props.FloatVectorProperty(
+        name="Triangle",
+        description="Triangle coordinates",
+        size=2,
+        default=(0, 0),
+        subtype="XYZ_LENGTH",
+    )
+
+
 class Ngon(bpy.types.PropertyGroup):
     """PropertyGroup for storing ngon data"""
 
@@ -319,6 +334,7 @@ class Pref(bpy.types.PropertyGroup):
 class Shape(bpy.types.PropertyGroup):
     volume: bpy.props.StringProperty(name="Volume", description="Volume", default="2D")
     rectangle: bpy.props.PointerProperty(type=Rectangle)
+    triangle: bpy.props.PointerProperty(type=Triangle)
     ngon: bpy.props.PointerProperty(type=Ngon)
     circle: bpy.props.PointerProperty(type=Circle)
     sphere: bpy.props.PointerProperty(type=Sphere)
@@ -328,6 +344,7 @@ class Shape(bpy.types.PropertyGroup):
 classes = (
     Corner,
     Rectangle,
+    Triangle,
     Ngon,
     Circle,
     Plane,
