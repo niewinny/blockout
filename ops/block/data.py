@@ -184,12 +184,18 @@ class Triangle(bpy.types.PropertyGroup):
     """PropertyGroup for storing triangle data"""
 
     flip: bpy.props.BoolProperty(name="Flip", description="Flip", default=False)
-    co: bpy.props.FloatVectorProperty(
-        name="Triangle",
-        description="Triangle coordinates",
-        size=2,
-        default=(0, 0),
-        subtype="XYZ_LENGTH",
+    symmetry: bpy.props.BoolProperty(name="H", description="Symmetry", default=True)
+    height: bpy.props.FloatProperty(
+        name="Height",
+        description="Triangle height",
+        default=1.0,
+        subtype="DISTANCE",
+    )
+    angle: bpy.props.FloatProperty(
+        name="Angle",
+        description="Triangle angle",
+        default=0.0,
+        subtype="ANGLE",
     )
 
 

@@ -1,3 +1,5 @@
+import math
+
 import bmesh
 import bpy
 
@@ -298,13 +300,16 @@ class BOUT_OT_BlockMeshTool(Block):
             case "TRIANGLE":
                 faces_indexes = triangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
+                # Convert height and angle to (x, y) coordinates
+                x = self.shape.triangle.height * math.cos(self.shape.triangle.angle)
+                y = self.shape.triangle.height * math.sin(self.shape.triangle.angle)
                 triangle.set_xy(
                     face,
                     plane,
-                    self.shape.triangle.co,
+                    (x, y),
                     direction,
                     local_space=True,
-                    symmetry=symmetry_draw,
+                    symmetry=self.shape.triangle.symmetry,
                     flip=self.shape.triangle.flip,
                 )
                 facet.set_z(face, normal, offset)
@@ -327,13 +332,16 @@ class BOUT_OT_BlockMeshTool(Block):
             case "PRISM":
                 faces_indexes = triangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
+                # Convert height and angle to (x, y) coordinates
+                x = self.shape.triangle.height * math.cos(self.shape.triangle.angle)
+                y = self.shape.triangle.height * math.sin(self.shape.triangle.angle)
                 triangle.set_xy(
                     face,
                     plane,
-                    self.shape.triangle.co,
+                    (x, y),
                     direction,
                     local_space=True,
-                    symmetry=symmetry_draw,
+                    symmetry=self.shape.triangle.symmetry,
                     flip=self.shape.triangle.flip,
                 )
                 if self.pref.bevel.round.enable:

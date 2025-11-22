@@ -1,3 +1,5 @@
+import math
+
 from mathutils import Matrix, Vector
 
 
@@ -30,18 +32,16 @@ def set_xy(
     direction,
     local_space=False,
     snap_value=0,
-    symmetry=(False, False),
+    symmetry=False,
     flip=False,
 ):
     """
     Expand the triangle face. The `loc` parameter is always provided.
     If `local_space` is True, `loc` is given in the plane's local coordinate system.
     If `local_space` is False, `loc` is given in global coordinate system and will be transformed.
-    If `symy` or `symx` is True, the triangle will be symmetric along the x-axis or y-axis of the plane's local coordinate system.
+    If `symmetry` is True, the triangle will be symmetric along the x-axis of the plane's local coordinate system.
     If `flip` is True, the triangle's right angle will be flipped.
     """
-
-    symx, symy = symmetry
 
     # Unpack plane data
     location, normal = plane
@@ -65,125 +65,121 @@ def set_xy(
     # Adjust x0 and y0 based on symmetry
     if local_space:
         # Use loc directly as it is in plane's local space
-        x1, y1 = loc.x, loc.y
+        # Handle both Vector and tuple types
+        if isinstance(loc, tuple):
+            x1, y1 = loc
+        else:
+            x1, y1 = loc.x, loc.y
     else:
         # Transform loc from object local space to plane's local space
+        if isinstance(loc, tuple):
+            # If loc is a tuple, convert to Vector first
+            loc = Vector((loc[0], loc[1], 0))
         mouse_local = matrix_inv @ loc
         x1, y1 = mouse_local.x, mouse_local.y
 
-    # Apply snapping if a snap_value is provided
-    if snap_value != 0:
-        x1 = round(x1 / snap_value) * snap_value
-        y1 = round(y1 / snap_value) * snap_value
+    # New Logic: Free Rotation & Perfect Shapes
+    # We treat (0,0) as the Start Point.
+    # (x1, y1) is the "Height" point.
 
-    # Adjust x0 and y0 based on symmetry
-    x0 = -x1 if symy else 0
-    y0 = -y1 if symx else 0
+    # Vector from Start to Height Point
+    v_height = Vector((x1, y1, 0))
+    height_len = v_height.length
 
-    dx = x1 - x0
-    dy = y1 - y0
+    if height_len < 1e-6:
+        # Avoid division by zero / degenerate triangles
+        v_local = [Vector((0, 0, 0))] * 3
+        point_3d = location
+        return (x1, y1), point_3d
 
-    # Determine the quadrant based on the signs of dx and dy
-    quadrant_key = (dx >= 0, dy >= 0)
+    # Apply snap_value to height if provided
+    if snap_value > 0:
+        # Round height to nearest snap_value increment
+        height_len = round(height_len / snap_value) * snap_value
+        # Recalculate v_height with snapped length
+        if v_height.length > 1e-6:
+            v_height = v_height.normalized() * height_len
+            x1, y1 = v_height.x, v_height.y
 
-    # Map quadrants to vertex positions using a dictionary
-    # The key is (dx >= 0, dy >= 0)
-    # The value is a list of 3 vectors representing the triangle vertices
+    # Axis Snapping
+    # Check if v_height is close to X or Y axis
+    # We are in plane local space. X is (1,0,0), Y is (0,1,0)
 
-    if symx:
-        # Symmetry Axis X (Mirror Y) -> Isosceles along X
-        # v1: Origin (0, 0)
-        # v2: Mirror of v3 (x1, -y1)
-        # v3: Cursor (x1, y1)
+    # Threshold angle in radians (e.g., 5 degrees)
+    threshold = math.radians(5)
+
+    # Calculate angle with X axis
+    # v_height is (x, y, 0). Angle with X (1,0,0) is atan2(y, x)
+    angle = math.atan2(v_height.y, v_height.x)
+
+    # Normalize angle to [-pi, pi]
+    # atan2 returns [-pi, pi]
+
+    # Check proximity to 0, pi/2, pi, -pi/2
+    # 0: X axis
+    # pi/2: Y axis
+    # pi: -X axis
+    # -pi/2: -Y axis
+
+    snap_occured = False
+
+    if abs(angle) < threshold:  # Snap to +X
+        v_height = Vector((height_len, 0, 0))
+        snap_occured = True
+    elif abs(angle - math.pi / 2) < threshold:  # Snap to +Y
+        v_height = Vector((0, height_len, 0))
+        snap_occured = True
+    elif abs(abs(angle) - math.pi) < threshold:  # Snap to -X
+        v_height = Vector((-height_len, 0, 0))
+        snap_occured = True
+    elif abs(angle + math.pi / 2) < threshold:  # Snap to -Y
+        v_height = Vector((0, -height_len, 0))
+        snap_occured = True
+
+    if snap_occured:
+        # Update x1, y1 to match snapped vector
+        x1, y1 = v_height.x, v_height.y
+
+    # Local Y axis for the triangle is the direction of the height vector
+    local_y = v_height.normalized()
+    # Local X axis is perpendicular to Local Y (in the plane)
+    # We want it to be consistent, let's say rotated -90 degrees (clockwise)
+    local_x = Vector((local_y.y, -local_y.x, 0))
+
+    # Calculate vertices based on symmetry
+    if symmetry:  # "Perfect" Triangle (Equilateral)
+        # Width for equilateral triangle: height * 2 / sqrt(3)
+        width = height_len * 2 / math.sqrt(3)
+        half_width = width / 2
+
+        # Vertices:
+        # v1: Base Point 1 (Base Center + half_width * local_x)
+        # v2: Base Point 2 (Base Center - half_width * local_x)
+        # v3: Apex (Start Point = 0,0,0)
+
+        p1 = v_height + local_x * half_width
+        p2 = v_height - local_x * half_width
+        p3 = Vector((0, 0, 0))
+
+        v_local = [p1, p2, p3]
+
+    else:  # "Half" Triangle (Right Angle)
+        # "half if no symetry" -> Right triangle.
+        width = height_len / math.sqrt(3)
+
+        # Vertices:
+        # v1: Base Corner 1 (Right Angle) = v_height
+        # v2: Base Corner 2 = v_height + Width * local_x
+        # v3: Apex (Start Point = 0,0,0)
+
+        p1 = v_height
+        p2 = v_height + local_x * width
+        p3 = Vector((0, 0, 0))
+
         if flip:
-            # Flip: Pointing the other way?
-            # Let's assume flip inverts the X direction relative to the base
-            # v1: (x1, 0)
-            # v2: (0, -y1)
-            # v3: (0, y1)
-            v_local = [
-                Vector((x1, 0, 0)),
-                Vector((0, -y1, 0)),
-                Vector((0, y1, 0)),
-            ]
-        else:
-            v_local = [
-                Vector((0, 0, 0)),
-                Vector((x1, -y1, 0)),
-                Vector((x1, y1, 0)),
-            ]
-    elif symy:
-        # Symmetry Axis Y (Mirror X) -> Isosceles along Y
-        # v1: Origin (0, 0)
-        # v2: Mirror of v3 (-x1, y1)
-        # v3: Cursor (x1, y1)
-        if flip:
-            # Flip: Pointing the other way
-            # v1: (0, y1)
-            # v2: (-x1, 0)
-            # v3: (x1, 0)
-            v_local = [
-                Vector((0, y1, 0)),
-                Vector((-x1, 0, 0)),
-                Vector((x1, 0, 0)),
-            ]
-        else:
-            v_local = [
-                Vector((0, 0, 0)),
-                Vector((-x1, y1, 0)),
-                Vector((x1, y1, 0)),
-            ]
-    elif flip:
-        vertex_assignments = {
-            (True, True): [  # Quadrant I
-                Vector((x0, y0, 0)),
-                Vector((x0, y1, 0)),
-                Vector((x1, y1, 0)),
-            ],
-            (False, True): [  # Quadrant II
-                Vector((x0, y0, 0)),
-                Vector((x0, y1, 0)),
-                Vector((x1, y1, 0)),
-            ],
-            (False, False): [  # Quadrant III
-                Vector((x0, y0, 0)),
-                Vector((x0, y1, 0)),
-                Vector((x1, y1, 0)),
-            ],
-            (True, False): [  # Quadrant IV
-                Vector((x0, y0, 0)),
-                Vector((x0, y1, 0)),
-                Vector((x1, y1, 0)),
-            ],
-        }
-        v_local = vertex_assignments.get(quadrant_key)
-    else:
-        vertex_assignments = {
-            (True, True): [  # Quadrant I (dx >= 0, dy >= 0)
-                Vector((x0, y0, 0)),  # v1_local
-                Vector((x1, y0, 0)),  # v2_local
-                Vector((x1, y1, 0)),  # v3_local
-            ],
-            (False, True): [  # Quadrant II (dx < 0, dy >= 0)
-                Vector((x0, y0, 0)),
-                Vector((x1, y0, 0)),
-                Vector((x1, y1, 0)),
-            ],
-            (False, False): [  # Quadrant III (dx < 0, dy < 0)
-                Vector((x0, y0, 0)),
-                Vector((x1, y0, 0)),
-                Vector((x1, y1, 0)),
-            ],
-            (True, False): [  # Quadrant IV (dx >= 0, dy < 0)
-                Vector((x0, y0, 0)),
-                Vector((x1, y0, 0)),
-                Vector((x1, y1, 0)),
-            ],
-        }
-        v_local = vertex_assignments.get(quadrant_key)
+            p2 = v_height - local_x * width
 
-    if v_local is None:
-        v_local = [Vector((x0, y0, 0))] * 3
+        v_local = [p1, p2, p3]
 
     # Unpack the local vertex positions
     v1_local, v2_local, v3_local = v_local
@@ -197,10 +193,12 @@ def set_xy(
     point_local = Vector((x1, y1, 0))
     point_3d = matrix @ point_local
 
-    # Return dx, dy (2D location), and point_3d (3D point)
-    if symx:
-        dy = dy / 2
-    if symy:
-        dx = dx / 2
+    # Calculate height (distance from origin to mouse point)
+    height = math.sqrt(x1**2 + y1**2)
 
-    return (dx, dy), point_3d
+    # Calculate angle (rotation around normal)
+    # atan2 gives us the angle from +X axis
+    rotation_angle = math.atan2(y1, x1)
+
+    # Return height, angle, and point_3d (3D point)
+    return (height, rotation_angle), point_3d

@@ -88,11 +88,12 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.round, "segments", text="")
             case "TRIANGLE":
                 col = layout.column(align=True)
-                col.prop(self.shape.triangle, "co", text="Dimensions")
+                col.prop(self.shape.triangle, "height")
+                col.prop(self.shape.triangle, "angle")
                 col = layout.column(align=True, heading="Symmetry")
                 row = col.row(align=True)
-                row.prop(self.pref, "symmetry_draw_x", toggle=True)
-                row.prop(self.pref, "symmetry_draw_y", toggle=True)
+                row.prop(self.shape.triangle, "symmetry", toggle=True)
+                col.prop(self.shape.triangle, "flip", toggle=True)
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
@@ -101,12 +102,13 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.round, "segments", text="")
             case "PRISM":
                 col = layout.column(align=True)
-                col.prop(self.shape.triangle, "co", text="Dimensions")
+                col.prop(self.shape.triangle, "height")
+                col.prop(self.shape.triangle, "angle")
                 col.prop(self.pref, "extrusion", text="Z")
                 col = layout.column(align=True, heading="Symmetry")
                 row = col.row(align=True)
-                row.prop(self.pref, "symmetry_draw_x", toggle=True)
-                row.prop(self.pref, "symmetry_draw_y", toggle=True)
+                row.prop(self.shape.triangle, "symmetry", toggle=True)
+                col.prop(self.shape.triangle, "flip", toggle=True)
                 row.prop(self.pref, "symmetry_extrude", toggle=True)
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
@@ -576,8 +578,6 @@ class Block(bpy.types.Operator):
                 if self.mode == "DRAW" and self.config.shape in {
                     "RECTANGLE",
                     "BOX",
-                    "TRIANGLE",
-                    "PRISM",
                 }:
                     # Toggle X symmetry for rectangle/box shapes
                     self.data.draw.symmetry = (
@@ -586,14 +586,20 @@ class Block(bpy.types.Operator):
                     )
                     self._header(context)
                     return {"RUNNING_MODAL"}
+                elif self.mode == "DRAW" and self.config.shape in {
+                    "TRIANGLE",
+                    "PRISM",
+                }:
+                    # Toggle triangle height symmetry
+                    self.shape.triangle.symmetry = not self.shape.triangle.symmetry
+                    self._header(context)
+                    return {"RUNNING_MODAL"}
 
         elif event.type == "Y":
             if event.value == "PRESS":
                 if self.mode == "DRAW" and self.config.shape in {
                     "RECTANGLE",
                     "BOX",
-                    "TRIANGLE",
-                    "PRISM",
                 }:
                     # Toggle Y symmetry for rectangle/box shapes
                     self.data.draw.symmetry = (
@@ -687,8 +693,9 @@ class Block(bpy.types.Operator):
                 case "RECTANGLE":
                     dimentions = f" Dx:{x_length:.4f},  Dy:{y_length:.4f}"
                 case "TRIANGLE":
-                    x_length, y_length = self.shape.triangle.co
-                    dimentions = f" Dx:{x_length:.4f},  Dy:{y_length:.4f}"
+                    height = self.shape.triangle.height
+                    angle = self.shape.triangle.angle
+                    dimentions = f" Height:{height:.4f},  Angle:{angle:.4f}"
                 case "CIRCLE":
                     dimentions = f" Radius:{radius:.4f}"
                 case "BOX":
@@ -698,9 +705,10 @@ class Block(bpy.types.Operator):
                 case "CYLINDER":
                     dimentions = f" Radius:{radius:.4f},  Dz:{z_length:.4f}"
                 case "PRISM":
-                    x_length, y_length = self.shape.triangle.co
+                    height = self.shape.triangle.height
+                    angle = self.shape.triangle.angle
                     dimentions = (
-                        f" Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_length:.4f}"
+                        f" Height:{height:.4f},  Angle:{angle:.4f},  Dz:{z_length:.4f}"
                     )
 
         header = f"{text} {dimentions}"

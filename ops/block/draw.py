@@ -142,24 +142,28 @@ def modal(self, context, event):
                 snap_value=increments,
             )
         case "TRIANGLE":
-            self.shape.triangle.co, point = triangle.set_xy(
-                faces[0],
-                plane,
-                mouse_point_on_plane,
-                direction,
-                snap_value=increments,
-                symmetry=symmetry,
-                flip=self.shape.triangle.flip,
+            (self.shape.triangle.height, self.shape.triangle.angle), point = (
+                triangle.set_xy(
+                    faces[0],
+                    plane,
+                    mouse_point_on_plane,
+                    direction,
+                    snap_value=increments,
+                    symmetry=self.shape.triangle.symmetry,
+                    flip=self.shape.triangle.flip,
+                )
             )
         case "PRISM":
-            self.shape.triangle.co, point = triangle.set_xy(
-                faces[0],
-                plane,
-                mouse_point_on_plane,
-                direction,
-                snap_value=increments,
-                symmetry=symmetry,
-                flip=self.shape.triangle.flip,
+            (self.shape.triangle.height, self.shape.triangle.angle), point = (
+                triangle.set_xy(
+                    faces[0],
+                    plane,
+                    mouse_point_on_plane,
+                    direction,
+                    snap_value=increments,
+                    symmetry=self.shape.triangle.symmetry,
+                    flip=self.shape.triangle.flip,
+                )
             )
 
     self.update_bmesh(obj, bm)
@@ -228,34 +232,43 @@ def modal(self, context, event):
                 {"point": point_y_2d, "text_tuple": (f"Y: {width_y:.3f}",)},
             ]
             self.ui.interface.callback.update_batch(lines)
-        case "TRIANGLE":
-            width_x = self.shape.triangle.co.x
-            width_y = self.shape.triangle.co.y
-            direction = self.data.draw.matrix.direction
-            point_x = point_gloabal - direction * (width_x / 2)
-            point_y = point_gloabal - direction.cross(
-                self.data.draw.matrix.plane[1]
-            ) * (-width_y / 2)
-            point_x_2d = view3d.location_3d_to_region_2d(region, rv3d, point_x)
-            point_y_2d = view3d.location_3d_to_region_2d(region, rv3d, point_y)
+        case "TRIANGLE" | "PRISM":
+            import math
+
+            location, normal = plane
+            v_height = point_gloabal - location
+            height = v_height.length
+
+            symx = self.shape.triangle.symmetry
+            if symx:
+                width = height * 2 / math.sqrt(3)
+            else:
+                width = height / math.sqrt(3)
+
+            # Calculate label positions
+            # Height label: Midpoint of height vector
+            mid_height = location + v_height / 2
+
+            # Width label: We need the width direction.
+            # It's perpendicular to v_height and normal.
+            if height > 0:
+                width_dir = v_height.cross(normal).normalized()
+            else:
+                width_dir = Vector((1, 0, 0))  # Fallback
+
+            if symx:
+                # Base is centered at Cursor (point_gloabal)
+                mid_width = point_gloabal + width_dir * (width / 4)
+            else:
+                # Base is from Cursor to Cursor + width * width_dir
+                mid_width = point_gloabal + width_dir * (width / 2)
+
+            point_h_2d = view3d.location_3d_to_region_2d(region, rv3d, mid_height)
+            point_w_2d = view3d.location_3d_to_region_2d(region, rv3d, mid_width)
+
             lines = [
-                {"point": point_x_2d, "text_tuple": (f"X: {width_x:.3f}",)},
-                {"point": point_y_2d, "text_tuple": (f"Y: {width_y:.3f}",)},
-            ]
-            self.ui.interface.callback.update_batch(lines)
-        case "PRISM":
-            width_x = self.shape.triangle.co.x
-            width_y = self.shape.triangle.co.y
-            direction = self.data.draw.matrix.direction
-            point_x = point_gloabal - direction * (width_x / 2)
-            point_y = point_gloabal - direction.cross(
-                self.data.draw.matrix.plane[1]
-            ) * (-width_y / 2)
-            point_x_2d = view3d.location_3d_to_region_2d(region, rv3d, point_x)
-            point_y_2d = view3d.location_3d_to_region_2d(region, rv3d, point_y)
-            lines = [
-                {"point": point_x_2d, "text_tuple": (f"X: {width_x:.3f}",)},
-                {"point": point_y_2d, "text_tuple": (f"Y: {width_y:.3f}",)},
+                {"point": point_w_2d, "text_tuple": (f"W: {width:.3f}",)},
+                {"point": point_h_2d, "text_tuple": (f"H: {height:.3f}",)},
             ]
             self.ui.interface.callback.update_batch(lines)
         case "NGON" | "NHEDRON":

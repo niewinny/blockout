@@ -1,10 +1,12 @@
-import bpy
-import bmesh
 import math
+
+import bmesh
+import bpy
 from mathutils import Vector
-from ...utilsbmesh import orientation
+
 from ...utils import view3d
 from ...utils.types import DrawMatrix
+from ...utilsbmesh import orientation
 
 
 def _resolve_face_index(cls, hit_bm, hit_obj_eval, hit_data):

@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
+
 import bpy
+
 from ...shaders import handle
 from ...utils import addon, infobar
 
@@ -118,8 +120,6 @@ def hotkeys(self, layout, _context, _event):
                 if self.mode == "DRAW":
                     row.label(text="X Symmetry", icon="EVENT_X")
                     row.separator(factor=factor)
-                    row.label(text="Y Symmetry", icon="EVENT_Y")
-                    row.separator(factor=factor)
                     row.label(text="Flip", icon="EVENT_F")
                     row.separator(factor=factor)
                 row.label(text="Bevel", icon="EVENT_B")
@@ -127,8 +127,6 @@ def hotkeys(self, layout, _context, _event):
             case "PRISM":
                 if self.mode == "DRAW":
                     row.label(text="X Symmetry", icon="EVENT_X")
-                    row.separator(factor=factor)
-                    row.label(text="Y Symmetry", icon="EVENT_Y")
                     row.separator(factor=factor)
                     row.label(text="Flip", icon="EVENT_F")
                     row.separator(factor=factor)
