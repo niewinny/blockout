@@ -570,8 +570,6 @@ class Block(bpy.types.Operator):
                         self.edit_mode = "DELETE"
                         edit.modal(self, context, event)
                         return {"RUNNING_MODAL"}
-                        edit.modal(self, context, event)
-                        return {"RUNNING_MODAL"}
                     self._header(context)
                     return {"RUNNING_MODAL"}
 
