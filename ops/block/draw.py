@@ -43,6 +43,8 @@ def invoke(self, context):
             self.data.draw.faces = corner.create(bm, plane)
         case "TRIANGLE":
             self.data.draw.faces = triangle.create(bm, plane)
+        case "PRISM":
+            self.data.draw.faces = triangle.create(bm, plane)
 
     if self.config.shape in {"SPHERE"}:
         self.shape.volume = "3D"
@@ -149,6 +151,16 @@ def modal(self, context, event):
                 symmetry=symmetry,
                 flip=self.shape.triangle.flip,
             )
+        case "PRISM":
+            self.shape.triangle.co, point = triangle.set_xy(
+                faces[0],
+                plane,
+                mouse_point_on_plane,
+                direction,
+                snap_value=increments,
+                symmetry=symmetry,
+                flip=self.shape.triangle.flip,
+            )
 
     self.update_bmesh(obj, bm)
 
@@ -217,6 +229,21 @@ def modal(self, context, event):
             ]
             self.ui.interface.callback.update_batch(lines)
         case "TRIANGLE":
+            width_x = self.shape.triangle.co.x
+            width_y = self.shape.triangle.co.y
+            direction = self.data.draw.matrix.direction
+            point_x = point_gloabal - direction * (width_x / 2)
+            point_y = point_gloabal - direction.cross(
+                self.data.draw.matrix.plane[1]
+            ) * (-width_y / 2)
+            point_x_2d = view3d.location_3d_to_region_2d(region, rv3d, point_x)
+            point_y_2d = view3d.location_3d_to_region_2d(region, rv3d, point_y)
+            lines = [
+                {"point": point_x_2d, "text_tuple": (f"X: {width_x:.3f}",)},
+                {"point": point_y_2d, "text_tuple": (f"Y: {width_y:.3f}",)},
+            ]
+            self.ui.interface.callback.update_batch(lines)
+        case "PRISM":
             width_x = self.shape.triangle.co.x
             width_y = self.shape.triangle.co.y
             direction = self.data.draw.matrix.direction

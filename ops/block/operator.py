@@ -99,6 +99,25 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.round, "enable", text="Round", toggle=True)
                 row.prop(self.pref.bevel.round, "offset", text="")
                 row.prop(self.pref.bevel.round, "segments", text="")
+            case "PRISM":
+                col = layout.column(align=True)
+                col.prop(self.shape.triangle, "co", text="Dimensions")
+                col.prop(self.pref, "extrusion", text="Z")
+                col = layout.column(align=True, heading="Symmetry")
+                row = col.row(align=True)
+                row.prop(self.pref, "symmetry_draw_x", toggle=True)
+                row.prop(self.pref, "symmetry_draw_y", toggle=True)
+                row.prop(self.pref, "symmetry_extrude", toggle=True)
+                layout.prop(self.pref, "offset", text="Offset")
+                col = layout.column(align=True, heading="Bevel")
+                row = col.row(align=True)
+                row.prop(self.pref.bevel.round, "enable", text="Round", toggle=True)
+                row.prop(self.pref.bevel.round, "offset", text="")
+                row.prop(self.pref.bevel.round, "segments", text="")
+                row = col.row(align=True)
+                row.prop(self.pref.bevel.fill, "enable", text="Fill", toggle=True)
+                row.prop(self.pref.bevel.fill, "offset", text="")
+                row.prop(self.pref.bevel.fill, "segments", text="")
             case "BOX":
                 col = layout.column(align=True)
                 col.prop(self.shape.rectangle, "co", text="Dimensions")
@@ -380,6 +399,8 @@ class Block(bpy.types.Operator):
                     return _extrude_and_bevel()
                 case ("DRAW", "RELEASE", "CYLINDER"):
                     return _extrude_and_bevel()
+                case ("DRAW", "RELEASE", "PRISM"):
+                    return _extrude_and_bevel()
                 case ("DRAW", "RELEASE", "NGON"):
                     edit.invoke(self, context)
                     return {"RUNNING_MODAL"}
@@ -392,6 +413,8 @@ class Block(bpy.types.Operator):
                 case ("BEVEL", "RELEASE", "BOX"):
                     return _extrude_and_bevel()
                 case ("BEVEL", "RELEASE", "CYLINDER"):
+                    return _extrude_and_bevel()
+                case ("BEVEL", "RELEASE", "PRISM"):
                     return _extrude_and_bevel()
                 case ("BEVEL", "RELEASE", "NHEDRON"):
                     if not self.shape.volume == "3D":
@@ -468,6 +491,7 @@ class Block(bpy.types.Operator):
                     "NGON",
                     "NHEDRON",
                     "TRIANGLE",
+                    "PRISM",
                 }:
                     self.data.bevel.mode = "OFFSET"
 
@@ -477,7 +501,7 @@ class Block(bpy.types.Operator):
                     if self.config.shape == "CYLINDER":
                         self.data.bevel.type = "FILL"
 
-                    if self.config.shape in {"BOX", "NHEDRON"}:
+                    if self.config.shape in {"BOX", "NHEDRON", "PRISM"}:
                         if self.mode == "BEVEL":
                             self.data.bevel.type = (
                                 "ROUND" if self.data.bevel.type == "FILL" else "FILL"
@@ -526,7 +550,7 @@ class Block(bpy.types.Operator):
             if event.value == "PRESS":
                 if self.mode == "BISECT":
                     self.data.bisect.flip = not self.data.bisect.flip
-                elif self.mode == "DRAW" and self.config.shape == "TRIANGLE":
+                elif self.mode == "DRAW" and self.config.shape in {"TRIANGLE", "PRISM"}:
                     self.shape.triangle.flip = not self.shape.triangle.flip
                     self._header(context)
                     return {"RUNNING_MODAL"}
@@ -548,10 +572,14 @@ class Block(bpy.types.Operator):
                         return {"RUNNING_MODAL"}
                         edit.modal(self, context, event)
                         return {"RUNNING_MODAL"}
-                elif self.mode == "DRAW" and self.config.shape in {
+                    self._header(context)
+                    return {"RUNNING_MODAL"}
+
+                if self.mode == "DRAW" and self.config.shape in {
                     "RECTANGLE",
                     "BOX",
                     "TRIANGLE",
+                    "PRISM",
                 }:
                     # Toggle X symmetry for rectangle/box shapes
                     self.data.draw.symmetry = (
@@ -567,6 +595,7 @@ class Block(bpy.types.Operator):
                     "RECTANGLE",
                     "BOX",
                     "TRIANGLE",
+                    "PRISM",
                 }:
                     # Toggle Y symmetry for rectangle/box shapes
                     self.data.draw.symmetry = (
@@ -670,6 +699,11 @@ class Block(bpy.types.Operator):
                     )
                 case "CYLINDER":
                     dimentions = f" Radius:{radius:.4f},  Dz:{z_length:.4f}"
+                case "PRISM":
+                    x_length, y_length = self.shape.triangle.co
+                    dimentions = (
+                        f" Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_length:.4f}"
+                    )
 
         header = f"{text} {dimentions}"
         context.area.header_text_set(text=header)

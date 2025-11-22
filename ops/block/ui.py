@@ -114,6 +114,28 @@ def hotkeys(self, layout, _context, _event):
                     row.separator(factor=factor)
                 row.label(text="Bevel", icon="EVENT_B")
                 row.separator(factor=factor)
+            case "TRIANGLE":
+                if self.mode == "DRAW":
+                    row.label(text="X Symmetry", icon="EVENT_X")
+                    row.separator(factor=factor)
+                    row.label(text="Y Symmetry", icon="EVENT_Y")
+                    row.separator(factor=factor)
+                    row.label(text="Flip", icon="EVENT_F")
+                    row.separator(factor=factor)
+                row.label(text="Bevel", icon="EVENT_B")
+                row.separator(factor=factor)
+            case "PRISM":
+                if self.mode == "DRAW":
+                    row.label(text="X Symmetry", icon="EVENT_X")
+                    row.separator(factor=factor)
+                    row.label(text="Y Symmetry", icon="EVENT_Y")
+                    row.separator(factor=factor)
+                    row.label(text="Flip", icon="EVENT_F")
+                    row.separator(factor=factor)
+                row.label(text="Z Symmetry", icon="EVENT_Z")
+                row.separator(factor=factor)
+                row.label(text="Bevel", icon="EVENT_B")
+                row.separator(factor=factor)
             case "BOX":
                 if self.mode == "DRAW":
                     row.label(text="X Symmetry", icon="EVENT_X")

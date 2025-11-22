@@ -288,6 +288,28 @@ class BOUT_OT_BlockObjTool(Block):
                     bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
                     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                     self._add_boolean(obj, detected_obj, extruded_faces[0])
+            case "PRISM":
+                faces_indexes = triangle.create(bm, plane)
+                face = bmeshface.from_index(bm, faces_indexes[0])
+                triangle.set_xy(
+                    face,
+                    plane,
+                    self.shape.triangle.co,
+                    direction,
+                    local_space=True,
+                    symmetry=symmetry_draw,
+                    flip=self.shape.triangle.flip,
+                )
+                facet.set_z(face, normal, offset)
+                extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                self._recalculate_normals(bm, extruded_faces)
+                if symmetry_extrude:
+                    facet.set_z(
+                        bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
+                    )
+                bevel.mod.faces(bm, obj, bevel_round, bevel_fill, extruded_faces)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                self._add_boolean(obj, detected_obj, extruded_faces[0])
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 
