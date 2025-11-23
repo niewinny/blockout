@@ -19,7 +19,7 @@ bl_info = {
     "name": "Blockout",
     "description": "Mesh Modeling Toolkit",
     "author": "ezelar.com",
-    "version": (1, 2, 2),
+    "version": (1, 3, 0),
     "blender": (4, 5, 0),
     "location": "View3D",
     "wiki_url": "",
