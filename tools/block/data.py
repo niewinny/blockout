@@ -9,7 +9,7 @@ shapes = [
     ("CIRCLE", "Circle", "Circle", "MESH_CIRCLE", 6),
     ("SPHERE", "Sphere", "Sphere", "MESH_UVSPHERE", 7),
     ("CORNER", "Corner", "Corner", "AREA_DOCK", 8),
-    ("TRIANGLE", "Triangle", "Triangle", "MESH_CONE", 9),
+    ("TRIANGLE", "Triangle", "Triangle", "MARKER", 9),
     ("PRISM", "Prism", "Prism", "MESH_CONE", 10),
 ]
 
