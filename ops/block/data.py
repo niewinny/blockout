@@ -5,6 +5,7 @@ import bmesh
 import bpy
 from mathutils import Vector
 
+from ...utils.input import NumericInput
 from ...utils.types import DrawMatrix, DrawVert
 
 
@@ -104,6 +105,7 @@ class CreatedData:
     bevel: Bevel = field(default_factory=Bevel)
     bisect: Bisect = field(default_factory=Bisect)
     draw: Draw = field(default_factory=Draw)
+    numeric_input: NumericInput = field(default_factory=NumericInput)
 
 
 @dataclass

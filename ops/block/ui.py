@@ -90,6 +90,22 @@ def hotkeys(self, layout, _context, _event):
     """Draw the infobar hotkeys"""
     factor = 4.0
     row = layout.row(align=True)
+
+    # Show numeric input mode hotkeys
+    ni = self.data.numeric_input
+    if ni.active:
+        row.label(text="Input", icon="LINENUMBERS_ON")
+        row.separator(factor=factor)
+        row.label(text="Apply", icon="EVENT_RETURN")
+        row.separator(factor=factor)
+        row.label(text="Cancel", icon="EVENT_ESC")
+        row.separator(factor=factor)
+        row.label(text="Next", icon="EVENT_TAB")
+        row.separator(factor=factor)
+        row.label(text="Delete", icon="EVENT_BACKSPACE")
+        row.separator(factor=factor)
+        return
+
     row.label(text=self.mode.capitalize(), icon="MOUSE_MOVE")
     row.separator(factor=factor)
     lmb = "Extrude" if self.mode == "DRAW" else "Finish"

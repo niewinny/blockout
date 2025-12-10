@@ -1,6 +1,6 @@
 # filepath: c:\Users\Pixelkom\AppData\Roaming\Blender Foundation\Blender\AR\extensions\user_default\blockout\utilsbmesh\sphere.py
-from mathutils import Matrix, Vector
 import bmesh
+from mathutils import Matrix, Vector
 
 
 def create(bm, plane, direction=None, subd=1, radius=None):
@@ -99,14 +99,15 @@ def create(bm, plane, direction=None, subd=1, radius=None):
     return faces_indexes
 
 
-def set_radius(faces, plane, loc, direction, snap_value=0):
+def set_radius(faces, plane, loc, direction, radius=None, snap_value=0):
     """
     Set the radius for sphere faces based on distance from center to mouse point.
 
     :param faces: List of Face objects making up the sphere
     :param plane: A tuple (location, normal) defining the orientation and center
-    :param loc: Location vector for calculating radius
+    :param loc: Location vector for calculating radius (can be None if radius is provided)
     :param direction: Direction vector to define orientation
+    :param radius: Optional radius value. If provided, used directly instead of calculating from loc
     :param snap_value: Snap value for radius
     :return: Tuple of (radius, point_3d) where point_3d is the point on sphere surface
     """
@@ -123,8 +124,13 @@ def set_radius(faces, plane, loc, direction, snap_value=0):
     matrix = rotation_matrix.to_4x4()
     matrix.translation = location
 
-    # Calculate radius as distance from location to mouse_point
-    radius = (loc - location).length
+    # Calculate radius from loc if not provided directly
+    if radius is None:
+        if loc is None:
+            raise ValueError("Either radius or loc must be provided to set_radius")
+        radius = (loc - location).length
+    elif radius < 0:
+        radius = abs(radius)  # Handle negative radius from numeric input
 
     # Don't modify the radius if it's very small - this avoids the blink
     if radius < 0.001:
@@ -135,12 +141,15 @@ def set_radius(faces, plane, loc, direction, snap_value=0):
         radius = round(radius / snap_value) * snap_value
 
     # Calculate a point on the sphere surface in the direction of mouse_point
-    direction_to_mouse = loc - location
-    if direction_to_mouse.length > 0:
-        direction_to_mouse = direction_to_mouse.normalized()
-        point_3d = location + (direction_to_mouse * radius)
+    if loc is not None:
+        direction_to_mouse = loc - location
+        if direction_to_mouse.length > 0:
+            direction_to_mouse = direction_to_mouse.normalized()
+            point_3d = location + (direction_to_mouse * radius)
+        else:
+            point_3d = location + (x_axis * radius)
     else:
-        # If mouse is at center, use the x_axis as default direction
+        # If no loc provided, use the x_axis as default direction
         point_3d = location + (x_axis * radius)
 
     # Extract all unique vertices from the faces and update their positions

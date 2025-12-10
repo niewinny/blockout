@@ -1,8 +1,9 @@
+from mathutils import Vector
+
 from ...utils import view3d
 from ...utils.scene import ray_cast
 from ...utils.types import DrawVert
-from mathutils import Vector
-from ...utilsbmesh import facet, corner
+from ...utilsbmesh import corner, facet
 from .data import ExtrudeEdge
 
 
@@ -83,39 +84,43 @@ def invoke(self, context, event):
 
 
 def modal(self, context, event):
-    """Set the extrusion"""
-
+    """Set the extrusion based on mouse or numeric input."""
     obj = self.data.obj
     bm = self.data.bm
-    matrix_world = obj.matrix_world
+    ni = self.data.numeric_input
+
+    # Ensure lookup tables are valid after destructive updates
+    bm.faces.ensure_lookup_table()
+    bm.verts.ensure_lookup_table()
 
     face = bm.faces[self.data.extrude.faces[-1]]
-    plane = self.data.draw.matrix.plane
-    normal = plane[1]
+    normal = self.data.draw.matrix.plane[1]
     verts = [v.co for v in self.data.extrude.verts]
 
     region = context.region
     rv3d = context.region_data
 
-    # Compute line_origin in world space
-    line_origin = self.data.extrude.origin
+    # Only calculate from mouse when not in numeric input mode
+    if not ni.active:
+        matrix_world = obj.matrix_world
+        line_origin = self.data.extrude.origin
+        line_direction = matrix_world.to_3x3() @ normal
 
-    # Use world space normal for line_direction
-    line_direction = matrix_world.to_3x3() @ normal
+        _, extrude = view3d.region_2d_to_line_3d(
+            region, rv3d, self.mouse.co, line_origin, line_direction
+        )
 
-    # Calculate extrusion using region_2d_to_line_3d
-    _, extrude = view3d.region_2d_to_line_3d(
-        region, rv3d, self.mouse.co, line_origin, line_direction
-    )
+        if extrude is not None:
+            increments = self.config.align.increments if self.config.snap else 0.0
+            if increments > 0:
+                extrude = round(extrude / increments) * increments
+            self.data.extrude.value = extrude
 
-    if extrude is None:
-        # Handle the case where the line and ray are parallel
-        self.data.extrude.value = 0.0
-        return
-
-    # Update the mesh with the new extrusion value
+    # Update geometry using current value
+    dz = self.data.extrude.value
     increments = self.config.align.increments if self.config.snap else 0.0
-    dz = facet.set_z(face, normal, extrude, verts, snap_value=increments)
+    dz = facet.set_z(face, normal, dz, verts, snap_value=increments)
+    self.data.extrude.value = dz  # Update with snapped value
 
     draw_face = bm.faces[self.data.extrude.faces[0]]
     draw_verts = [v.co for v in self.data.draw.verts]
@@ -123,9 +128,6 @@ def modal(self, context, event):
         facet.set_z(draw_face, normal, -dz, draw_verts, snap_value=increments)
     else:
         facet.set_z(draw_face, normal, 0, draw_verts)
-
-    # Update the extrusion value
-    self.data.extrude.value = dz
 
     bevel_verts = [obj.matrix_world @ v.co.copy() for v in face.verts]
     self.data.bevel.origin = sum(bevel_verts, Vector()) / len(bevel_verts)
@@ -135,17 +137,22 @@ def modal(self, context, event):
     if self.config.mode != "ADD":
         self.ui.faces.callback.update_batch(extrude_faces)
 
-    point = self.data.extrude.origin + self.data.draw.matrix.plane[1] * (
-        self.data.extrude.value / 2
-    )
-    point_2d = view3d.location_3d_to_region_2d(region, rv3d, point)
-    width = f"{self.data.extrude.value:.3f}"
-    lines = [
-        {"point": point_2d, "text_tuple": (f"Z: {width}",)},
-    ]
-    self.ui.interface.callback.update_batch(lines)
+    _, normal = self.data.draw.matrix.plane
+    normal_global = obj.matrix_world.to_3x3() @ normal
+    point_global = self.data.extrude.origin + normal_global * (dz / 2)
+    _update_ui(self, region, rv3d, point_global, dz)
 
     self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+
+
+def _update_ui(self, region, rv3d, point_global, dz):
+    """Update extrude UI elements."""
+
+    point_2d = view3d.location_3d_to_region_2d(region, rv3d, point_global)
+    lines = [
+        {"point": point_2d, "text_tuple": (f"Z: {dz:.3f}",)},
+    ]
+    self.ui.interface.callback.update_batch(lines)
 
 
 def uniform(self, context):

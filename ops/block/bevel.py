@@ -1,6 +1,11 @@
-from ...utils import view3d, modifier
+from ...utils import modifier, view3d
 from ...utilsbmesh import bmeshface
 from . import weld
+
+
+def _get_bevel_data(op):
+    """Get the active bevel data (round or fill) based on type."""
+    return op.data.bevel.round if op.data.bevel.type == "ROUND" else op.data.bevel.fill
 
 
 def invoke(self, context, event):
@@ -24,67 +29,75 @@ def invoke(self, context, event):
 
 
 def modal(self, context, event):
-    """Bevel the mesh"""
+    """Bevel the mesh based on mouse or numeric input."""
     region = context.region
     rv3d = context.region_data
-
+    ni = self.data.numeric_input
     init_point = self.data.bevel.origin
+    bevel_data = _get_bevel_data(self)
 
-    mouse_bevel_3d = view3d.region_2d_to_location_3d(
-        region, rv3d, self.mouse.bevel, init_point
-    )
+    # Only calculate from mouse when not in numeric input mode
+    if not ni.active:
+        mouse_bevel_3d = view3d.region_2d_to_location_3d(
+            region, rv3d, self.mouse.bevel, init_point
+        )
+        mouse_co_3d = view3d.region_2d_to_location_3d(
+            region, rv3d, self.mouse.co, init_point
+        )
+
+        if self.data.bevel.mode == "OFFSET":
+            delta_3d = (init_point - mouse_co_3d).length - (
+                init_point - mouse_bevel_3d
+            ).length
+
+            # Handle shift state change for precision
+            if event.shift != self.data.bevel.precision:
+                bevel_data.offset_stored = bevel_data.offset
+                self.mouse.bevel = self.mouse.co
+                delta_3d = 0
+                self.data.bevel.precision = event.shift
+
+            adjustment_factor = 0.1 if event.shift else 1.0
+            offset = bevel_data.offset_stored + delta_3d * adjustment_factor
+            if self.config.snap:
+                round_to = 2 if event.shift else 1
+                offset = round(offset, round_to)
+            bevel_data.offset = offset
+
+        if self.data.bevel.mode == "SEGMENTS":
+            point2d = view3d.location_3d_to_region_2d(region, rv3d, init_point)
+            delta_2d = (point2d - self.mouse.co).length - (
+                point2d - self.mouse.bevel
+            ).length
+            bevel_data.segments = max(
+                1, int(bevel_data.segments_stored + delta_2d / 50)
+            )
+
+    # Update modifiers for OBJECT type
+    _update_modifiers(self)
+
+    # Update UI
     mouse_co_3d = view3d.region_2d_to_location_3d(
         region, rv3d, self.mouse.co, init_point
     )
-
-    point2d = view3d.location_3d_to_region_2d(region, rv3d, init_point)
-
-    if self.data.bevel.mode == "OFFSET":
-        delta_3d = (init_point - mouse_co_3d).length - (
-            init_point - mouse_bevel_3d
-        ).length
-
-        # Update stored offset and mouse position when shift state changes
-        if event.shift != self.data.bevel.precision:
-            if self.data.bevel.type == "ROUND":
-                self.data.bevel.round.offset_stored = self.data.bevel.round.offset
-            else:
-                self.data.bevel.fill.offset_stored = self.data.bevel.fill.offset
-
-            self.mouse.bevel = self.mouse.co
-            mouse_bevel_3d = mouse_co_3d
-            delta_3d = 0
-            self.data.bevel.precision = event.shift
-
-        adjustment_factor = 0.1 if event.shift else 1.0
-        if self.data.bevel.type == "ROUND":
-            self.data.bevel.round.offset = (
-                self.data.bevel.round.offset_stored + delta_3d * adjustment_factor
-            )
-        else:
-            self.data.bevel.fill.offset = (
-                self.data.bevel.fill.offset_stored + delta_3d * adjustment_factor
-            )
-
-        if self.config.snap:
-            round_to = 2 if event.shift else 1
-            self.data.bevel.round.offset = round(self.data.bevel.round.offset, round_to)
-            self.data.bevel.fill.offset = round(self.data.bevel.fill.offset, round_to)
-
-    if self.data.bevel.mode == "SEGMENTS":
-        delta_2d = (point2d - self.mouse.co).length - (
-            point2d - self.mouse.bevel
-        ).length
-        if self.data.bevel.type == "ROUND":
-            self.data.bevel.round.segments = max(
-                1, int(self.data.bevel.round.segments_stored + delta_2d / 50)
-            )
-        else:
-            self.data.bevel.fill.segments = max(
-                1, int(self.data.bevel.fill.segments_stored + delta_2d / 50)
-            )
-
     ui(self, region, rv3d, init_point, mouse_co_3d)
+
+
+def _update_modifiers(self):
+    """Update bevel modifiers based on current values."""
+    if self.config.type != "OBJECT":
+        return
+
+    bevel_data = _get_bevel_data(self)
+    bevel_type = self.data.bevel.type
+
+    if not self.modifiers.bevels:
+        return  # No bevel modifiers to update
+
+    for mod in self.modifiers.bevels:
+        if mod.type == bevel_type:
+            mod.mod.width = max(0, bevel_data.offset)
+            mod.mod.segments = max(1, bevel_data.segments)  # Ensure segments >= 1
 
 
 def ui(self, region, rv3d, init_point, mouse_co_3d):
@@ -118,27 +131,14 @@ def ui(self, region, rv3d, init_point, mouse_co_3d):
 
 def refresh(self, context):
     """Refresh the bevel"""
-
-    if self.config.type == "OBJECT":
-        if self.data.bevel.type == "ROUND":
-            segments = self.data.bevel.round.segments
-            for mod in self.modifiers.bevels:
-                if mod.type == "ROUND":
-                    mod.mod.segments = segments
-        else:
-            segments = self.data.bevel.fill.segments
-            for mod in self.modifiers.bevels:
-                if mod.type == "FILL":
-                    mod.mod.segments = segments
+    _update_modifiers(self)
 
     region = context.region
     rv3d = context.region_data
-
     init_point = self.data.bevel.origin
     mouse_co_3d = view3d.region_2d_to_location_3d(
         region, rv3d, self.mouse.co, init_point
     )
-
     ui(self, region, rv3d, init_point, mouse_co_3d)
 
 

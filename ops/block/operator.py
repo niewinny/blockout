@@ -4,7 +4,7 @@ from mathutils import Vector
 
 from ...utils import addon, infobar, scene, view3d
 from ...utilsbmesh import facet
-from . import bevel, bisect, draw, edit, extrude, orientation, ui
+from . import bevel, bisect, draw, edit, extrude, numeric_input, orientation, ui
 from .data import Config, CreatedData, Modifiers, Mouse, Objects, Pref, Shape
 
 
@@ -355,15 +355,22 @@ class Block(bpy.types.Operator):
 
     def modal(self, context, event):
         """Run the operator modal"""
-
         if event.type == "MIDDLEMOUSE":
             return {"PASS_THROUGH"}
+
+        # Handle numeric input events
+        result = numeric_input.modal(self, context, event)
+        if result is not None:
+            return result
+
+        ni = self.data.numeric_input
 
         if event.type == "LEFT_CTRL":
             if event.value in {"PRESS", "RELEASE"}:
                 self.config.snap = not self.config.snap
 
-        if event.type == "MOUSEMOVE":
+        # Skip mouse-based adjustments when in numeric input mode
+        if event.type == "MOUSEMOVE" and not ni.active:
             self.mouse.co = Vector((event.mouse_region_x, event.mouse_region_y))
 
             match self.mode:
@@ -381,92 +388,7 @@ class Block(bpy.types.Operator):
             self._header(context)
 
         elif event.type in {"LEFTMOUSE", "SPACE", "RET", "NUMPAD_ENTER"}:
-
-            def _extrude_and_bevel():
-                self._extrude_invoke(context, event)
-                bevel.update(self)
-                return {"RUNNING_MODAL"}
-
-            def _extrude_and_bevel_corner():
-                self._extrude_invoke(context, event)
-                self._bevel_invoke(context, event)
-                return {"RUNNING_MODAL"}
-
-            if event.value in {"RELEASE", "PRESS"} and self.shape.volume == "2D":
-                self.set_offset()
-
-            match (self.mode, event.value, self.config.shape):
-                # DRAW RELEASE
-                case ("DRAW", "RELEASE", "BOX"):
-                    return _extrude_and_bevel()
-                case ("DRAW", "RELEASE", "CYLINDER"):
-                    return _extrude_and_bevel()
-                case ("DRAW", "RELEASE", "PRISM"):
-                    return _extrude_and_bevel()
-                case ("DRAW", "RELEASE", "NGON"):
-                    edit.invoke(self, context)
-                    return {"RUNNING_MODAL"}
-                case ("DRAW", "RELEASE", "NHEDRON"):
-                    edit.invoke(self, context)
-                    return {"RUNNING_MODAL"}
-                case ("DRAW", "RELEASE", "CORNER"):
-                    return _extrude_and_bevel_corner()
-                # BEVEL RELEASE
-                case ("BEVEL", "RELEASE", "BOX"):
-                    return _extrude_and_bevel()
-                case ("BEVEL", "RELEASE", "CYLINDER"):
-                    return _extrude_and_bevel()
-                case ("BEVEL", "RELEASE", "PRISM"):
-                    return _extrude_and_bevel()
-                case ("BEVEL", "RELEASE", "NHEDRON"):
-                    if not self.shape.volume == "3D":
-                        return _extrude_and_bevel()
-                case ("BEVEL", "RELEASE", "CORNER"):
-                    return _extrude_and_bevel_corner()
-                # BEVEL PRESS
-                case ("BEVEL", "PRESS", "NGON"):
-                    return {"RUNNING_MODAL"}
-                case ("BEVEL", "PRESS", "NHEDRON"):
-                    return {"RUNNING_MODAL"}
-                # EXTRUDE
-                case ("EXTRUDE", _, _):
-                    if self.config.mode == "ADD":
-                        self._recalculate_normals(self.data.bm, self.data.extrude.faces)
-                    self.update_bmesh(
-                        self.data.obj,
-                        self.data.bm,
-                        loop_triangles=True,
-                        destructive=True,
-                    )
-                # BISECT
-                case ("BISECT", _, _):
-                    bisect_data = (
-                        self.data.bisect.plane[0],
-                        self.data.bisect.plane[1],
-                        self.data.bisect.flip,
-                        self.data.bisect.mode,
-                    )
-                    bisect.execute(
-                        self, context, self.data.obj, self.data.bm, bisect_data
-                    )
-                # EDIT PRESS
-                case ("EDIT", "PRESS", _):
-                    self.edit_mode = "GET"
-                    return {"RUNNING_MODAL"}
-                # EDIT RELEASE
-                case ("EDIT", "RELEASE", "NHEDRON") if self.edit_mode == "END":
-                    return _extrude_and_bevel()
-                case ("EDIT", "RELEASE", _):
-                    if not self.edit_mode == "END":
-                        self.edit_mode = "NONE"
-                        return {"RUNNING_MODAL"}
-
-            # Finalize if no early return
-            self.store_props()
-            self.save_props()
-            self._finish(context)
-            self._end(context)
-            return {"FINISHED"}
+            return self._return(context, event)
 
         elif (
             event.type == "Q"
@@ -484,6 +406,10 @@ class Block(bpy.types.Operator):
             if event.value == "PRESS":
                 if self.mode == "BISECT":
                     return {"RUNNING_MODAL"}
+                if ni.active:
+                    ni.stop()
+                    self._header(context)
+                    context.area.tag_redraw()
 
                 if self.config.shape in {
                     "RECTANGLE",
@@ -545,6 +471,10 @@ class Block(bpy.types.Operator):
         elif event.type == "S":
             if event.value == "PRESS":
                 if self.mode == "BEVEL":
+                    if ni.active:
+                        ni.stop()
+                        self._header(context)
+                        context.area.tag_redraw()
                     self.data.bevel.mode = "SEGMENTS"
                     self._bevel_invoke(context, event)
 
@@ -617,6 +547,100 @@ class Block(bpy.types.Operator):
         context.area.tag_redraw()
         return {"RUNNING_MODAL"}
 
+    def _return(self, context, event, action=None):
+        """Advance to the next mode on RELEASE, handle PRESS for specific modes."""
+        # Stop numeric input when transitioning modes
+        ni = self.data.numeric_input
+        if ni.active:
+            ni.stop()
+            self._header(context)
+
+        if self.shape.volume == "2D":
+            self.set_offset()
+
+        shape = self.config.shape
+        value = action if action else event.value
+
+        match (self.mode, value, shape):
+            # DRAW RELEASE
+            case ("DRAW", "RELEASE", "BOX" | "CYLINDER" | "PRISM"):
+                self._extrude_invoke(context, event)
+                bevel.update(self)
+                return {"RUNNING_MODAL"}
+            case ("DRAW", "RELEASE", "CORNER"):
+                self._extrude_invoke(context, event)
+                self._bevel_invoke(context, event)
+                return {"RUNNING_MODAL"}
+            case ("DRAW", "RELEASE", "NGON" | "NHEDRON"):
+                edit.invoke(self, context)
+                return {"RUNNING_MODAL"}
+
+            # BEVEL PRESS - stay in bevel
+            case ("BEVEL", "PRESS", "NGON" | "NHEDRON"):
+                return {"RUNNING_MODAL"}
+            # BEVEL RELEASE - only extrude if not already 3D
+            case ("BEVEL", "RELEASE", "BOX" | "CYLINDER" | "PRISM") if (
+                self.shape.volume != "3D"
+            ):
+                self._extrude_invoke(context, event)
+                bevel.update(self)
+                return {"RUNNING_MODAL"}
+            case ("BEVEL", "RELEASE", "CORNER") if self.shape.volume != "3D":
+                self._extrude_invoke(context, event)
+                self._bevel_invoke(context, event)
+                return {"RUNNING_MODAL"}
+            case ("BEVEL", "RELEASE", "NHEDRON") if self.shape.volume != "3D":
+                self._extrude_invoke(context, event)
+                bevel.update(self)
+                return {"RUNNING_MODAL"}
+            case ("BEVEL", "RELEASE", "NGON" | "NHEDRON"):
+                return {"RUNNING_MODAL"}
+            case ("BEVEL", "RELEASE", _):
+                # Already 3D, finalize
+                pass
+
+            # EXTRUDE
+            case ("EXTRUDE", _, _):
+                if self.config.mode == "ADD":
+                    self._recalculate_normals(self.data.bm, self.data.extrude.faces)
+                self.update_bmesh(
+                    self.data.obj,
+                    self.data.bm,
+                    loop_triangles=True,
+                    destructive=True,
+                )
+
+            # EDIT PRESS
+            case ("EDIT", "PRESS", _):
+                self.edit_mode = "GET"
+                return {"RUNNING_MODAL"}
+            # EDIT RELEASE
+            case ("EDIT", "RELEASE", "NHEDRON") if self.edit_mode == "END":
+                self._extrude_invoke(context, event)
+                bevel.update(self)
+                return {"RUNNING_MODAL"}
+            case ("EDIT", "RELEASE", _):
+                if self.edit_mode != "END":
+                    self.edit_mode = "NONE"
+                    return {"RUNNING_MODAL"}
+
+            # BISECT
+            case ("BISECT", _, _):
+                bisect_data = (
+                    self.data.bisect.plane[0],
+                    self.data.bisect.plane[1],
+                    self.data.bisect.flip,
+                    self.data.bisect.mode,
+                )
+                bisect.execute(self, context, self.data.obj, self.data.bm, bisect_data)
+
+        # Finalize
+        self.store_props()
+        self.save_props()
+        self._finish(context)
+        self._end(context)
+        return {"FINISHED"}
+
     def _finish(self, context):
         """Finish the operator"""
 
@@ -657,7 +681,6 @@ class Block(bpy.types.Operator):
 
     def _header(self, context):
         """Set the header text"""
-
         if self.mode == "BISECT":
             header = (
                 f"Bisec: mode:{self.data.bisect.mode}, flip:{self.data.bisect.flip}"
@@ -666,6 +689,7 @@ class Block(bpy.types.Operator):
             return
 
         text = self._header_text()
+        ni = self.data.numeric_input
 
         x_length, y_length = self.shape.rectangle.co
         z_length = self.data.extrude.value
@@ -675,41 +699,70 @@ class Block(bpy.types.Operator):
         shape = self.config.shape
         if self.mode == "BEVEL":
             text = "Bevel"
-            offset = (
-                self.data.bevel.round.offset
-                if self.data.bevel.type == "ROUND"
-                else self.data.bevel.fill.offset
-            )
-            segments = (
-                self.data.bevel.round.segments
-                if self.data.bevel.type == "ROUND"
-                else self.data.bevel.fill.segments
-            )
+            offset = numeric_input._get_bevel_value(self, is_offset=True)
+            segments = numeric_input._get_bevel_value(self, is_offset=False)
+            offset_str = ni.format_value(0, offset)
+            seg_str = ni.format_value(1, segments, is_int=True)
             dimentions = (
-                f"Type:{self.data.bevel.type}, Offset:{offset:.4f}, Segments:{segments}"
+                f"Type:{self.data.bevel.type}, Offset:{offset_str}, Segments:{seg_str}"
             )
         else:
             match shape:
                 case "RECTANGLE":
-                    dimentions = f" Dx:{x_length:.4f},  Dy:{y_length:.4f}"
+                    x_str = ni.format_value(0, x_length)
+                    y_str = ni.format_value(1, y_length)
+                    dimentions = f" Dx:{x_str},  Dy:{y_str}"
                 case "TRIANGLE":
                     height = self.shape.triangle.height
                     angle = self.shape.triangle.angle
-                    dimentions = f" Height:{height:.4f},  Angle:{angle:.4f}"
+                    h_str = ni.format_value(0, height)
+                    a_str = ni.format_value(1, angle)
+                    dimentions = f" Height:{h_str},  Angle:{a_str}"
                 case "CIRCLE":
-                    dimentions = f" Radius:{radius:.4f}"
+                    r_str = ni.format_value(0, radius)
+                    dimentions = f" Radius:{r_str}"
                 case "BOX":
-                    dimentions = (
-                        f" Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_length:.4f}"
-                    )
+                    if self.mode == "DRAW":
+                        x_str = ni.format_value(0, x_length)
+                        y_str = ni.format_value(1, y_length)
+                        dimentions = f" Dx:{x_str},  Dy:{y_str},  Dz:{z_length:.4f}"
+                    else:
+                        z_str = ni.format_value(0, z_length)
+                        dimentions = (
+                            f" Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_str}"
+                        )
                 case "CYLINDER":
-                    dimentions = f" Radius:{radius:.4f},  Dz:{z_length:.4f}"
+                    if self.mode == "DRAW":
+                        r_str = ni.format_value(0, radius)
+                        dimentions = f" Radius:{r_str},  Dz:{z_length:.4f}"
+                    else:
+                        z_str = ni.format_value(0, z_length)
+                        dimentions = f" Radius:{radius:.4f},  Dz:{z_str}"
                 case "PRISM":
                     height = self.shape.triangle.height
                     angle = self.shape.triangle.angle
-                    dimentions = (
-                        f" Height:{height:.4f},  Angle:{angle:.4f},  Dz:{z_length:.4f}"
-                    )
+                    if self.mode == "DRAW":
+                        h_str = ni.format_value(0, height)
+                        a_str = ni.format_value(1, angle)
+                        dimentions = (
+                            f" Height:{h_str},  Angle:{a_str},  Dz:{z_length:.4f}"
+                        )
+                    else:
+                        z_str = ni.format_value(0, z_length)
+                        dimentions = (
+                            f" Height:{height:.4f},  Angle:{angle:.4f},  Dz:{z_str}"
+                        )
+                case "SPHERE":
+                    r_str = ni.format_value(0, self.shape.sphere.radius)
+                    dimentions = f" Radius:{r_str}"
+                case "CORNER":
+                    cx, cy = self.shape.corner.co
+                    x_str = ni.format_value(0, cx)
+                    y_str = ni.format_value(1, cy)
+                    dimentions = f" Dx:{x_str},  Dy:{y_str}"
+                case _:
+                    # NGON, NHEDRON, or other shapes without numeric display
+                    dimentions = ""
 
         header = f"{text} {dimentions}"
         context.area.header_text_set(text=header)
@@ -733,6 +786,3 @@ class Block(bpy.types.Operator):
     def _bevel_modal(self, context, event):
         """Bevel the mesh"""
         bevel.modal(self, context, event)
-
-    def _update_mesh(self):
-        pass
