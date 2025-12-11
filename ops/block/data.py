@@ -96,7 +96,7 @@ class Copy:
 
 @dataclass
 class CreatedData:
-    """Dataclass for storing"""
+    """Dataclass for storing all operation data"""
 
     obj: bpy.types.Object = None
     bm: bmesh.types.BMesh = None
@@ -110,7 +110,7 @@ class CreatedData:
 
 @dataclass
 class Objects:
-    """Dataclass for storing"""
+    """Dataclass for storing object references"""
 
     active: bpy.types.Object = None
     selected: list = field(default_factory=list)
@@ -121,6 +121,8 @@ class Objects:
 
 @dataclass
 class Modifier:
+    """Dataclass for storing modifier references"""
+
     obj: bpy.types.Object = None
     mod: bpy.types.Modifier = None
     type: str = ""
@@ -128,7 +130,7 @@ class Modifier:
 
 @dataclass
 class Modifiers:
-    """Dataclass for storing"""
+    """Dataclass for storing multiple modifier references"""
 
     booleans: list = field(default_factory=list)
     bevels: list = field(default_factory=list)

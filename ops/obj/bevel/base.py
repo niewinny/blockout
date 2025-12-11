@@ -1,8 +1,10 @@
 import bpy
 from mathutils import Vector
+
 from ....utils import infobar, modifier
-from .data import Mouse, Distance, DrawUI
-from . import utils
+from ....utils.input import NumericInput
+from . import numeric_input, utils
+from .data import Distance, DrawUI, Mouse
 
 
 class BevelOperatorBase(bpy.types.Operator):
@@ -73,6 +75,7 @@ class BevelOperatorBase(bpy.types.Operator):
         self.ui: DrawUI = DrawUI()
 
         self.bevels: list = []
+        self.numeric_input = NumericInput()
 
         self.saved_segments: int = 1
         self.saved_width: float = 0.0
@@ -171,7 +174,14 @@ class BevelOperatorBase(bpy.types.Operator):
                 mod.use_pin_to_last = True
 
     def modal(self, context, event):
-        if event.type == "MOUSEMOVE":
+        # Handle numeric input events first
+        result = numeric_input.modal(self, context, event)
+        if result is not None:
+            return result
+
+        ni = self.numeric_input
+
+        if event.type == "MOUSEMOVE" and not ni.active:
             intersect_point = utils.get_intersect_point(
                 context, event, self.mouse.median
             )
@@ -217,6 +227,8 @@ class BevelOperatorBase(bpy.types.Operator):
             self.snapping_ctrl = False
 
         elif event.type == "S" and event.value == "PRESS":
+            if ni.active:
+                ni.stop()
             if not self.mode == "SEGMENTS":
                 self.mode = "SEGMENTS"
                 self.mouse.co = utils.get_intersect_point(
@@ -229,6 +241,8 @@ class BevelOperatorBase(bpy.types.Operator):
                 self._update_info(context)
 
         elif event.type == "A" and event.value == "PRESS":
+            if ni.active:
+                ni.stop()
             if not self.mode == "OFFSET":
                 self.mode = "OFFSET"
                 self.mouse.co = utils.get_intersect_point(
@@ -251,29 +265,21 @@ class BevelOperatorBase(bpy.types.Operator):
                 b.mod.limit_method = self.limit_method
             self._update_info(context)
 
-        elif (
-            event.type == "WHEELUPMOUSE"
-            or event.type == "NUMPAD_PLUS"
-            or event.type == "EQUAL"
-        ):
-            if event.value == "PRESS":
-                self.segments += 1
-                for b in self.bevels:
-                    b.mod.segments = self.segments
-                self._update_info(context)
-                self._update_drawing(context)
+        elif event.type in {"WHEELUPMOUSE", "RIGHT_BRACKET"} and event.value == "PRESS":
+            self.segments = min(32, self.segments + 1)
+            for b in self.bevels:
+                b.mod.segments = self.segments
+            self._update_info(context)
+            self._update_drawing(context)
 
         elif (
-            event.type == "WHEELDOWNMOUSE"
-            or event.type == "NUMPAD_MINUS"
-            or event.type == "MINUS"
+            event.type in {"WHEELDOWNMOUSE", "LEFT_BRACKET"} and event.value == "PRESS"
         ):
-            if event.value == "PRESS":
-                self.segments -= 1
-                for b in self.bevels:
-                    b.mod.segments = self.segments
-                self._update_info(context)
-                self._update_drawing(context)
+            self.segments = max(1, self.segments - 1)
+            for b in self.bevels:
+                b.mod.segments = self.segments
+            self._update_info(context)
+            self._update_drawing(context)
 
         elif event.type == "UP_ARROW" and event.value == "PRESS":
             # Increase angle limit if in ANGLE mode
@@ -336,8 +342,10 @@ class BevelOperatorBase(bpy.types.Operator):
 
     def _update_info(self, context):
         """Update header with the current settings"""
-
-        info = f"Offset: {self.width:.3f}    Segments: {self.segments}"
+        ni = self.numeric_input
+        offset_str = ni.format_value(0, self.width)
+        seg_str = ni.format_value(1, self.segments, is_int=True)
+        info = f"Offset: {offset_str}    Segments: {seg_str}"
 
         # Add limit method info
         if self.limit_method != "NONE":
@@ -437,26 +445,43 @@ class BevelOperatorBase(bpy.types.Operator):
             self.limit_method,
             self.angle_limit,
             self._get_modifier_count_text(),
+            numeric_input_active=self.numeric_input.active,
         )
 
     def _infobar_hotkeys(self, layout, _context, _event):
         """Draw the infobar hotkeys"""
+        factor = 4.0
         row = layout.row(align=True)
+
+        # Show numeric input mode hotkeys
+        ni = self.numeric_input
+        if ni.active:
+            row.label(text="Input", icon="LINENUMBERS_ON")
+            row.separator(factor=factor)
+            row.label(text="Apply", icon="EVENT_RETURN")
+            row.separator(factor=factor)
+            row.label(text="Cancel", icon="EVENT_ESC")
+            row.separator(factor=factor)
+            row.label(text="Next", icon="EVENT_TAB")
+            row.separator(factor=factor)
+            row.label(text="Delete", icon="EVENT_BACKSPACE")
+            return
+
         row.label(text="", icon="MOUSE_MOVE")
         row.label(text="Adjust Radius")
-        row.separator(factor=6.0)
+        row.separator(factor=factor)
         row.label(text="", icon="MOUSE_LMB")
         row.label(text="Confirm")
-        row.separator(factor=6.0)
+        row.separator(factor=factor)
         row.label(text="", icon="MOUSE_RMB")
         row.label(text="Cancel")
-        row.separator(factor=6.0)
+        row.separator(factor=factor)
         row.label(text="", icon="EVENT_A")
         row.label(text="Offset")
-        row.separator(factor=6.0)
+        row.separator(factor=factor)
         row.label(text="", icon="EVENT_S")
         row.label(text="Segments")
-        row.separator(factor=6.0)
+        row.separator(factor=factor)
         row.label(text="", icon="EVENT_L")
         row.label(text="Limit Method")
 

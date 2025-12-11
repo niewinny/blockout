@@ -1,4 +1,5 @@
 import bpy
+
 from ....utils import modifier
 from .base import BevelOperatorBase
 from .data import Bevel

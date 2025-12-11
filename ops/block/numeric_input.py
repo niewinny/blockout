@@ -105,7 +105,6 @@ def _start(op, context, event):
     ni = op.data.numeric_input
     ni.start(_get_current_value(op), _get_initial_index(op))
     infobar.draw(context, event, op._infobar, blank=True)
-    op.ui.guid.callback.clear()
 
 
 def _stop_and_restore(op, context, event):

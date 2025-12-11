@@ -102,7 +102,10 @@ def _update_modifiers(self):
 
 def ui(self, region, rv3d, init_point, mouse_co_3d):
     """Update the UI"""
-    self.ui.guid.callback.update_batch([(init_point, mouse_co_3d)])
+    if self.data.numeric_input.active:
+        self.ui.guid.callback.clear()
+    else:
+        self.ui.guid.callback.update_batch([(init_point, mouse_co_3d)])
 
     init_point_2d = view3d.location_3d_to_region_2d(region, rv3d, init_point)
     point = (init_point_2d + self.mouse.co) / 2

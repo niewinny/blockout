@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
+
 import bpy
 from mathutils import Vector
+
 from ....shaders import handle
 
 

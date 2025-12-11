@@ -1,8 +1,10 @@
 import math
+
 import bpy
 from mathutils import Vector
+
 from ....shaders.draw import DrawPolyline
-from ....utils import view3d, addon
+from ....utils import addon, view3d
 
 
 def calculate_distance(mouse_median, mouse_init, mouse_co):
@@ -63,14 +65,18 @@ def update_drawing(
     limit_method,
     angle_limit,
     modifier_count_text,
+    numeric_input_active=False,
 ):
     """Update the drawing"""
     _theme = addon.pref().theme.ops.obj.bevel
     color = _theme.guide
-    point = [(mouse_median, mouse_co)]
-    ui.guide.callback.update_batch(point, color=color)
+    if numeric_input_active:
+        ui.guide.callback.clear()
+    else:
+        point = [(mouse_median, mouse_co)]
+        ui.guide.callback.update_batch(point, color=color)
 
-    mid_point = mouse_median + mouse_co / 2
+    mid_point = (mouse_median + mouse_co) / 2
     region = context.region
     rv3d = context.region_data
     point_2d = view3d.location_3d_to_region_2d(region, rv3d, mid_point)

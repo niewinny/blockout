@@ -213,7 +213,16 @@ def modal(self, context, event):
     normal_global = matrix_world.to_3x3() @ normal
     direction_global = matrix_world.to_3x3() @ direction
 
-    _update_ui(self, shape, region, rv3d, point_global, location_global, normal_global, direction_global)
+    _update_ui(
+        self,
+        shape,
+        region,
+        rv3d,
+        point_global,
+        location_global,
+        normal_global,
+        direction_global,
+    )
 
 
 def _update_ui(self, shape, region, rv3d, point_global, location, normal, direction):
@@ -247,7 +256,10 @@ def _update_ui(self, shape, region, rv3d, point_global, location, normal, direct
                 },
             ]
             self.ui.interface.callback.update_batch(lines)
-            self.ui.guid.callback.update_batch([(location, point_global)])
+            if self.data.numeric_input.active:
+                self.ui.guid.callback.clear()
+            else:
+                self.ui.guid.callback.update_batch([(location, point_global)])
 
         case "SPHERE":
             radius = self.shape.sphere.radius
@@ -262,7 +274,10 @@ def _update_ui(self, shape, region, rv3d, point_global, location, normal, direct
                 },
             ]
             self.ui.interface.callback.update_batch(lines)
-            self.ui.guid.callback.update_batch([(location, point_global)])
+            if self.data.numeric_input.active:
+                self.ui.guid.callback.clear()
+            else:
+                self.ui.guid.callback.update_batch([(location, point_global)])
 
         case "CORNER":
             width_x = self.shape.corner.co.x
