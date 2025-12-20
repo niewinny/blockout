@@ -137,6 +137,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Local tooling config
+pyproject.toml
+
 # =========================
 # Operating System Files
 # =========================
