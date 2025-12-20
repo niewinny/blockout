@@ -218,7 +218,7 @@ class BOUT_OT_BlockObjTool(Block):
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 self._add_boolean(obj, detected_obj, extruded_faces[0])
             case "SPHERE":
-                sphere.create(
+                faces_indexes = sphere.create(
                     bm,
                     plane,
                     direction,
@@ -226,7 +226,7 @@ class BOUT_OT_BlockObjTool(Block):
                     subd=self.shape.sphere.subd,
                 )
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                self._add_boolean(obj, detected_obj, extruded_faces[0])
+                self._add_boolean(obj, detected_obj, faces_indexes[0])
             case "CORNER":
                 faces_indexes = corner.create(bm, plane)
                 faces = [bmeshface.from_index(bm, index) for index in faces_indexes]
