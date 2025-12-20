@@ -77,8 +77,8 @@ class Extrude:
     """Dataclass for storing options"""
 
     origin: Vector = Vector()
-    verts: list = field(default_factory=DrawVert)
-    edges: list = field(default_factory=ExtrudeEdge)
+    verts: DrawVert = field(default_factory=DrawVert)
+    edges: ExtrudeEdge = field(default_factory=ExtrudeEdge)
     faces: list = field(default_factory=list)  # f.index
     value: float = 0.0
     symmetry: bool = False
