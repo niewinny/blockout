@@ -20,7 +20,7 @@ draw_handlers = []
 class Handle:
     """Common functions for the handle data"""
 
-    handle: int = None
+    handle: int | None = None
 
     def remove(self):
         """Remove the draw handler"""
@@ -34,7 +34,7 @@ class Handle:
 class Line(Handle):
     """Dataclass for the handle data."""
 
-    callback: DrawLine = None
+    callback: DrawLine | None = None
 
     def create(self, context, points=(), width=1.6, color=(0, 0, 0, 1), depth=False):
         """Create a line draw handler."""
@@ -49,7 +49,7 @@ class Line(Handle):
 class Gradient(Handle):
     """Dataclass for the gradient data."""
 
-    callback: DrawGradient = None
+    callback: DrawGradient | None = None
 
     def create(self, context, points=(), colors=()):
         """Create a gradient draw handler."""
@@ -64,7 +64,7 @@ class Gradient(Handle):
 class Polyline(Handle):
     """Dataclass for the polyline data."""
 
-    callback: DrawPolyline = None
+    callback: DrawPolyline | None = None
 
     def create(self, context, points=(), width=1.6, color=(0, 0, 0, 1)):
         """Create a polyline draw handler."""
@@ -79,7 +79,7 @@ class Polyline(Handle):
 class Points(Handle):
     """Dataclass for the points data."""
 
-    callback: DrawPoints = None
+    callback: DrawPoints | None = None
 
     def create(self, context, points=(), size=1.0, color=(0, 0, 0, 1)):
         """Create a points draw handler."""
@@ -94,28 +94,28 @@ class Points(Handle):
 class Plane(Handle):
     """Dataclass for the plane data."""
 
-    callback: DrawPlane = None
+    callback: DrawPlane | None = None
 
 
 @dataclass
 class Face(Handle):
     """Dataclass for the face data."""
 
-    callback: DrawFace = None
+    callback: DrawFace | None = None
 
 
 @dataclass
 class Grid(Handle):
     """Dataclass for the grid data."""
 
-    callback: DrawGrid = None
+    callback: DrawGrid | None = None
 
 
 @dataclass
 class BMeshFaces(Handle):
     """Dataclass for the bmesh face data."""
 
-    callback: DrawBMeshFaces = None
+    callback: DrawBMeshFaces | None = None
 
     def create(self, context, obj=None, faces=None, color=(0, 0, 0, 1)):
         """Create a bmesh face draw handler."""
@@ -132,7 +132,7 @@ class BMeshFaces(Handle):
 class Interface(Handle):
     """Dataclass for the interface data."""
 
-    callback: InterfaceDraw = None
+    callback: InterfaceDraw | None = None
 
     def create(self, context, lines):
         """Create an interface draw handler.
