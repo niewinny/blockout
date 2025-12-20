@@ -217,7 +217,6 @@ def set_align_rotation_from_vectors(normal, direction):
     Vector((0, 0, 1))
     Vector((0, 0, -1))
 
-
     # This now handles ALL cases, including axis-aligned ones
     z_axis = normal
     x_axis = direction

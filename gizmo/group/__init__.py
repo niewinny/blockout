@@ -2,6 +2,4 @@
 
 from . import axis
 
-classes = (
-    axis.BOUT_GGT_BlockoutAxis,
-)
+classes = (axis.BOUT_GGT_BlockoutAxis,)

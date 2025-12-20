@@ -1,4 +1,3 @@
-import bpy
 from ...utils.types import DrawMatrix
 from ...utilsbmesh.orientation import get_vectors_from_align_rotation
 
