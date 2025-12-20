@@ -5,7 +5,7 @@ class BOUT_MT_ObjectMode(bpy.types.Menu):
     bl_idname = "BOUT_MT_ObjectMode"
     bl_label = "Blockout"
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
         layout.operator_context = "INVOKE_DEFAULT"
 

@@ -365,7 +365,7 @@ class BevelOperatorBase(bpy.types.Operator):
         """Get header text for operator type - to be overridden by subclasses"""
         return "Bevel"
 
-    def draw(self, _context):
+    def draw(self, context):
         """Draw the operator options"""
         layout = self.layout
         layout.use_property_split = True

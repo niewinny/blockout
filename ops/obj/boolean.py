@@ -210,7 +210,7 @@ class BOUT_OT_ModBoolean(BooleanOperatorBase):
             for key, value in attributes:
                 setattr(mod, key, value)
 
-    def draw(self, _context):
+    def draw(self, context):
         """Draw the operator options"""
         layout = self.layout
         layout.use_property_split = True
@@ -306,7 +306,7 @@ class BOUT_OT_ModBooleanSlice(BooleanOperatorBase):
         # Track objects with modifiers outside the loop
         self.objects_with_modifiers.extend([active_object, active_duplicate])
 
-    def draw(self, _context):
+    def draw(self, context):
         """Draw the operator options"""
         layout = self.layout
         layout.use_property_split = True
@@ -422,7 +422,7 @@ class BOUT_OT_ModBooleanCarve(BooleanOperatorBase):
             for key, value in attributes:
                 setattr(mod, key, value)
 
-    def draw(self, _context):
+    def draw(self, context):
         """Draw the operator options"""
         layout = self.layout
         layout.use_property_split = True

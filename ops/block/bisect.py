@@ -1,7 +1,9 @@
 import math
-from mathutils import Vector
-from ...utils import view3d
+
 import bmesh
+from mathutils import Vector
+
+from ...utils import view3d
 
 
 def modal(self, context, event):
