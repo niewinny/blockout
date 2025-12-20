@@ -213,7 +213,6 @@ def del_edge_weight(bm, type="ALL"):
 
 def uniform(self, bm, obj, extruded_faces):
     """Update bevel after uniform extrusion from 2D to 3D"""
-    from ...utilsbmesh import bmeshface
 
     # Get edges from bottom and top faces
     extruded_bot_edges = [
