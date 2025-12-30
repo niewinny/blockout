@@ -9,8 +9,17 @@ class BOUT_Preference(bpy.types.AddonPreferences):
     settings: bpy.props.EnumProperty(
         name="Settings",
         description="Settings to display",
-        items=[("OPTIONS", "Options", ""), ("THEME", "Theme", "")],
-        default="OPTIONS",
+        items=[
+            ("THEME", "Theme", ""),
+            ("DEBUG", "Debug", ""),
+        ],
+        default="THEME",
+    )
+
+    debug: bpy.props.BoolProperty(
+        name="Debug",
+        description="Enable debug mode",
+        default=False,
     )
 
     theme: bpy.props.PointerProperty(type=btypes.Theme)
@@ -25,10 +34,7 @@ class BOUT_Preference(bpy.types.AddonPreferences):
         col = split.column(align=True)
         col.use_property_split = True
 
-        if self.settings == "OPTIONS":
-            col = column.column(align=True)
-
-        elif self.settings == "THEME":
+        if self.settings == "THEME":
             flow = col.grid_flow(
                 row_major=False,
                 columns=0,
@@ -42,6 +48,9 @@ class BOUT_Preference(bpy.types.AddonPreferences):
             self.theme_layout(flow, theme.axis)
             self.theme_layout(flow, theme.ops.obj.bevel)
             self.theme_layout(flow, theme.ops.block)
+
+        elif self.settings == "DEBUG":
+            col.prop(self, "debug")
 
     def theme_layout(self, layout, theme):
         """Draw a theme layout"""
