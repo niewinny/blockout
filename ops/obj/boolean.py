@@ -72,8 +72,8 @@ def prepare_boolean_object(obj):
     obj.display_type = "WIRE"
     obj.hide_render = True
     set_smooth(obj)
-    # Move to Cutters collection
-    collection.move_to_cutters_collection(obj)
+    # Append to Cutters collection
+    collection.append([obj], "Cutters")
 
 
 class BooleanOperatorBase(bpy.types.Operator):

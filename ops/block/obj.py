@@ -89,7 +89,7 @@ class BOUT_OT_BlockObjTool(Block):
             new_obj.display_type = "WIRE"
             new_obj.hide_render = True
             # Link to Cutters collection instead of active collection
-            cutters_collection = collection.get_or_create_cutters_collection()
+            cutters_collection = collection.get("Cutters") or collection.create("Cutters")
             cutters_collection.objects.link(new_obj)
         else:
             context.collection.objects.link(new_obj)
@@ -515,7 +515,7 @@ class BOUT_OT_BlockObjTool(Block):
                 self._set_parent(obj, detected_obj)
 
                 # Move cutter object to Cutters collection before hiding
-                collection.move_to_cutters_collection(obj)
+                collection.append([obj], "Cutters")
                 obj.hide_set(True)
                 obj.data.shade_smooth()
 
@@ -615,7 +615,7 @@ class BOUT_OT_BlockObjTool(Block):
             self._bevel_cleanup(context)
             if self.config.mode != "ADD":
                 # Ensure cutter object is in Cutters collection
-                collection.move_to_cutters_collection(self.data.obj)
+                collection.append([self.data.obj], "Cutters")
                 self.data.obj.hide_set(True)
                 self.data.obj.data.shade_smooth()
 
