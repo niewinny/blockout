@@ -1,6 +1,6 @@
 from pathlib import Path
 import bpy
-from ... import bl_info
+from ... import __version__
 from ...utils import addon
 from .common import draw_align, draw_type, draw_shape
 
@@ -10,7 +10,7 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
     bl_context_mode = "EDIT_MESH"
     bl_idname = "object.bout_block_mesh"
     bl_label = "BlockOut"
-    bl_description = f"v: {bl_info['version'][0]}.{bl_info['version'][1]}.{bl_info['version'][2]}\n\nDraw a mesh interactively\n • LMB - Draw a mesh\n • D - open the options Menu\n • SPACE - set custom plane to align to\n • SPACE + ALT - move custom plane"
+    bl_description = f"v: {__version__}\n\nDraw a mesh interactively\n • LMB - Draw a mesh\n • D - open the options Menu\n • SPACE - set custom plane to align to\n • SPACE + ALT - move custom plane"
     bl_icon = (Path(__file__).parent.parent.parent / "icons" / "cat").as_posix()
     bl_keymap = (
         (
