@@ -30,8 +30,8 @@ jobs:
           STAGE_DIR="$STAGE_ROOT/$BASE_NAME"
           mkdir -p "$STAGE_DIR"
 
-          # Copy everything EXCEPT dotfiles/dirs anywhere in tree
-          rsync -a --exclude='.*' "$GITHUB_WORKSPACE"/ "$STAGE_DIR"/
+          # Copy everything EXCEPT dotfiles/dirs anywhere in tree and pyproject.toml
+          rsync -a --exclude='.*' --exclude='pyproject.toml' "$GITHUB_WORKSPACE"/ "$STAGE_DIR"/
 
           # Create <BASE_NAME>.zip that contains <BASE_NAME>/ at the root
           ( cd "$STAGE_ROOT" && zip -r "${BASE_NAME}.zip" "${BASE_NAME}/" )
