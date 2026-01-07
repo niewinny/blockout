@@ -6,13 +6,13 @@ from mathutils import Vector, Matrix
 from ..view3d import region_2d_to_origin_3d, region_2d_to_vector_3d
 
 
-def _prepare_ray_cast(position, region=None, rv3d=None):
+def _prepare_ray_cast(position, region, rv3d):
     """Prepare for ray casting"""
 
     # Prepare for ray casting
     x, y = position
-    origin = Vector(region_2d_to_origin_3d(region, rv3d, (x, y)))
-    direction = Vector(region_2d_to_vector_3d(region, rv3d, (x, y)))
+    origin = region_2d_to_origin_3d(region, rv3d, (x, y))
+    direction = region_2d_to_vector_3d(region, rv3d, (x, y))
 
     return origin, direction
 
@@ -112,5 +112,5 @@ class Ray:
     location: Vector = Vector()
     normal: Vector = Vector()
     index: int = -1
-    obj: bpy.types.Object = None
+    obj: bpy.types.Object | None = None
     matrix: Matrix = Matrix()
