@@ -14,4 +14,7 @@ version_tuple: tuple[int, ...] = tuple(int(x) for x in version.split("."))
 
 
 def pref():
-    return bpy.context.preferences.addons[_package_name].preferences
+    prefs = bpy.context.preferences
+    if not prefs or not _package_name:
+        raise RuntimeError("Preferences not available")
+    return prefs.addons[_package_name].preferences
