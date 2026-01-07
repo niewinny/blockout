@@ -1,3 +1,7 @@
+[![Blender](https://img.shields.io/badge/Blender-5.0+-orange?logo=blender&logoColor=white)](https://www.blender.org/)
+[![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](./LICENSE.md)
+[![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+
 ```
 ██████╗ ██╗      ██████╗  ██████╗██╗  ██╗ ██████╗ ██╗   ██╗████████╗
 ██╔══██╗██║     ██╔═══██╗██╔════╝██║ ██╔╝██╔═══██╗██║   ██║╚══██╔══╝
