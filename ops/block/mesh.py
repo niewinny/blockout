@@ -145,22 +145,25 @@ class BOUT_OT_BlockMeshTool(Block):
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
                 facet.set_z(face, normal, offset)
-                extruded_faces = facet.extrude(bm, face, plane, extrusion)
-                self._recalculate_normals(bm, extruded_faces)
-                if symmetry_extrude:
-                    facet.set_z(
-                        bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
-                    )
-                if self.pref.bevel.fill.enable:
-                    face_index = extruded_faces[-1]
-                    face = bmeshface.from_index(bm, face_index)
-                    edges = face.edges
-                    verts_indicies = facet.bevel_edges(
-                        bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
-                    )
-                    remove_doubles(bm, verts_indicies)
-                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                self._boolean(self.pref.mode, obj, bm, ui)
+                if self.shape.volume == "3D":
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
+                    if symmetry_extrude:
+                        facet.set_z(
+                            bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
+                        )
+                    if self.pref.bevel.fill.enable:
+                        face_index = extruded_faces[-1]
+                        face = bmeshface.from_index(bm, face_index)
+                        edges = face.edges
+                        verts_indicies = facet.bevel_edges(
+                            bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
+                        )
+                        remove_doubles(bm, verts_indicies)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                    self._boolean(self.pref.mode, obj, bm, ui)
+                else:
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
             case "CIRCLE":
                 faces_indexes = circle.create(
                     bm, plane, verts_number=self.shape.circle.verts
@@ -285,18 +288,21 @@ class BOUT_OT_BlockMeshTool(Block):
                     )
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
-                extruded_faces = facet.extrude(bm, face, plane, extrusion)
-                self._recalculate_normals(bm, extruded_faces)
-                if self.pref.bevel.fill.enable:
-                    face_index = extruded_faces[-1]
-                    face = bmeshface.from_index(bm, face_index)
-                    edges = face.edges
-                    verts_indicies = facet.bevel_edges(
-                        bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
-                    )
-                    remove_doubles(bm, verts_indicies)
-                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                self._boolean(self.pref.mode, obj, bm, ui)
+                if self.shape.volume == "3D":
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
+                    if self.pref.bevel.fill.enable:
+                        face_index = extruded_faces[-1]
+                        face = bmeshface.from_index(bm, face_index)
+                        edges = face.edges
+                        verts_indicies = facet.bevel_edges(
+                            bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
+                        )
+                        remove_doubles(bm, verts_indicies)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                    self._boolean(self.pref.mode, obj, bm, ui)
+                else:
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
             case "TRIANGLE":
                 faces_indexes = triangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
@@ -355,25 +361,28 @@ class BOUT_OT_BlockMeshTool(Block):
                     facet.remove_doubles(bm, face)
 
                 facet.set_z(face, normal, offset)
-                extruded_faces = facet.extrude(bm, face, plane, extrusion)
-                self._recalculate_normals(bm, extruded_faces)
+                if self.shape.volume == "3D":
+                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                    self._recalculate_normals(bm, extruded_faces)
 
-                if symmetry_extrude:
-                    facet.set_z(
-                        bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
-                    )
+                    if symmetry_extrude:
+                        facet.set_z(
+                            bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
+                        )
 
-                if self.pref.bevel.fill.enable:
-                    face_index = extruded_faces[-1]
-                    face = bmeshface.from_index(bm, face_index)
-                    edges = face.edges
-                    verts_indicies = facet.bevel_edges(
-                        bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
-                    )
-                    remove_doubles(bm, verts_indicies)
+                    if self.pref.bevel.fill.enable:
+                        face_index = extruded_faces[-1]
+                        face = bmeshface.from_index(bm, face_index)
+                        edges = face.edges
+                        verts_indicies = facet.bevel_edges(
+                            bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
+                        )
+                        remove_doubles(bm, verts_indicies)
 
-                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                self._boolean(self.pref.mode, obj, bm, ui)
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                    self._boolean(self.pref.mode, obj, bm, ui)
+                else:
+                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 

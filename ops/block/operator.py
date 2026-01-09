@@ -427,6 +427,8 @@ class Block(bpy.types.Operator):
                         self.data.bevel.type = "ROUND"
 
                     if self.config.shape == "CYLINDER":
+                        if self.shape.volume == "2D":
+                            return {"RUNNING_MODAL"}
                         self.data.bevel.type = "FILL"
 
                     if self.config.shape in {"BOX", "NHEDRON", "PRISM"}:

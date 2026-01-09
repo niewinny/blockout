@@ -165,8 +165,9 @@ def hotkeys(self, layout, _context, _event):
             case "CYLINDER":
                 row.label(text="Symmetry", icon="EVENT_Z")
                 row.separator(factor=factor)
-                row.label(text="Bevel", icon="EVENT_B")
-                row.separator(factor=factor)
+                if self.shape.volume == "3D":
+                    row.label(text="Bevel", icon="EVENT_B")
+                    row.separator(factor=factor)
             case "SPHERE":
                 row.label(text="Subd", icon="EVENT_S")
                 row.separator(factor=factor)
