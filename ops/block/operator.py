@@ -579,7 +579,7 @@ class Block(bpy.types.Operator):
             case ("BEVEL", "PRESS", "NGON" | "NHEDRON"):
                 return {"RUNNING_MODAL"}
             # BEVEL RELEASE - only extrude if not already 3D
-            case ("BEVEL", "RELEASE", "BOX" | "CYLINDER" | "PRISM") if (
+            case ("BEVEL", "RELEASE", "BOX" | "CYLINDER" | "PRISM" ) if (
                 self.shape.volume != "3D"
             ):
                 self._extrude_invoke(context, event)
@@ -592,8 +592,6 @@ class Block(bpy.types.Operator):
             case ("BEVEL", "RELEASE", "NHEDRON") if self.shape.volume != "3D":
                 self._extrude_invoke(context, event)
                 bevel.update(self)
-                return {"RUNNING_MODAL"}
-            case ("BEVEL", "RELEASE", "NGON" | "NHEDRON"):
                 return {"RUNNING_MODAL"}
             case ("BEVEL", "RELEASE", _):
                 # Already 3D, finalize
