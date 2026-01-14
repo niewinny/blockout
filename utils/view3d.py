@@ -1,3 +1,10 @@
+"""3D viewport coordinate conversion utilities.
+
+Extends bpy_extras.view3d_utils with additional functions for
+converting between 2D region coordinates and 3D world space,
+including plane and line intersections.
+"""
+
 from bpy_extras.view3d_utils import (
     location_3d_to_region_2d,
     region_2d_to_location_3d,
@@ -50,8 +57,16 @@ def region_2d_to_plane_3d(region, re3d, point, plane, matrix=None):
 
 
 def get_mouse_region_prev(event):
-    """Get the previous mouse coordinates in region space"""
+    """Get the previous mouse coordinates in region space.
 
+    Calculates the previous mouse position in region coordinates by
+    comparing current and previous global positions.
+
+    :param event: The Blender event containing mouse position data.
+    :type event: bpy.types.Event
+    :return: Tuple of (x, y) coordinates in region space.
+    :rtype: tuple[float, float]
+    """
     mouse_x = event.mouse_x
     mouse_y = event.mouse_y
 
@@ -71,19 +86,24 @@ def get_mouse_region_prev(event):
 
 
 def region_2d_to_line_3d(region, rv3d, point, line_origin, line_direction, matrix=None):
-    """
-    Convert a 2D region point to the closest 3D point on a specified line,
-    and calculate the signed distance from the line origin to this point.
+    """Convert a 2D region point to the closest 3D point on a line.
 
-    :param region: The region of the area (typically `context.region`).
-    :param rv3d: The 3D region view (typically `context.region_data`).
-    :param point: The 2D point in the region (e.g., mouse position).
+    Calculates the signed distance from the line origin to the closest point.
+
+    :param region: The region of the area.
+    :type region: bpy.types.Region
+    :param rv3d: The 3D region view.
+    :type rv3d: bpy.types.RegionView3D
+    :param point: The 2D point in the region.
+    :type point: tuple[float, float]
     :param line_origin: The origin of the target line in 3D space.
+    :type line_origin: mathutils.Vector
     :param line_direction: The direction vector of the target line.
-    :param matrix: (Optional) Transformation matrix to apply to the line.
-    :return: A tuple containing:
-        - The closest 3D point on the line to the 2D point's corresponding 3D ray.
-        - The signed distance from the line origin to the closest point along the line direction.
+    :type line_direction: mathutils.Vector
+    :param matrix: Optional transformation matrix to apply to the line.
+    :type matrix: mathutils.Matrix | None
+    :return: Tuple of (closest point on line, signed distance), or (None, None) if parallel.
+    :rtype: tuple[mathutils.Vector | None, float | None]
     """
 
     # Get the 3D ray from the 2D point

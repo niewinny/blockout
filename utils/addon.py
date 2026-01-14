@@ -1,3 +1,10 @@
+"""Addon utilities for version info and preferences access.
+
+Attributes:
+    version: Addon version string (e.g., "1.4.3").
+    version_tuple: Addon version as tuple of integers (e.g., (1, 4, 3)).
+"""
+
 from pathlib import Path
 
 import bpy
@@ -14,6 +21,12 @@ version_tuple: tuple[int, ...] = tuple(int(x) for x in version.split("."))
 
 
 def pref():
+    """Get the addon preferences.
+
+    :return: The addon preferences object.
+    :rtype: AddonPreferences
+    :raises RuntimeError: If preferences are not available.
+    """
     prefs = bpy.context.preferences
     if not prefs or not _package_name:
         raise RuntimeError("Preferences not available")

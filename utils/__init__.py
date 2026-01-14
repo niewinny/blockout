@@ -1,3 +1,5 @@
+"""Utility modules"""
+
 from . import addon
 from . import gizmo
 from . import infobar

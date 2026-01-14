@@ -38,22 +38,46 @@ SIGN_KEYS = {"MINUS", "NUMPAD_MINUS"}
 
 
 def is_numeric_key(event_type: str) -> bool:
-    """Check if an event type is a numeric input key."""
+    """Check if an event type is a numeric input key.
+
+    :param event_type: The Blender event type string.
+    :type event_type: str
+    :return: True if the event type is a numeric key.
+    :rtype: bool
+    """
     return event_type in NUMERIC_KEYS
 
 
 def is_sign_key(event_type: str) -> bool:
-    """Check if an event type is a sign toggle key."""
+    """Check if an event type is a sign toggle key.
+
+    :param event_type: The Blender event type string.
+    :type event_type: str
+    :return: True if the event type is a sign key.
+    :rtype: bool
+    """
     return event_type in SIGN_KEYS
 
 
 def _get_char(event_type: str) -> str:
-    """Get the character for a key event type."""
+    """Get the character for a key event type.
+
+    :param event_type: The Blender event type string.
+    :type event_type: str
+    :return: The corresponding character, or empty string if not found.
+    :rtype: str
+    """
     return KEY_TO_CHAR.get(event_type, "")
 
 
 def _parse_number(text: str) -> tuple[float | None, str]:
-    """Parse a number string. Returns (result, error_message)."""
+    """Parse a number string.
+
+    :param text: The text to parse.
+    :type text: str
+    :return: Tuple of (result, error_message).
+    :rtype: tuple[float | None, str]
+    """
     if not text or text.strip() == "":
         return None, "Empty"
 
@@ -70,7 +94,8 @@ def _parse_number(text: str) -> tuple[float | None, str]:
 class NumericInput:
     """Handles numeric keyboard input during modal operations.
 
-    Usage:
+    Example usage::
+
         ni = NumericInput()
 
         # In modal:
@@ -83,6 +108,17 @@ class NumericInput:
 
         # Format for display:
         text = ni.format_value(0, some_value)
+
+    :ivar active: Whether numeric input mode is active.
+    :vartype active: bool
+    :ivar buffer: Current input buffer string.
+    :vartype buffer: str
+    :ivar active_index: Index of the value being edited.
+    :vartype active_index: int
+    :ivar stored_value: Value stored before editing started.
+    :vartype stored_value: float
+    :ivar error: Whether the current buffer has a parse error.
+    :vartype error: bool
     """
 
     def __init__(self):
@@ -93,7 +129,13 @@ class NumericInput:
         self.error: bool = False
 
     def start(self, stored_value: float = 0.0, index: int = 0) -> None:
-        """Start numeric input mode."""
+        """Start numeric input mode.
+
+        :param stored_value: The value to store for potential revert.
+        :type stored_value: float
+        :param index: The index of the value being edited.
+        :type index: int
+        """
         self.active = True
         self.buffer = ""
         self.error = False
@@ -101,13 +143,17 @@ class NumericInput:
         self.stored_value = stored_value
 
     def stop(self) -> None:
-        """Stop numeric input mode."""
+        """Stop numeric input mode and clear buffer."""
         self.active = False
         self.buffer = ""
         self.error = False
 
     def add_char(self, event_type: str) -> None:
-        """Add character from key event to buffer."""
+        """Add character from key event to buffer.
+
+        :param event_type: The Blender event type string.
+        :type event_type: str
+        """
         char = _get_char(event_type)
         if not char:
             return  # Invalid key, ignore
@@ -120,7 +166,10 @@ class NumericInput:
         self.buffer += char
 
     def toggle_sign(self) -> None:
-        """Toggle the sign of the buffer."""
+        """Toggle the sign of the buffer.
+
+        Adds or removes a minus sign at the start of the buffer.
+        """
         if not self.buffer:
             self.buffer = "-"
         elif self.buffer.startswith("-"):
@@ -129,12 +178,11 @@ class NumericInput:
             self.buffer = "-" + self.buffer
 
     def backspace(self) -> str:
-        """Remove last character.
+        """Remove last character from buffer.
 
-        Returns:
-            'apply' - buffer still has characters, apply current value
-            'revert' - buffer is now empty, revert to stored value
-            'cancel' - was already empty, cancel numeric input
+        :return: Action to take: 'apply' (buffer has chars), 'revert' (buffer empty),
+                 or 'cancel' (was already empty).
+        :rtype: str
         """
         if self.buffer:
             self.buffer = self.buffer[:-1]
@@ -145,8 +193,8 @@ class NumericInput:
     def cycle(self, num_values: int) -> None:
         """Cycle to next editable value.
 
-        Args:
-            num_values: Total number of editable values. Must be > 0.
+        :param num_values: Total number of editable values. Must be > 0.
+        :type num_values: int
         """
         if num_values <= 0:
             return  # Invalid, ignore silently
@@ -155,7 +203,11 @@ class NumericInput:
         self.error = False
 
     def try_parse(self) -> tuple[float | None, bool]:
-        """Try to parse buffer. Returns (value, has_error)."""
+        """Try to parse buffer as a float.
+
+        :return: Tuple of (parsed value or None, has_error flag).
+        :rtype: tuple[float | None, bool]
+        """
         if not self.buffer:
             return None, False
 
@@ -166,7 +218,17 @@ class NumericInput:
     def format_value(
         self, editing_index: int, value: float, is_int: bool = False
     ) -> str:
-        """Format value for display, showing buffer if being edited."""
+        """Format value for display, showing buffer if being edited.
+
+        :param editing_index: Index of the value to check against active_index.
+        :type editing_index: int
+        :param value: The value to format.
+        :type value: float
+        :param is_int: If True, format as integer.
+        :type is_int: bool
+        :return: Formatted string representation.
+        :rtype: str
+        """
         if self.active and self.active_index == editing_index:
             indicator = "[!" if self.error else "["
             return f"{indicator}{self.buffer}]"

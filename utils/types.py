@@ -1,10 +1,26 @@
+"""Custom data types for drawing and transformation operations.
+
+Provides:
+- DrawMatrix: 4x4 transformation matrix wrapper for plane-based operations.
+- DrawVert: Vertex data storage for drawing operations.
+"""
+
 from dataclasses import dataclass, field
 from typing import Tuple, List
 from mathutils import Vector, Matrix
 
 
 def _orthonormal_basis(normal: Vector, x_dir: Vector) -> List[Vector]:
-    """Given a normal and an in-plane direction, compute an orthonormal basis [x, y, z]."""
+    """Compute an orthonormal basis from a normal and in-plane direction.
+
+    :param normal: The normal vector (Z axis).
+    :type normal: mathutils.Vector
+    :param x_dir: The in-plane X direction hint.
+    :type x_dir: mathutils.Vector
+    :return: List of [x, y, z] orthonormal basis vectors.
+    :rtype: list[mathutils.Vector]
+    :raises ValueError: If x_dir is parallel to normal.
+    """
 
     z = normal.normalized()
     x_proj = x_dir - (x_dir.dot(z)) * z
@@ -18,24 +34,42 @@ def _orthonormal_basis(normal: Vector, x_dir: Vector) -> List[Vector]:
 
 @dataclass
 class DrawMatrix:
-    """4x4 homogeneous transformation matrix encapsulation."""
+    """4x4 homogeneous transformation matrix encapsulation.
+
+    :ivar mat: The underlying 4x4 matrix.
+    :vartype mat: mathutils.Matrix
+    """
 
     mat: Matrix = field(default_factory=lambda: Matrix.Identity(4))
 
     @classmethod
     def new(cls) -> "DrawMatrix":
-        """Create a new blank DrawMatrix with identity matrix."""
+        """Create a new DrawMatrix with identity matrix.
+
+        :return: A new DrawMatrix instance.
+        :rtype: DrawMatrix
+        """
         return cls(Matrix.Identity(4))
 
     @classmethod
     def from_property(cls, matrix_prop) -> "DrawMatrix":
-        """Create a DrawMatrix from a float vector property."""
+        """Create a DrawMatrix from a flat float vector property.
+
+        :param matrix_prop: Flat list of 16 floats in column-major order.
+        :type matrix_prop: list[float]
+        :return: A new DrawMatrix instance.
+        :rtype: DrawMatrix
+        """
         # Convert the float vector (flat list of 16 values) to a 4x4 matrix
         matrix = Matrix(matrix_prop)
         return cls(matrix)
 
     def to_property(self) -> list:
-        """Convert this matrix to a format suitable for a float vector property."""
+        """Convert matrix to flat list for float vector property.
+
+        :return: List of 16 floats in column-major order.
+        :rtype: list[float]
+        """
         # Flatten the matrix to a list of 16 values in column-major order
         return [
             self.mat[0][0],
@@ -59,7 +93,15 @@ class DrawMatrix:
     def from_plane(
         self, plane: Tuple[Vector, Vector], direction: Vector
     ) -> "DrawMatrix":
-        """Update this matrix in-place from a plane (origin, normal) and in-plane X direction."""
+        """Update matrix in-place from a plane and X direction.
+
+        :param plane: Tuple of (origin, normal) vectors.
+        :type plane: tuple[mathutils.Vector, mathutils.Vector]
+        :param direction: The in-plane X direction.
+        :type direction: mathutils.Vector
+        :return: Self for method chaining.
+        :rtype: DrawMatrix
+        """
         origin, normal = plane
         basis = _orthonormal_basis(normal, direction)
 
@@ -74,14 +116,24 @@ class DrawMatrix:
         return self
 
     def to_plane(self) -> Tuple[Vector, Vector, Vector]:
-        """Extract (origin, x_dir, normal) from this transformation."""
+        """Extract plane definition from this transformation.
+
+        :return: Tuple of (origin, x_dir, normal) vectors.
+        :rtype: tuple[mathutils.Vector, mathutils.Vector, mathutils.Vector]
+        """
         origin = self.location
         x_dir = self.direction.normalized()
         normal = self.normal.normalized()
         return origin, x_dir, normal
 
     def to_local(self, obj) -> "DrawMatrix":
-        """Transform this matrix from world to local space of the given object."""
+        """Transform matrix from world to object local space.
+
+        :param obj: The object whose local space to transform into.
+        :type obj: bpy.types.Object
+        :return: Self for method chaining.
+        :rtype: DrawMatrix
+        """
         world_to_local = obj.matrix_world.inverted_safe()
         self.mat = world_to_local @ self.mat
 
@@ -89,32 +141,60 @@ class DrawMatrix:
 
     @property
     def plane(self) -> Tuple[Vector, Vector]:
-        """Get the plane definition as (origin, normal)."""
+        """Plane definition as (origin, normal).
+
+        :return: Tuple of (location, normal) vectors.
+        :rtype: tuple[mathutils.Vector, mathutils.Vector]
+        """
         return self.location, self.normal
 
     @property
     def location(self) -> Vector:
-        """Translation component (origin of the plane)."""
+        """Translation component (origin of the plane).
+
+        :return: The translation vector.
+        :rtype: mathutils.Vector
+        """
         return Vector((self.mat[0][3], self.mat[1][3], self.mat[2][3]))
 
     @property
     def direction(self) -> Vector:
-        """Local X-axis direction (in-plane)."""
+        """Local X-axis direction (in-plane).
+
+        :return: The X-axis direction vector.
+        :rtype: mathutils.Vector
+        """
         return Vector((self.mat[0][0], self.mat[1][0], self.mat[2][0]))
 
     @property
     def normal(self) -> Vector:
-        """Local Z-axis direction (plane normal)."""
+        """Local Z-axis direction (plane normal).
+
+        :return: The Z-axis normal vector.
+        :rtype: mathutils.Vector
+        """
         return Vector((self.mat[0][2], self.mat[1][2], self.mat[2][2]))
 
     def copy(self) -> Matrix:
-        """Convert this DrawMatrix to a mathutils Matrix."""
+        """Create a copy of the underlying matrix.
+
+        :return: A copy of the matrix.
+        :rtype: mathutils.Matrix
+        """
         return self.mat.copy()
 
 
 @dataclass
 class DrawVert:
-    """Dataclass for storing options"""
+    """Vertex data for drawing operations.
+
+    :ivar index: Vertex index (-1 if unset).
+    :vartype index: int
+    :ivar co: 3D world coordinates.
+    :vartype co: mathutils.Vector
+    :ivar region: 2D region coordinates.
+    :vartype region: mathutils.Vector
+    """
 
     index: int = -1
     co: Vector = Vector()

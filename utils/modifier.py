@@ -8,11 +8,16 @@ from .nodes import load_from_file
 
 
 def add(obj, _name, _type):
-    """
-    Add a modifier to the object
-    :param obj: Object to add the modifier to
-    :param type: Modifier type
-    :return: Modifier object
+    """Add a modifier to the object.
+
+    :param obj: Object to add the modifier to.
+    :type obj: bpy.types.Object
+    :param _name: Name for the modifier.
+    :type _name: str
+    :param _type: Modifier type (e.g., 'BOOLEAN', 'BEVEL').
+    :type _type: str
+    :return: The created modifier, or None if object is not a mesh.
+    :rtype: bpy.types.Modifier | None
     """
 
     if obj and obj.type == "MESH":
@@ -25,10 +30,12 @@ def add(obj, _name, _type):
 
 
 def remove(obj, modifier):
-    """
-    Remove a modifier from the object
-    :param obj: Object to remove the modifier from
-    :param modifier: Modifier to remove
+    """Remove a modifier from the object.
+
+    :param obj: Object to remove the modifier from.
+    :type obj: bpy.types.Object
+    :param modifier: Modifier to remove.
+    :type modifier: bpy.types.Modifier
     """
 
     if obj:
@@ -36,12 +43,16 @@ def remove(obj, modifier):
 
 
 def get(obj, _type, _id):
-    """
-    Get a modifier from the object based on id position
-    :param obj: Object to get the modifier from
-    :param type: Modifier type
-    :param id: Modifier id
-    :return: Modifier object
+    """Get a modifier from the object based on index position.
+
+    :param obj: Object to get the modifier from.
+    :type obj: bpy.types.Object
+    :param _type: Modifier type to filter by.
+    :type _type: str
+    :param _id: Index of the modifier (-1 for last).
+    :type _id: int
+    :return: The modifier, or None if not found.
+    :rtype: bpy.types.Modifier | None
     """
 
     if obj:
@@ -57,9 +68,12 @@ def get(obj, _type, _id):
 
 
 def _auto_smooth_file_path():
-    """
-    Get the path to the default asset file (smooth_by_angle.blend) based on Blender's installation directory.
-    :return: Full path to the asset file.
+    """Get the path to the Smooth by Angle asset file.
+
+    Locates smooth_by_angle.blend in Blender's installation directory.
+
+    :return: Full path to the asset file, or None if not found.
+    :rtype: str | None
     """
     blender_exe_path = bpy.app.binary_path
     blender_dir = os.path.dirname(blender_exe_path)
@@ -81,10 +95,15 @@ def _auto_smooth_file_path():
 
 
 def auto_smooth(obj):
-    """
-    Set auto smooth on the object.
-    :param obj: Object to set auto smooth on.
-    :return: Modifier object
+    """Add Smooth by Angle geometry nodes modifier to the object.
+
+    Loads the node group from Blender's assets if not already loaded.
+    Skips if the modifier already exists on the object.
+
+    :param obj: Object to add auto smooth to.
+    :type obj: bpy.types.Object
+    :return: The created modifier, or None if skipped or failed.
+    :rtype: bpy.types.NodesModifier | None
     """
     node_group_name = "Smooth by Angle"
 
