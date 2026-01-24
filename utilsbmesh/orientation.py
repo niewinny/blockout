@@ -209,15 +209,7 @@ def set_align_rotation_from_vectors(normal, direction):
     normal = normal.normalized()
     direction = direction.normalized()
 
-    # Handle exact axis-aligned cases for precision
-    Vector((1, 0, 0))
-    Vector((-1, 0, 0))
-    Vector((0, 1, 0))
-    Vector((0, -1, 0))
-    Vector((0, 0, 1))
-    Vector((0, 0, -1))
-
-    # This now handles ALL cases, including axis-aligned ones
+    # Build rotation matrix from normal and direction
     z_axis = normal
     x_axis = direction
     y_axis = z_axis.cross(x_axis).normalized()
