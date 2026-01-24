@@ -196,6 +196,9 @@ class BOUT_OT_ObjSetCustomPlane(bpy.types.Operator):
 
             if hits:
                 _, normal = min(hits, key=lambda x: x[0])
+                # Flip normal to face the viewer (opposite to ray direction)
+                if direction.dot(normal) > 0:
+                    normal = -normal
                 location = Vector((0.0, 0.0, 0.0))
                 direction = direction_from_normal(normal)
             else:
