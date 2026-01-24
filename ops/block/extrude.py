@@ -133,6 +133,7 @@ def modal(self, context, event):
     self.data.bevel.origin = sum(bevel_verts, Vector()) / len(bevel_verts)
 
     extrude_faces = [bm.faces[index] for index in self.data.extrude.faces]
+    self._recalculate_normals(bm, self.data.extrude.faces)
 
     if self.config.mode != "ADD":
         self.ui.faces.callback.update_batch(extrude_faces)

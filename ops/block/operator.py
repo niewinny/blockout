@@ -602,8 +602,6 @@ class Block(bpy.types.Operator):
 
             # EXTRUDE
             case ("EXTRUDE", _, _):
-                if self.config.mode == "ADD":
-                    self._recalculate_normals(self.data.bm, self.data.extrude.faces)
                 self.update_bmesh(
                     self.data.obj,
                     self.data.bm,
