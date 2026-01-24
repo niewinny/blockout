@@ -1,6 +1,7 @@
 import bpy
 
 from ....utils import modifier
+from ....utils.operator import safe
 from .base import BevelOperatorBase
 from .data import Bevel
 
@@ -427,6 +428,7 @@ class BOUT_OT_ModBevel(BevelOperatorBase):
             if self.current_index < len(self.bevels):
                 self.bevels[self.current_index].mod.width = offset
 
+    @safe
     def modal(self, context, event):
         # Check for finish events to store modifiers before completing
         if event.type == "LEFTMOUSE":

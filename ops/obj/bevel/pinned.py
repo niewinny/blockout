@@ -1,6 +1,9 @@
 import bpy
+from mathutils import Vector
 
 from ....utils import modifier
+from ....utils.operator import safe
+from . import numeric_input, utils
 from .base import BevelOperatorBase
 from .data import Bevel
 

@@ -3,6 +3,7 @@ import bpy
 from mathutils import Vector
 
 from ...utils import addon, infobar, scene, view3d
+from ...utils.operator import safe
 from ...utilsbmesh import facet
 from . import bevel, bisect, draw, edit, extrude, numeric_input, orientation, ui
 from .data import Config, CreatedData, Modifiers, Mouse, Objects, Pref, Shape
@@ -353,6 +354,7 @@ class Block(bpy.types.Operator):
 
         return {"FINISHED"}
 
+    @safe
     def modal(self, context, event):
         """Run the operator modal"""
         if event.type == "MIDDLEMOUSE":
@@ -543,7 +545,6 @@ class Block(bpy.types.Operator):
 
         elif event.type in {"RIGHTMOUSE", "ESC"}:
             self._cancel(context)
-            self._end(context)
             return {"CANCELLED"}
 
         context.area.tag_redraw()
@@ -581,7 +582,7 @@ class Block(bpy.types.Operator):
             case ("BEVEL", "PRESS", "NGON" | "NHEDRON"):
                 return {"RUNNING_MODAL"}
             # BEVEL RELEASE - only extrude if not already 3D
-            case ("BEVEL", "RELEASE", "BOX" | "CYLINDER" | "PRISM" ) if (
+            case ("BEVEL", "RELEASE", "BOX" | "CYLINDER" | "PRISM") if (
                 self.shape.volume != "3D"
             ):
                 self._extrude_invoke(context, event)
@@ -638,15 +639,15 @@ class Block(bpy.types.Operator):
         self.store_props()
         self.save_props()
         self._finish(context)
-        self._end(context)
         return {"FINISHED"}
 
     def _finish(self, context):
         """Finish the operator"""
+        self._end(context)
 
     def _cancel(self, context):
         """Cancel the operator"""
-        raise NotImplementedError("Subclasses must implement the _cancel method")
+        self._end(context)
 
     def _end(self, context):
         """End the operator"""

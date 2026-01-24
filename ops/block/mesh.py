@@ -499,8 +499,6 @@ class BOUT_OT_BlockMeshTool(Block):
         self._update_geometry(ui=True)
 
     def _finish(self, context):
-        super()._finish(context)
-
         if self.mode != "BISECT":
             if self.config.mode != "ADD":
                 if self.shape.volume == "2D":
@@ -511,11 +509,15 @@ class BOUT_OT_BlockMeshTool(Block):
                 self.data.obj, self.data.bm, loop_triangles=True, destructive=True
             )
 
+        super()._finish(context)
+
     def _cancel(self, context):
         get_copy(self.data.obj, self.data.bm, self.data.copy.init)
         self.update_bmesh(
             self.data.obj, self.data.bm, loop_triangles=True, destructive=True
         )
+
+        super()._cancel(context)
 
 
 classes = (BOUT_OT_BlockMeshTool,)

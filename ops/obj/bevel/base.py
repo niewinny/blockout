@@ -2,6 +2,7 @@ import bpy
 from mathutils import Vector
 
 from ....utils import infobar, modifier
+from ....utils.operator import safe
 from ....utils.input import NumericInput
 from . import numeric_input, utils
 from .data import Distance, DrawUI, Mouse
@@ -173,6 +174,7 @@ class BevelOperatorBase(bpy.types.Operator):
             if self.pin:
                 mod.use_pin_to_last = True
 
+    @safe
     def modal(self, context, event):
         # Handle numeric input events first
         result = numeric_input.modal(self, context, event)
@@ -209,8 +211,7 @@ class BevelOperatorBase(bpy.types.Operator):
             return {"FINISHED"}
 
         elif event.type in {"RIGHTMOUSE", "ESC"} and event.value == "PRESS":
-            self._cancel()
-            self._end(context)
+            self._cancel(context)
             return {"CANCELLED"}
 
         elif event.type in {"LEFT_SHIFT", "RIGHT_SHIFT"} and event.value == "PRESS":
@@ -398,11 +399,13 @@ class BevelOperatorBase(bpy.types.Operator):
 
         layout.separator(factor=2)
 
-    def _cancel(self):
+    def _cancel(self, context):
         """Cancel the operator"""
         for b in self.bevels:
             if b.new:
                 modifier.remove(b.obj, b.mod)
+
+        self._end(context)
 
     def _end(self, context):
         """Cleanup and finish the operator"""

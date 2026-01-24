@@ -585,7 +585,6 @@ class BOUT_OT_BlockObjTool(Block):
         context.view_layer.objects.active = obj
 
     def _finish(self, context):
-        super()._finish(context)
 
         if self.mode != "BISECT":
             if self.config.mode != "ADD":
@@ -623,6 +622,8 @@ class BOUT_OT_BlockObjTool(Block):
 
             if self.pref.reveal:
                 self._reveal_objects(context, self.data.obj)
+            
+        super()._finish(context)
 
     def _set_origin(self, obj):
         bbox_corners = [mathutils.Vector(corner) for corner in obj.bound_box]
@@ -684,6 +685,8 @@ class BOUT_OT_BlockObjTool(Block):
             bpy.data.objects.remove(obj, do_unlink=True)
             if mesh_data and mesh_data.users == 0:
                 bpy.data.meshes.remove(mesh_data)
+
+        super()._cancel(context)
 
 
 classes = (BOUT_OT_BlockObjTool,)
