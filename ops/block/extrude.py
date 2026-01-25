@@ -7,36 +7,36 @@ from ...utilsbmesh import corner, facet
 from .data import ExtrudeEdge
 
 
-def invoke(self, context, event):
+def invoke(op, context, event):
     """Extrude the mesh"""
 
-    self.mode = "EXTRUDE"
-    self.shape.volume = "3D"
-    self.mouse.extrude = self.mouse.co
+    op.mode = "EXTRUDE"
+    op.shape.volume = "3D"
+    op.mouse.extrude = op.mouse.co
 
     region = context.region
     rv3d = context.region_data
 
-    obj = self.data.obj
-    bm = self.data.bm
+    obj = op.data.obj
+    bm = op.data.bm
 
-    draw_faces = [bm.faces[index] for index in self.data.draw.faces]
+    draw_faces = [bm.faces[index] for index in op.data.draw.faces]
     draw_face = draw_faces[0]
-    plane = self.data.draw.matrix.plane
-    normal = self.data.draw.matrix.normal
-    direction = self.data.draw.matrix.direction
-    rotations = (self.shape.corner.min, self.shape.corner.max)
-    offset = self.config.align.offset
+    plane = op.data.draw.matrix.plane
+    normal = op.data.draw.matrix.normal
+    direction = op.data.draw.matrix.direction
+    rotations = (op.shape.corner.min, op.shape.corner.max)
+    offset = op.config.align.offset
 
-    shape = self.config.shape
+    shape = op.config.shape
     match shape:
         case "CORNER":
-            self.data.extrude.value = 0.2
+            op.data.extrude.value = 0.2
             extruded_faces_indexes, mid_edge_index = corner.extrude(
-                bm, draw_faces, direction, normal, rotations, self.data.extrude.value
+                bm, draw_faces, direction, normal, rotations, op.data.extrude.value
             )
-            self.data.extrude.faces = extruded_faces_indexes
-            self.data.extrude.edges = [
+            op.data.extrude.faces = extruded_faces_indexes
+            op.data.extrude.edges = [
                 ExtrudeEdge(index=mid_edge_index, position="MID")
             ]
             corner.offset(
@@ -46,14 +46,14 @@ def invoke(self, context, event):
         case _:
             extruded_faces_indexes = facet.extrude(bm, draw_face, plane, 0.0)
 
-            self.data.extrude.faces = extruded_faces_indexes
-            self.data.draw.faces[0] = extruded_faces_indexes[0]
-            extrude_face = bm.faces[self.data.extrude.faces[-1]]
-            self.data.extrude.verts = [
+            op.data.extrude.faces = extruded_faces_indexes
+            op.data.draw.faces[0] = extruded_faces_indexes[0]
+            extrude_face = bm.faces[op.data.extrude.faces[-1]]
+            op.data.extrude.verts = [
                 DrawVert(index=v.index, co=v.co.copy()) for v in extrude_face.verts
             ]
-            draw_face = bm.faces[self.data.draw.faces[0]]
-            self.data.draw.verts = [
+            draw_face = bm.faces[op.data.draw.faces[0]]
+            op.data.draw.verts = [
                 DrawVert(index=v.index, co=v.co.copy()) for v in draw_face.verts
             ]
 
@@ -61,41 +61,41 @@ def invoke(self, context, event):
             extrude_face_edges = [e.index for e in extrude_face.edges]
             extrude_edges = list(set(extrude_edges) - set(extrude_face_edges))
 
-            self.data.extrude.edges = [
+            op.data.extrude.edges = [
                 ExtrudeEdge(index=e, position="MID") for e in extrude_edges
             ] + [ExtrudeEdge(index=e, position="END") for e in extrude_face_edges]
 
-    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+    op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
-    self.ui.xaxis.callback.clear()
-    self.ui.yaxis.callback.clear()
-    self.ui.guid.callback.clear()
-    self.ui.interface.callback.clear()
-    self.ui.vert.callback.clear()
+    op.ui.xaxis.callback.clear()
+    op.ui.yaxis.callback.clear()
+    op.ui.guid.callback.clear()
+    op.ui.interface.callback.clear()
+    op.ui.vert.callback.clear()
 
     plane_world = (obj.matrix_world @ plane[0], obj.matrix_world.to_3x3() @ plane[1])
     line_origin = view3d.region_2d_to_plane_3d(
-        region, rv3d, self.mouse.extrude, plane_world
+        region, rv3d, op.mouse.extrude, plane_world
     )
-    self.data.extrude.origin = line_origin
+    op.data.extrude.origin = line_origin
     point1 = line_origin
     point2 = line_origin + plane_world[1]
-    self.ui.zaxis.callback.update_batch((point1, point2))
+    op.ui.zaxis.callback.update_batch((point1, point2))
 
 
-def modal(self, context, event):
+def modal(op, context, event):
     """Set the extrusion based on mouse or numeric input."""
-    obj = self.data.obj
-    bm = self.data.bm
-    ni = self.data.numeric_input
+    obj = op.data.obj
+    bm = op.data.bm
+    ni = op.data.numeric_input
 
     # Ensure lookup tables are valid after destructive updates
     bm.faces.ensure_lookup_table()
     bm.verts.ensure_lookup_table()
 
-    face = bm.faces[self.data.extrude.faces[-1]]
-    normal = self.data.draw.matrix.plane[1]
-    verts = [v.co for v in self.data.extrude.verts]
+    face = bm.faces[op.data.extrude.faces[-1]]
+    normal = op.data.draw.matrix.plane[1]
+    verts = [v.co for v in op.data.extrude.verts]
 
     region = context.region
     rv3d = context.region_data
@@ -103,71 +103,71 @@ def modal(self, context, event):
     # Only calculate from mouse when not in numeric input mode
     if not ni.active:
         matrix_world = obj.matrix_world
-        line_origin = self.data.extrude.origin
+        line_origin = op.data.extrude.origin
         line_direction = matrix_world.to_3x3() @ normal
 
         _, extrude = view3d.region_2d_to_line_3d(
-            region, rv3d, self.mouse.co, line_origin, line_direction
+            region, rv3d, op.mouse.co, line_origin, line_direction
         )
 
         if extrude is not None:
-            increments = self.config.align.increments if self.config.snap else 0.0
+            increments = op.config.align.increments if op.config.snap else 0.0
             if increments > 0:
                 extrude = round(extrude / increments) * increments
-            self.data.extrude.value = extrude
+            op.data.extrude.value = extrude
 
     # Update geometry using current value
-    dz = self.data.extrude.value
-    increments = self.config.align.increments if self.config.snap else 0.0
+    dz = op.data.extrude.value
+    increments = op.config.align.increments if op.config.snap else 0.0
     dz = facet.set_z(face, normal, dz, verts, snap_value=increments)
-    self.data.extrude.value = dz  # Update with snapped value
+    op.data.extrude.value = dz  # Update with snapped value
 
-    draw_face = bm.faces[self.data.extrude.faces[0]]
-    draw_verts = [v.co for v in self.data.draw.verts]
-    if self.data.extrude.symmetry:
+    draw_face = bm.faces[op.data.extrude.faces[0]]
+    draw_verts = [v.co for v in op.data.draw.verts]
+    if op.data.extrude.symmetry:
         facet.set_z(draw_face, normal, -dz, draw_verts, snap_value=increments)
     else:
         facet.set_z(draw_face, normal, 0, draw_verts)
 
     bevel_verts = [obj.matrix_world @ v.co.copy() for v in face.verts]
-    self.data.bevel.origin = sum(bevel_verts, Vector()) / len(bevel_verts)
+    op.data.bevel.origin = sum(bevel_verts, Vector()) / len(bevel_verts)
 
-    extrude_faces = [bm.faces[index] for index in self.data.extrude.faces]
-    self._recalculate_normals(bm, self.data.extrude.faces)
+    extrude_faces = [bm.faces[index] for index in op.data.extrude.faces]
+    op._recalculate_normals(bm, op.data.extrude.faces)
 
-    if self.config.mode != "ADD":
-        self.ui.faces.callback.update_batch(extrude_faces)
+    if op.config.mode != "ADD":
+        op.ui.faces.callback.update_batch(extrude_faces)
 
-    _, normal = self.data.draw.matrix.plane
+    _, normal = op.data.draw.matrix.plane
     normal_global = obj.matrix_world.to_3x3() @ normal
-    point_global = self.data.extrude.origin + normal_global * (dz / 2)
-    _update_ui(self, region, rv3d, point_global, dz)
+    point_global = op.data.extrude.origin + normal_global * (dz / 2)
+    _update_ui(op, region, rv3d, point_global, dz)
 
-    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+    op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
 
-def _update_ui(self, region, rv3d, point_global, dz):
+def _update_ui(op, region, rv3d, point_global, dz):
     """Update extrude UI elements."""
 
     point_2d = view3d.location_3d_to_region_2d(region, rv3d, point_global)
     lines = [
         {"point": point_2d, "text_tuple": (f"Z: {dz:.3f}",)},
     ]
-    self.ui.interface.callback.update_batch(lines)
+    op.ui.interface.callback.update_batch(lines)
 
 
-def uniform(self, context):
+def uniform(op, context):
     """Finish 2D shapes by extruding them based on raycasting"""
 
-    obj = self.data.obj
-    bm = self.data.bm
+    obj = op.data.obj
+    bm = op.data.bm
 
     # Get the 2D face
-    face_index = self.data.draw.faces[0]
+    face_index = op.data.draw.faces[0]
     face = bm.faces[face_index]
 
     # Get face normal and plane
-    plane = self.data.draw.matrix.plane
+    plane = op.data.draw.matrix.plane
     normal = plane[1].normalized()
 
     # Transform normal to world space (use rotation part of matrix only)
@@ -189,7 +189,7 @@ def uniform(self, context):
 
         # Cast ray toward the vertex using proper object filtering
         ray = ray_cast._ray_cast(
-            context, ray_origin, ray_direction, self.objects.selected
+            context, ray_origin, ray_direction, op.objects.selected
         )
 
         if ray.hit:
@@ -209,7 +209,7 @@ def uniform(self, context):
 
     # Cast from face center
     ray_origin = face_center - world_normal * (median_distance + 10.0)
-    ray = ray_cast._ray_cast(context, ray_origin, world_normal, self.objects.selected)
+    ray = ray_cast._ray_cast(context, ray_origin, world_normal, op.objects.selected)
 
     if ray.hit:
         distance = (ray.location - face_center).length
@@ -219,7 +219,7 @@ def uniform(self, context):
     for vert_world in world_verts:
         ray_origin = vert_world - world_normal * (median_distance + 10.0)
         ray = ray_cast._ray_cast(
-            context, ray_origin, world_normal, self.objects.selected
+            context, ray_origin, world_normal, op.objects.selected
         )
 
         if ray.hit:
@@ -234,7 +234,7 @@ def uniform(self, context):
         # Cast from edge middle
         ray_origin = edge_mid - world_normal * (median_distance + 10.0)
         ray = ray_cast._ray_cast(
-            context, ray_origin, world_normal, self.objects.selected
+            context, ray_origin, world_normal, op.objects.selected
         )
 
         if ray.hit:
@@ -245,7 +245,7 @@ def uniform(self, context):
         quarter_point_1 = (edge_mid + edge_verts_world[0]) / 2.0
         ray_origin = quarter_point_1 - world_normal * (median_distance + 10.0)
         ray = ray_cast._ray_cast(
-            context, ray_origin, world_normal, self.objects.selected
+            context, ray_origin, world_normal, op.objects.selected
         )
 
         if ray.hit:
@@ -256,7 +256,7 @@ def uniform(self, context):
         quarter_point_2 = (edge_mid + edge_verts_world[1]) / 2.0
         ray_origin = quarter_point_2 - world_normal * (median_distance + 10.0)
         ray = ray_cast._ray_cast(
-            context, ray_origin, world_normal, self.objects.selected
+            context, ray_origin, world_normal, op.objects.selected
         )
 
         if ray.hit:
@@ -269,7 +269,7 @@ def uniform(self, context):
 
         ray_origin = mid_point - world_normal * (median_distance + 10.0)
         ray = ray_cast._ray_cast(
-            context, ray_origin, world_normal, self.objects.selected
+            context, ray_origin, world_normal, op.objects.selected
         )
 
         if ray.hit:
@@ -281,7 +281,7 @@ def uniform(self, context):
         extrusion_value = max(extrusion_candidates)
         # Add offset
         offset = (
-            self.config.align.offset if hasattr(self.config.align, "offset") else 0.1
+            op.config.align.offset if hasattr(op.config.align, "offset") else 0.1
         )
         extrusion_value += offset
     else:
@@ -297,13 +297,13 @@ def uniform(self, context):
         extruded_faces = facet.extrude(bm, face, plane, -extrusion_value)
 
         # Update shape volume to 3D
-        self.shape.volume = "3D"
+        op.shape.volume = "3D"
 
         # Update extrude data
-        self.data.extrude.value = -extrusion_value
-        self.data.extrude.faces = extruded_faces
+        op.data.extrude.value = -extrusion_value
+        op.data.extrude.faces = extruded_faces
 
-        self.pref.extrusion = -extrusion_value
+        op.pref.extrusion = -extrusion_value
 
         # Restore selection if needed
         if was_selected:
@@ -311,4 +311,4 @@ def uniform(self, context):
                 bm.faces[face_idx].select_set(True)
 
         # Update the mesh
-        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+        op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)

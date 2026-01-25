@@ -9,65 +9,65 @@ from ...utils.types import DrawMatrix
 from ...utilsbmesh import orientation
 
 
-def _resolve_face_index(cls, hit_bm, hit_obj_eval, hit_data):
+def _resolve_face_index(op, hit_bm, hit_obj_eval, hit_data):
     """Safely get face or return fallback orientation for instanced objects"""
 
     # Check if the face index is valid for this mesh (important for instanced objects)
-    if cls.ray.index >= len(hit_bm.faces) or cls.ray.index < 0:
+    if op.ray.index >= len(hit_bm.faces) or op.ray.index < 0:
         # Face index is out of bounds - this can happen with instanced objects
         # Fall back to using the raycast normal directly
-        direction_world = orientation.direction_from_normal(cls.ray.normal)
-        plane_world = (cls.ray.location, cls.ray.normal)
+        direction_world = orientation.direction_from_normal(op.ray.normal)
+        plane_world = (op.ray.location, op.ray.normal)
 
         hit_bm.free()
         del hit_obj_eval
         del hit_data
 
-        cls.report({"INFO"}, "Fallback: Geometry is not real")
+        op.report({"INFO"}, "Fallback: Geometry is not real")
         return None, direction_world, plane_world
 
-    return hit_bm.faces[cls.ray.index], None, None
+    return hit_bm.faces[op.ray.index], None, None
 
 
-def build(cls, context):
+def build(op, context):
     """Get the orientation for the drawing"""
 
     if context.scene.bout.align.mode == "CUSTOM":
-        direction, plane = custom_orientation(cls, context)
-    elif cls.ray.hit:
-        if cls.config.shape in {"CORNER"}:
-            direction, plane = edge_orientation(cls, context)
+        direction, plane = custom_orientation(op, context)
+    elif op.ray.hit:
+        if op.config.shape in {"CORNER"}:
+            direction, plane = edge_orientation(op, context)
         else:
-            direction, plane = face_orientation(cls, context)
+            direction, plane = face_orientation(op, context)
     else:
         direction, plane = None, None
 
     if direction is None:
-        direction, plane = world_orientation(cls, context)
+        direction, plane = world_orientation(op, context)
 
-    if cls.config.mode != "ADD" and cls.config.type == "EDIT_MESH":
+    if op.config.mode != "ADD" and op.config.type == "EDIT_MESH":
         bpy.ops.mesh.select_all(action="DESELECT")
 
-    if cls.config.align.absolute:
-        increments = cls.config.align.increments
+    if op.config.align.absolute:
+        increments = op.config.align.increments
         custom_matrix = DrawMatrix.from_property(context.scene.bout.align.matrix)
         custom_plane = custom_matrix.location, custom_matrix.normal
         plane = orientation.snap_plane(plane, custom_plane, direction, increments)
 
-    cls.data.draw.matrix.from_plane(plane, direction)
+    op.data.draw.matrix.from_plane(plane, direction)
 
 
-def make_local(cls):
+def make_local(op):
     """Make the orientation local to the object"""
-    cls.data.draw.matrix.to_local(cls.data.obj)
+    op.data.draw.matrix.to_local(op.data.obj)
 
 
-def face_orientation(cls, context):
+def face_orientation(op, context):
     """Get the orientation from the face"""
 
     depsgraph = context.view_layer.depsgraph
     depsgraph.update()
-    hit_obj = cls.ray.obj
+    hit_obj = op.ray.obj
 
     # Get the evaluated data
     hit_obj_eval = hit_obj.evaluated_get(depsgraph)
@@ -78,15 +78,15 @@ def face_orientation(cls, context):
     hit_bm.faces.ensure_lookup_table()
 
     hit_face, fallback_direction, fallback_plane = _resolve_face_index(
-        cls, hit_bm, hit_obj_eval, hit_data
+        op, hit_bm, hit_obj_eval, hit_data
     )
 
     if hit_face is None:
         return fallback_direction, fallback_plane
 
-    loc = cls.ray.location
+    loc = op.ray.location
 
-    align_face = cls.config.align.face
+    align_face = op.config.align.face
     match align_face:
         case "PLANAR":
             direction_local = orientation.direction_from_normal(hit_face.normal)
@@ -95,8 +95,8 @@ def face_orientation(cls, context):
                 orientation.direction_from_closest_edge(hit_obj, hit_face, loc)
             )
 
-    direction_world = cls.ray.obj.matrix_world.to_3x3() @ direction_local
-    plane_world = (cls.ray.location, cls.ray.normal)
+    direction_world = op.ray.obj.matrix_world.to_3x3() @ direction_local
+    plane_world = (op.ray.location, op.ray.normal)
 
     hit_bm.free()
     del hit_obj_eval
@@ -105,12 +105,12 @@ def face_orientation(cls, context):
     return direction_world, plane_world
 
 
-def edge_orientation(cls, context):
+def edge_orientation(op, context):
     """Get the orientation from the edge"""
 
     depsgraph = context.view_layer.depsgraph
     depsgraph.update()
-    hit_obj = cls.ray.obj
+    hit_obj = op.ray.obj
 
     hit_obj_eval = hit_obj.evaluated_get(depsgraph)
     hit_data = hit_obj_eval.to_mesh(preserve_all_data_layers=True, depsgraph=depsgraph)
@@ -120,21 +120,21 @@ def edge_orientation(cls, context):
     hit_bm.faces.ensure_lookup_table()
 
     hit_face, fallback_direction, fallback_plane = _resolve_face_index(
-        cls, hit_bm, hit_obj_eval, hit_data
+        op, hit_bm, hit_obj_eval, hit_data
     )
 
     if hit_face is None:
-        cls.shape.corner.min = 0.0
-        cls.shape.corner.max = 0.0
+        op.shape.corner.min = 0.0
+        op.shape.corner.max = 0.0
         return fallback_direction, fallback_plane
 
-    matrix = cls.ray.obj.matrix_world
-    loc_world = cls.ray.location
+    matrix = op.ray.obj.matrix_world
+    loc_world = op.ray.location
 
     edge, direction_local, normal_local = orientation.direction_from_closest_edge(
         hit_obj, hit_face, loc_world
     )
-    direction_world = cls.ray.obj.matrix_world.to_3x3() @ direction_local
+    direction_world = op.ray.obj.matrix_world.to_3x3() @ direction_local
 
     linked_faces = edge.link_faces
     other_face = [f for f in linked_faces if f != hit_face][0]
@@ -159,7 +159,7 @@ def edge_orientation(cls, context):
     world_normal = matrix.to_3x3() @ normal_local
     world_normal.normalize()
     plane_world = (point_on_edge, world_normal)
-    cls.shape.corner.min = 0.0
+    op.shape.corner.min = 0.0
 
     direction_world.normalize()
 
@@ -181,7 +181,7 @@ def edge_orientation(cls, context):
     if cross_product.dot(direction_world) < 0:
         angle = -angle
 
-    cls.shape.corner.max = angle
+    op.shape.corner.max = angle
 
     hit_bm.free()
     del hit_obj_eval
@@ -190,7 +190,7 @@ def edge_orientation(cls, context):
     return direction_world, plane_world
 
 
-def custom_orientation(cls, context):
+def custom_orientation(op, context):
     """Get the orientation from the custom plane"""
 
     # Create DrawMatrix from the matrix property
@@ -206,7 +206,7 @@ def custom_orientation(cls, context):
     rv3d = context.region_data
 
     location_world = view3d.region_2d_to_plane_3d(
-        region, rv3d, cls.mouse.init, custom_plane
+        region, rv3d, op.mouse.init, custom_plane
     )
 
     if location_world is None:
@@ -216,7 +216,7 @@ def custom_orientation(cls, context):
         region, rv3d, custom_plane, custom_direction, location_world, distance=30
     )
 
-    cls.data.draw.symmetry = detected_axis
+    op.data.draw.symmetry = detected_axis
 
     axis = context.scene.bout.axis
     axis.highlight.x, axis.highlight.y = detected_axis
@@ -226,7 +226,7 @@ def custom_orientation(cls, context):
     return custom_direction, plane_world
 
 
-def world_orientation(cls, context):
+def world_orientation(op, context):
     """Get the world orientation"""
 
     # Get a point on the plane by projecting mouse.init onto the plane
@@ -242,7 +242,7 @@ def world_orientation(cls, context):
     for direction, location, normal in orientations:
         world_plane = (location, normal)
         location_world = view3d.region_2d_to_plane_3d(
-            region, rv3d, cls.mouse.init, world_plane
+            region, rv3d, op.mouse.init, world_plane
         )
         if location_world is not None:
             world_direction = direction
@@ -255,7 +255,7 @@ def world_orientation(cls, context):
         region, rv3d, world_plane, world_direction, location_world, distance=30
     )
 
-    cls.data.draw.symmetry = detected_axis
+    op.data.draw.symmetry = detected_axis
 
     axis = context.scene.bout.axis
     axis.highlight.x, axis.highlight.y = detected_axis

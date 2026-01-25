@@ -35,89 +35,89 @@ def _mouse_to_local(op, mouse_point):
     return x, y
 
 
-def invoke(self, context):
+def invoke(op, context):
     """Build the mesh data"""
 
-    obj = self.data.obj
-    bm = self.data.bm
+    obj = op.data.obj
+    bm = op.data.bm
 
-    plane = self.data.draw.matrix.plane
-    direction = self.data.draw.matrix.direction
+    plane = op.data.draw.matrix.plane
+    direction = op.data.draw.matrix.direction
 
     if plane is None:
-        self.report({"ERROR"}, "Failed to detect drawing plane")
+        op.report({"ERROR"}, "Failed to detect drawing plane")
         return False
 
-    shape = self.config.shape
+    shape = op.config.shape
     match shape:
         case "RECTANGLE":
-            self.data.draw.faces = rectangle.create(bm, plane)
+            op.data.draw.faces = rectangle.create(bm, plane)
         case "NGON":
-            self.data.draw.faces, self.data.draw.verts = ngon.create(bm, plane)
+            op.data.draw.faces, op.data.draw.verts = ngon.create(bm, plane)
         case "NHEDRON":
-            self.data.draw.faces, self.data.draw.verts = ngon.create(bm, plane)
+            op.data.draw.faces, op.data.draw.verts = ngon.create(bm, plane)
         case "BOX":
-            self.data.draw.faces = rectangle.create(bm, plane)
+            op.data.draw.faces = rectangle.create(bm, plane)
         case "CIRCLE":
-            self.data.draw.faces = circle.create(
-                bm, plane, verts_number=self.shape.circle.verts
+            op.data.draw.faces = circle.create(
+                bm, plane, verts_number=op.shape.circle.verts
             )
         case "CYLINDER":
-            self.data.draw.faces = circle.create(
-                bm, plane, verts_number=self.shape.circle.verts
+            op.data.draw.faces = circle.create(
+                bm, plane, verts_number=op.shape.circle.verts
             )
         case "SPHERE":
-            self.data.draw.faces = sphere.create(
-                bm, plane, direction, subd=self.shape.sphere.subd
+            op.data.draw.faces = sphere.create(
+                bm, plane, direction, subd=op.shape.sphere.subd
             )
         case "CORNER":
-            self.data.draw.faces = corner.create(bm, plane)
+            op.data.draw.faces = corner.create(bm, plane)
         case "TRIANGLE":
-            self.data.draw.faces = triangle.create(bm, plane)
+            op.data.draw.faces = triangle.create(bm, plane)
         case "PRISM":
-            self.data.draw.faces = triangle.create(bm, plane)
+            op.data.draw.faces = triangle.create(bm, plane)
 
-    if self.config.shape in {"SPHERE"}:
-        self.shape.volume = "3D"
+    if op.config.shape in {"SPHERE"}:
+        op.shape.volume = "3D"
 
-    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+    op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
     return True
 
 
-def modal(self, context, event):
+def modal(op, context, event):
     """Update draw geometry based on mouse or numeric input."""
-    obj = self.data.obj
-    bm = self.data.bm
-    ni = self.data.numeric_input
+    obj = op.data.obj
+    bm = op.data.bm
+    ni = op.data.numeric_input
 
     region = context.region
     rv3d = context.region_data
-    plane = self.data.draw.matrix.plane
-    direction = self.data.draw.matrix.direction
+    plane = op.data.draw.matrix.plane
+    direction = op.data.draw.matrix.direction
     matrix_world = obj.matrix_world
-    faces = [bm.faces[i] for i in self.data.draw.faces]
-    shape = self.config.shape
-    verts = self.data.draw.verts
-    symmetry = self.data.draw.symmetry
-    increments = self.config.align.increments if self.config.snap else 0.0
+    faces = [bm.faces[i] for i in op.data.draw.faces]
+    shape = op.config.shape
+    verts = op.data.draw.verts
+    symmetry = op.data.draw.symmetry
+    increments = op.config.align.increments if op.config.snap else 0.0
 
     if shape not in ["NGON", "NHEDRON"]:
         bevel_verts = [obj.matrix_world @ v.co.copy() for v in faces[0].verts]
-        self.data.bevel.origin = sum(bevel_verts, Vector()) / len(bevel_verts)
+        op.data.bevel.origin = sum(bevel_verts, Vector()) / len(bevel_verts)
 
     # Only calculate from mouse when not in numeric input mode
     if not ni.active:
         mouse_point = view3d.region_2d_to_plane_3d(
-            region, rv3d, self.mouse.co, plane, matrix=matrix_world
+            region, rv3d, op.mouse.co, plane, matrix=matrix_world
         )
         if mouse_point is None:
-            self.report({"WARNING"}, "Mouse was outside the drawing plane")
+            op.report({"WARNING"}, "Mouse was outside the drawing plane")
             return {"RUNNING_MODAL"}
 
         # Calculate and set values from mouse
         match shape:
             case "RECTANGLE" | "BOX":
-                x, y = _mouse_to_local(self, mouse_point)
+                x, y = _mouse_to_local(op, mouse_point)
                 symx, symy = symmetry
                 x0 = -x if symy else 0
                 y0 = -y if symx else 0
@@ -126,27 +126,27 @@ def modal(self, context, event):
                     dy = dy / 2
                 if symy:
                     dx = dx / 2
-                self.shape.rectangle.co = Vector((dx, dy))
+                op.shape.rectangle.co = Vector((dx, dy))
 
             case "CIRCLE" | "CYLINDER":
-                x, y = _mouse_to_local(self, mouse_point)
-                self.shape.circle.radius = math.hypot(x, y)
+                x, y = _mouse_to_local(op, mouse_point)
+                op.shape.circle.radius = math.hypot(x, y)
 
             case "SPHERE":
-                x, y = _mouse_to_local(self, mouse_point)
-                self.shape.sphere.radius = math.hypot(x, y)
+                x, y = _mouse_to_local(op, mouse_point)
+                op.shape.sphere.radius = math.hypot(x, y)
 
             case "CORNER":
-                x, y = _mouse_to_local(self, mouse_point)
-                self.shape.corner.co = Vector((x, y))
+                x, y = _mouse_to_local(op, mouse_point)
+                op.shape.corner.co = Vector((x, y))
 
             case "TRIANGLE" | "PRISM":
-                x, y = _mouse_to_local(self, mouse_point)
-                self.shape.triangle.height = math.hypot(x, y)
-                self.shape.triangle.angle = math.atan2(y, x)
+                x, y = _mouse_to_local(op, mouse_point)
+                op.shape.triangle.height = math.hypot(x, y)
+                op.shape.triangle.angle = math.atan2(y, x)
 
             case "NGON" | "NHEDRON":
-                self.data.draw.verts[0].region, _ = ngon.set_xy(
+                op.data.draw.verts[0].region, _ = ngon.set_xy(
                     bm,
                     verts[0].index,
                     plane,
@@ -159,7 +159,7 @@ def modal(self, context, event):
     # Update geometry using current property values
     match shape:
         case "RECTANGLE" | "BOX":
-            co = self.shape.rectangle.co
+            co = op.shape.rectangle.co
             _, point = rectangle.set_xy(
                 faces[0],
                 plane,
@@ -173,38 +173,38 @@ def modal(self, context, event):
             point = bm.verts[verts[0].index].co
         case "CIRCLE" | "CYLINDER":
             _, point = circle.set_xy(
-                faces[0], plane, None, direction, radius=self.shape.circle.radius
+                faces[0], plane, None, direction, radius=op.shape.circle.radius
             )
         case "SPHERE":
             _, point = sphere.set_radius(
-                faces, plane, None, direction, radius=self.shape.sphere.radius
+                faces, plane, None, direction, radius=op.shape.sphere.radius
             )
         case "CORNER":
-            co = self.shape.corner.co
+            co = op.shape.corner.co
             _, point = corner.set_xy(
                 faces,
                 plane,
                 Vector((co.x, co.y, 0)),
                 direction,
-                (self.shape.corner.min, self.shape.corner.max),
+                (op.shape.corner.min, op.shape.corner.max),
                 local_space=True,
             )
         case "TRIANGLE" | "PRISM":
-            h, a = self.shape.triangle.height, self.shape.triangle.angle
+            h, a = op.shape.triangle.height, op.shape.triangle.angle
             _, point = triangle.set_xy(
                 faces[0],
                 plane,
                 (h * math.cos(a), h * math.sin(a)),
                 direction,
                 local_space=True,
-                symmetry=self.shape.triangle.symmetry,
-                flip=self.shape.triangle.flip,
+                symmetry=op.shape.triangle.symmetry,
+                flip=op.shape.triangle.flip,
             )
 
-    self.update_bmesh(obj, bm)
+    op.update_bmesh(obj, bm)
 
-    if self.config.mode != "ADD":
-        self.ui.faces.callback.update_batch(faces)
+    if op.config.mode != "ADD":
+        op.ui.faces.callback.update_batch(faces)
 
     # Update UI labels
     point_global = matrix_world @ point
@@ -214,7 +214,7 @@ def modal(self, context, event):
     direction_global = matrix_world.to_3x3() @ direction
 
     _update_ui(
-        self,
+        op,
         shape,
         region,
         rv3d,
@@ -225,12 +225,12 @@ def modal(self, context, event):
     )
 
 
-def _update_ui(self, shape, region, rv3d, point_global, location, normal, direction):
+def _update_ui(op, shape, region, rv3d, point_global, location, normal, direction):
     """Update UI labels for current shape."""
     match shape:
         case "RECTANGLE" | "BOX":
-            width_x = self.shape.rectangle.co.x
-            width_y = self.shape.rectangle.co.y
+            width_x = op.shape.rectangle.co.x
+            width_y = op.shape.rectangle.co.y
             point_x = point_global - direction * (width_x / 2)
             point_y = point_global - direction.cross(normal) * (-width_y / 2)
             point_x_2d = view3d.location_3d_to_region_2d(region, rv3d, point_x)
@@ -241,10 +241,10 @@ def _update_ui(self, shape, region, rv3d, point_global, location, normal, direct
                 {"point": point_x_2d, "text_tuple": (f"X: {width_x:.3f}",)},
                 {"point": point_y_2d, "text_tuple": (f"Y: {width_y:.3f}",)},
             ]
-            self.ui.interface.callback.update_batch(lines)
+            op.ui.interface.callback.update_batch(lines)
 
         case "CIRCLE" | "CYLINDER":
-            radius = self.shape.circle.radius
+            radius = op.shape.circle.radius
             mid_point = (location + point_global) / 2
             point_2d = view3d.location_3d_to_region_2d(region, rv3d, mid_point)
             if point_2d is None:
@@ -252,17 +252,17 @@ def _update_ui(self, shape, region, rv3d, point_global, location, normal, direct
             lines = [
                 {
                     "point": point_2d,
-                    "text_tuple": (f"R: {radius:.3f}", f"{self.shape.circle.verts}"),
+                    "text_tuple": (f"R: {radius:.3f}", f"{op.shape.circle.verts}"),
                 },
             ]
-            self.ui.interface.callback.update_batch(lines)
-            if self.data.numeric_input.active:
-                self.ui.guid.callback.clear()
+            op.ui.interface.callback.update_batch(lines)
+            if op.data.numeric_input.active:
+                op.ui.guid.callback.clear()
             else:
-                self.ui.guid.callback.update_batch([(location, point_global)])
+                op.ui.guid.callback.update_batch([(location, point_global)])
 
         case "SPHERE":
-            radius = self.shape.sphere.radius
+            radius = op.shape.sphere.radius
             mid_point = (location + point_global) / 2
             point_2d = view3d.location_3d_to_region_2d(region, rv3d, mid_point)
             if point_2d is None:
@@ -270,18 +270,18 @@ def _update_ui(self, shape, region, rv3d, point_global, location, normal, direct
             lines = [
                 {
                     "point": point_2d,
-                    "text_tuple": (f"R: {radius:.3f}", f"{self.shape.sphere.subd}"),
+                    "text_tuple": (f"R: {radius:.3f}", f"{op.shape.sphere.subd}"),
                 },
             ]
-            self.ui.interface.callback.update_batch(lines)
-            if self.data.numeric_input.active:
-                self.ui.guid.callback.clear()
+            op.ui.interface.callback.update_batch(lines)
+            if op.data.numeric_input.active:
+                op.ui.guid.callback.clear()
             else:
-                self.ui.guid.callback.update_batch([(location, point_global)])
+                op.ui.guid.callback.update_batch([(location, point_global)])
 
         case "CORNER":
-            width_x = self.shape.corner.co.x
-            width_y = self.shape.corner.co.y
+            width_x = op.shape.corner.co.x
+            width_y = op.shape.corner.co.y
             fixed_width_x = abs(width_x) / 2
             if width_x < 0:
                 fixed_width_x = (abs(width_x) - 2 * abs(width_x)) / 2
@@ -295,13 +295,13 @@ def _update_ui(self, shape, region, rv3d, point_global, location, normal, direct
                 {"point": point_x_2d, "text_tuple": (f"X: {width_x:.3f}",)},
                 {"point": point_y_2d, "text_tuple": (f"Y: {width_y:.3f}",)},
             ]
-            self.ui.interface.callback.update_batch(lines)
+            op.ui.interface.callback.update_batch(lines)
 
         case "TRIANGLE" | "PRISM":
             v_height = point_global - location
             height = v_height.length
 
-            symx = self.shape.triangle.symmetry
+            symx = op.shape.triangle.symmetry
             if symx:
                 width = height * 2 / math.sqrt(3)
             else:
@@ -327,36 +327,36 @@ def _update_ui(self, shape, region, rv3d, point_global, location, normal, direct
                 {"point": point_w_2d, "text_tuple": (f"W: {width:.3f}",)},
                 {"point": point_h_2d, "text_tuple": (f"H: {height:.3f}",)},
             ]
-            self.ui.interface.callback.update_batch(lines)
+            op.ui.interface.callback.update_batch(lines)
 
         case "NGON" | "NHEDRON":
-            matrix_world = self.data.obj.matrix_world
-            verts = self.data.draw.verts
-            self.ui.vert.callback.update_batch(
+            matrix_world = op.data.obj.matrix_world
+            verts = op.data.draw.verts
+            op.ui.vert.callback.update_batch(
                 [matrix_world @ v.co.copy() for v in verts]
             )
 
-            dx, dy = self.data.draw.verts[0].region
-            point_x_2d = self.mouse.co.copy()
+            dx, dy = op.data.draw.verts[0].region
+            point_x_2d = op.mouse.co.copy()
             point_x_2d.x += 20
-            point_y_2d = self.mouse.co.copy()
+            point_y_2d = op.mouse.co.copy()
             point_y_2d.x += 140
             lines = [
                 {"point": point_x_2d, "text_tuple": (f"X: {dx:.3f}",)},
                 {"point": point_y_2d, "text_tuple": (f"Y: {dy:.3f}",)},
             ]
-            self.ui.interface.callback.update_batch(lines)
+            op.ui.interface.callback.update_batch(lines)
 
 
-def update_ui(self, context):
+def update_ui(op, context):
     """Update the drawing"""
 
     if context.scene.bout.align.mode != "CUSTOM":
-        plane = self.data.draw.matrix.plane
-        direction = self.data.draw.matrix.direction
+        plane = op.data.draw.matrix.plane
+        direction = op.data.draw.matrix.direction
         world_origin, world_normal = plane
         x_axis_point = world_origin + direction
         y_direction = world_normal.cross(direction).normalized()
         y_axis_point = world_origin + y_direction
-        self.ui.xaxis.callback.update_batch((world_origin, x_axis_point))
-        self.ui.yaxis.callback.update_batch((world_origin, y_axis_point))
+        op.ui.xaxis.callback.update_batch((world_origin, x_axis_point))
+        op.ui.yaxis.callback.update_batch((world_origin, y_axis_point))
