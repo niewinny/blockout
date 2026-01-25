@@ -6,46 +6,46 @@ from mathutils import Vector
 from ...utils import view3d
 
 
-def modal(self, context, event):
+def modal(op, context, event):
     """Bisect the mesh"""
     region = context.region
     rv3d = context.region_data
 
     depth = rv3d.view_location
 
-    if self.config.snap:
+    if op.config.snap:
         precision = event.shift
-        self.mouse.co = _snap(self, context, precision=precision)
+        op.mouse.co = _snap(op, context, precision=precision)
 
     # Convert 2D mouse positions to 3D points
     point1 = view3d.region_2d_to_location_3d(
         region,
         rv3d,
-        self.mouse.init,
+        op.mouse.init,
         depth + rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)),
     )
     point2 = view3d.region_2d_to_location_3d(
         region,
         rv3d,
-        self.mouse.co,
+        op.mouse.co,
         depth + rv3d.view_rotation @ Vector((0.0, 0.0, -1.0)),
     )
 
     # Update Line
-    self.ui.bisect_line.callback.update_batch((point1, point2))
+    op.ui.bisect_line.callback.update_batch((point1, point2))
     # Update Polyline
-    self.ui.bisect_polyline.callback.update_batch([(point1, point2)])
+    op.ui.bisect_polyline.callback.update_batch([(point1, point2)])
 
-    obj = self.data.obj
-    selected_objects = self.objects.selected
+    obj = op.data.obj
+    selected_objects = op.objects.selected
 
     objs = list(set(selected_objects + [obj]))
     bbox = _bbox_center(objs)
     center_point = view3d.location_3d_to_region_2d(region, rv3d, bbox)
 
     # Calculate line direction
-    line_dir = (self.mouse.co - self.mouse.init).normalized()
-    to_center = center_point - self.mouse.init
+    line_dir = (op.mouse.co - op.mouse.init).normalized()
+    to_center = center_point - op.mouse.init
 
     # Cross product to determine which side center is on
     # In 2D, cross product > 0 means center is on left side of line
@@ -53,7 +53,7 @@ def modal(self, context, event):
 
     # If center is on left side, make perpendicular vector point right
     # If center is on right side, make perpendicular vector point left
-    flip = self.data.bisect.flip
+    flip = op.data.bisect.flip
 
     # Include flip in the direction logic - if flip is True, invert the behavior
     if (cross_z < 0) != flip:  # XOR logic: invert if flip is True
@@ -65,28 +65,28 @@ def modal(self, context, event):
 
     perp_distance = 150
 
-    dot3 = self.mouse.co + perp_vector * perp_distance
-    dot4 = self.mouse.init + perp_vector * perp_distance
-    points = [self.mouse.init, self.mouse.co, dot3, dot4]
+    dot3 = op.mouse.co + perp_vector * perp_distance
+    dot4 = op.mouse.init + perp_vector * perp_distance
+    points = [op.mouse.init, op.mouse.co, dot3, dot4]
 
-    self.ui.bisect_gradient.callback.update_batch(points=points)
+    op.ui.bisect_gradient.callback.update_batch(points=points)
 
     location = (point1 + point2) / 2
 
-    view_direction = view3d.region_2d_to_vector_3d(region, rv3d, self.mouse.init)
+    view_direction = view3d.region_2d_to_vector_3d(region, rv3d, op.mouse.init)
     normal = tangent.cross(view_direction).normalized()
 
     # Apply flip to the normal if needed
     if flip:
         normal = -normal
 
-    self.data.bisect.plane = (location, normal)
+    op.data.bisect.plane = (location, normal)
 
 
-def execute(self, context, obj, bm, bisect_data):
+def execute(op, context, obj, bm, bisect_data):
     """Bisect the mesh"""
 
-    if self.pref.type == "EDIT_MESH":
+    if op.pref.type == "EDIT_MESH":
         edited_objects = [
             obj for obj in context.objects_in_mode_unique_data if obj.type == "MESH"
         ]
@@ -102,7 +102,7 @@ def execute(self, context, obj, bm, bisect_data):
             bm = bmesh.new()
             bm.from_mesh(obj.data)
             _bisect(obj, bm, bisect_data)
-            self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+            op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
             bm.to_mesh(obj.data)
             bm.free()
 
@@ -150,7 +150,7 @@ def _bisect(obj, bm, bisect_data):
         bmesh.ops.contextual_create(bm, geom=geom_cut["geom_cut"], mat_nr=0)
 
 
-def _snap(self, context, precision=False):
+def _snap(op, context, precision=False):
     """Snap the mouse position to the nearest angle increment."""
     tool_settings = context.scene.tool_settings
     angle_increment = getattr(
@@ -161,12 +161,12 @@ def _snap(self, context, precision=False):
             tool_settings, "snap_angle_increment_3d_precision", math.radians(5)
         )
 
-    delta = self.mouse.co - self.mouse.init
+    delta = op.mouse.co - op.mouse.init
     angle = math.atan2(delta.y, delta.x)
     snapped_angle = round(angle / angle_increment) * angle_increment
     distance = delta.length
     direction = Vector((math.cos(snapped_angle), math.sin(snapped_angle)))
-    snapped_mouse_pos = self.mouse.init + direction * distance
+    snapped_mouse_pos = op.mouse.init + direction * distance
     return snapped_mouse_pos
 
 
