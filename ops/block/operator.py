@@ -602,6 +602,7 @@ class Block(bpy.types.Operator):
 
             # EXTRUDE
             case ("EXTRUDE", _, _):
+                self._recalculate_normals(self.data.bm, self.data.extrude.faces)
                 self.update_bmesh(
                     self.data.obj,
                     self.data.bm,
