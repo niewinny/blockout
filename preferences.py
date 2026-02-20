@@ -1,13 +1,14 @@
 import bpy
-from . import btypes
-from . import __package__ as base_package
 
+from . import __package__ as base_package
+from . import btypes
 
 LINKS = [
     ("Support Development", "https://superhivemarket.com/creators/ezelar", "FUND"),
     ("Report Issues", "https://github.com/niewinny/blockout", "URL"),
     ("Documentation", "https://blockout.ezelar.com", "HELP"),
     ("Twitter", "https://twitter.com/_arutkowski", "X"),
+    ("Discord", "https://discord.gg/WNvh3PHZAt", "COMMUNITY"),
 ]
 
 
@@ -20,6 +21,7 @@ class BOUT_OT_OpenURL(bpy.types.Operator):
 
     def execute(self, context):
         import webbrowser
+
         webbrowser.open(self.url)
         return {"FINISHED"}
 
