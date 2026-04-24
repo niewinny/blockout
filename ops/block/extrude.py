@@ -103,15 +103,25 @@ def modal(op, context, event):
         line_origin = op.data.extrude.origin
         line_direction = matrix_world.to_3x3() @ normal
 
-        _, extrude = view3d.region_2d_to_line_3d(
-            region, rv3d, op.mouse.co, line_origin, line_direction
-        )
+        # Detect the view-parallel degenerate case explicitly. Near (but
+        # not exactly) parallel, ``region_2d_to_line_3d`` still returns a
+        # huge-magnitude value that skews wildly with tiny mouse motion,
+        # so we lock the extrusion to 0 until the user rotates enough
+        # out of alignment. ``0.999`` ≈ within 2.6° of parallel.
+        view_dir = (rv3d.view_rotation @ Vector((0.0, 0.0, -1.0))).normalized()
+        parallel = abs(line_direction.normalized().dot(view_dir)) > 0.999
 
-        if extrude is not None:
-            increments = op.config.align.increments if op.config.snap else 0.0
-            if increments > 0:
-                extrude = round(extrude / increments) * increments
-            op.data.extrude.value = extrude
+        if parallel:
+            op.data.extrude.value = 0.0
+        else:
+            _, extrude = view3d.region_2d_to_line_3d(
+                region, rv3d, op.mouse.co, line_origin, line_direction
+            )
+            if extrude is not None:
+                increments = op.config.align.increments if op.config.snap else 0.0
+                if increments > 0:
+                    extrude = round(extrude / increments) * increments
+                op.data.extrude.value = extrude
 
     # Update geometry using current value
     dz = op.data.extrude.value
