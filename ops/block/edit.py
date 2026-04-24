@@ -4,11 +4,10 @@ from ...utils import view3d
 from ...utils.types import DrawVert
 from ...utilsbmesh import ngon
 
-
 def invoke(op, context):
     """Build the mesh data"""
 
-    op.mode = "EDIT"
+    op.state.phase = "EDIT"
     op.edit_mode = "INIT"
     obj = op.data.obj
     bm = op.data.bm
@@ -21,7 +20,6 @@ def invoke(op, context):
 
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
     return True
-
 
 def modal(op, context, event):
     obj = op.data.obj
@@ -297,7 +295,6 @@ def modal(op, context, event):
 
             op.ui.active.callback.update_batch(highlight)
 
-
 def _rebuild_vertex_list(op, bm, face_index, preserve_first=True):
     """
     Rebuild the draw vertex list from the face, preserving the drawing vertex position.
@@ -338,7 +335,6 @@ def _rebuild_vertex_list(op, bm, face_index, preserve_first=True):
         for v in face.verts:
             op.data.draw.verts.append(DrawVert(index=v.index, co=v.co.copy()))
 
-
 def _update_ui_after_change(op, bm, matrix_world):
     """Update the UI/shader after vertex changes."""
     faces = [bm.faces[i] for i in op.data.draw.faces]
@@ -350,7 +346,6 @@ def _update_ui_after_change(op, bm, matrix_world):
     op.ui.vert.callback.update_batch(points_global)
     if op.config.mode != "ADD":
         op.ui.faces.callback.update_batch(faces)
-
 
 def _is_near(region, point1, point2):
     """Check if point2 is within 'threshold' pixels of point1."""
