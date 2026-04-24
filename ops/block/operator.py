@@ -537,12 +537,15 @@ class Block(bpy.types.Operator):
             return {"PASS_THROUGH"}
 
         # Phase entry: reset the LMB advance latch so the next LMB event
-        # (press or release) advances the new phase.
+        # (press or release) advances the new phase. Also refresh the
+        # infobar so G/R/S/B hotkey hints reflect the new phase (e.g.
+        # "Move" only shows up when not already in TRANSLATE).
         # Note: numeric-input accept (`_force_advance` path) bypasses this
         # latch intentionally so typed values commit immediately.
         if self._last_phase != self.state.phase:
             self._lmb_advance_fired = False
             self._last_phase = self.state.phase
+            ui.update(self, context, event)
 
         # Handle numeric input events
         result = numeric_input.modal(self, context, event)
@@ -799,6 +802,7 @@ class Block(bpy.types.Operator):
                 scale.invoke(self, context, event)
 
         self._header(context)
+        ui.update(self, context, event)
         return True
 
     def _enter_modify_bevel(self, context, event):
@@ -849,6 +853,7 @@ class Block(bpy.types.Operator):
             self._commit_active_modify()
 
         self._bevel_invoke(context, event)
+        ui.update(self, context, event)
         return True
 
     def _force_advance(self, context, event):
@@ -981,11 +986,11 @@ class Block(bpy.types.Operator):
 
         if next_sub == "EDIT":
             edit.invoke(self, context)
-            return {"RUNNING_MODAL"}
-        if next_sub == "EXTRUDE":
+        elif next_sub == "EXTRUDE":
             self._extrude_invoke(context, event)
-            return {"RUNNING_MODAL"}
-        self.state.phase = next_sub
+        else:
+            self.state.phase = next_sub
+        ui.update(self, context, event)
         return {"RUNNING_MODAL"}
 
     def _finalize(self, context):
