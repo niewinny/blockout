@@ -1,17 +1,14 @@
 from ...utils import modifier, view3d
 from ...utilsbmesh import bmeshface
+from . import ui as block_ui
 from . import weld
-
 
 def _get_bevel_data(op):
     """Get the active bevel data (round or fill) based on type."""
     return op.data.bevel.round if op.data.bevel.type == "ROUND" else op.data.bevel.fill
 
-
 def invoke(op, context, event):
     """Bevel the mesh"""
-
-    op.ui.interface.callback.clear()
 
     op.data.bevel.round.enable = True
     if op.data.bevel.type == "FILL":
@@ -23,10 +20,12 @@ def invoke(op, context, event):
     op.data.bevel.fill.segments_stored = op.data.bevel.fill.segments
     op.mouse.bevel = op.mouse.co
 
-    if op.mode != "BEVEL":
-        op.ui.zaxis.callback.clear()
-        op.mode = "BEVEL"
-
+    if op.state.phase != "BEVEL":
+        # Wipe any prior-phase handles (extrude zaxis, transform x/y/z guides,
+        # edit vert markers, etc.) so only bevel's own UI shows up.
+        block_ui.clear_phase(op)
+        op.state.phase = "BEVEL"
+        op.data.transform.active = "BEVEL"
 
 def modal(op, context, event):
     """Bevel the mesh based on mouse or numeric input."""
@@ -82,7 +81,6 @@ def modal(op, context, event):
     )
     ui(op, region, rv3d, init_point, mouse_co_3d)
 
-
 def _update_modifiers(op):
     """Update bevel modifiers based on current values."""
     if op.config.type != "OBJECT":
@@ -98,7 +96,6 @@ def _update_modifiers(op):
         if mod.type == bevel_type:
             mod.mod.width = max(0, bevel_data.offset)
             mod.mod.segments = max(1, bevel_data.segments)  # Ensure segments >= 1
-
 
 def ui(op, region, rv3d, init_point, mouse_co_3d):
     """Update the UI"""
@@ -131,7 +128,6 @@ def ui(op, region, rv3d, init_point, mouse_co_3d):
     ]
     op.ui.interface.callback.update_batch(lines)
 
-
 def refresh(op, context):
     """Refresh the bevel"""
     _update_modifiers(op)
@@ -143,7 +139,6 @@ def refresh(op, context):
         region, rv3d, op.mouse.co, init_point
     )
     ui(op, region, rv3d, init_point, mouse_co_3d)
-
 
 def update(op):
     """Update the bevel"""
@@ -164,7 +159,6 @@ def update(op):
             m.mod.affect = "EDGES"
             m.mod.limit_method = "WEIGHT"
 
-
 def set_edge_weight(bm, edges_indexes, type="ROUND"):
     """Set the edge weight"""
 
@@ -181,7 +175,6 @@ def set_edge_weight(bm, edges_indexes, type="ROUND"):
     for edge in edges:
         edge[bw] = 1.0
 
-
 def clean_edge_weight(bm, edges_indexes):
     """Delete the edge weight"""
 
@@ -197,7 +190,6 @@ def clean_edge_weight(bm, edges_indexes):
         for edge in edges:
             edge[bw_fill] = 0.0
 
-
 def del_edge_weight(bm, type="ALL"):
     """Delete the edge weight"""
 
@@ -209,7 +201,6 @@ def del_edge_weight(bm, type="ALL"):
         bw = bm.edges.layers.float.get("bout_bevel_weight_edge_fill")
         if bw:
             bm.edges.layers.float.remove(bw)
-
 
 def uniform(op, bm, obj, extruded_faces):
     """Update bevel after uniform extrusion from 2D to 3D"""
@@ -246,7 +237,6 @@ def uniform(op, bm, obj, extruded_faces):
             mod.mod.limit_method = "WEIGHT"
             mod.mod.edge_weight = "bout_bevel_weight_edge_round"
 
-
 def add_modifier(
     obj, width, segments, type="ROUND", limit_method="WEIGHT", affect="EDGES"
 ):
@@ -263,7 +253,6 @@ def add_modifier(
         mod.edge_weight = "bout_bevel_weight_edge_fill"
 
     return mod, type
-
 
 class mod:
     @staticmethod
