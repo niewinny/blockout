@@ -289,16 +289,17 @@ def uniform(op, context):
             distance = (ray.location - mid_point).length
             extrusion_candidates.append(distance)
 
-    # Pick the maximum extrusion value. `depth` is the user-intended cut
-    # depth (stored in pref.extrusion); `extrusion_value` additionally
-    # includes `offset` so the cutter's total Z span is depth + offset
-    # (matches modal extrude and build_geometry semantics).
+    # Pick the maximum extrusion value. ``depth`` is the target object's
+    # dimension along the cut direction (stored into pref.extrusion).
+    # ``extrusion_value`` adds ``offset`` on BOTH sides so the cut portion
+    # equals ``depth`` exactly with z-fighting buffer hanging past each
+    # target surface. Matches ``mesh.build_geometry``'s 2D-cutter logic.
     offset = getattr(op.config.align, "offset", 0.1)
     if extrusion_candidates:
         depth = max(extrusion_candidates)
     else:
         depth = 0.1
-    extrusion_value = depth + offset
+    extrusion_value = depth + 2.0 * offset
 
     # Perform the extrusion
     if extrusion_value > 0:

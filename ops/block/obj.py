@@ -120,10 +120,17 @@ class BOUT_OT_BlockObjTool(Block):
         plane = (origin, normal)
         direction = self.pref.direction
         extrusion = self.pref.extrusion
-        # For non-ADD modes, offset extends the cutter by `offset` in the
-        # extrude direction so total Z span equals |extrusion| + offset.
+        # For non-ADD modes, extend the cutter along the extrude axis by
+        # ``offset`` as a z-fighting / coplanar buffer. 2D cutters use the
+        # target's dimension as ``extrusion`` and need ``offset`` on BOTH
+        # sides so the cut portion equals the dimension exactly. 3D extrudes
+        # stay one-sided (user-specified depth, only the far face needs
+        # buffer). Matches ``mesh.build_geometry`` semantics.
+        shape_2d = self.pref.shape in {"RECTANGLE", "CIRCLE", "TRIANGLE", "NGON"}
+        buffer_mult = 2.0 if shape_2d else 1.0
         if mode != "ADD" and extrusion != 0.0:
-            extrusion = extrusion + (offset if extrusion >= 0 else -offset)
+            ext_buffer = offset * buffer_mult
+            extrusion = extrusion + (ext_buffer if extrusion >= 0 else -ext_buffer)
         symmetry_extrude = self.pref.symmetry_extrude
         symmetry_draw = (self.pref.symmetry_draw_x, self.pref.symmetry_draw_y)
         detected_obj = (
@@ -136,16 +143,12 @@ class BOUT_OT_BlockObjTool(Block):
             case "RECTANGLE":
                 faces_indexes = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                # 2D cutters: oversize XY by 1% so the boolean cut extends
-                # slightly past the target surface and avoids coplanar/precision
-                # artifacts. 3D shapes (BOX/PRISM/CYLINDER) keep exact dimensions.
-                co = self.shape.rectangle.co
-                if mode != "ADD":
-                    co = (co[0] * 1.01, co[1] * 1.01)
+                # XY dimensions are honored exactly. Z buffer (offset on
+                # both sides) is handled via ``buffer_mult`` above.
                 rectangle.set_xy(
                     face,
                     plane,
-                    co,
+                    self.shape.rectangle.co,
                     direction,
                     local_space=True,
                     symmetry=symmetry_draw,
@@ -186,10 +189,7 @@ class BOUT_OT_BlockObjTool(Block):
                     bm, plane, verts_number=self.shape.circle.verts
                 )
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                # 2D cutter: oversize radius by 1% (see RECTANGLE note).
                 radius = self.shape.circle.radius
-                if mode != "ADD":
-                    radius = radius * 1.01
                 circle.set_xy(
                     face,
                     plane,
@@ -288,10 +288,6 @@ class BOUT_OT_BlockObjTool(Block):
                 # Convert height and angle to (x, y) coordinates
                 x = self.shape.triangle.height * math.cos(self.shape.triangle.angle)
                 y = self.shape.triangle.height * math.sin(self.shape.triangle.angle)
-                # 2D cutter: oversize XY by 1% (see RECTANGLE note).
-                if mode != "ADD":
-                    x *= 1.01
-                    y *= 1.01
                 triangle.set_xy(
                     face,
                     plane,
