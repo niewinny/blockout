@@ -106,15 +106,17 @@ def region_2d_to_line_3d(region, rv3d, point, line_origin, line_direction, matri
     :rtype: tuple[mathutils.Vector | None, float | None]
     """
 
-    # Get the 3D ray from the 2D point
+    # Get the 3D ray from the 2D point (world space)
     ray_origin = region_2d_to_origin_3d(region, rv3d, point)
     ray_direction = region_2d_to_vector_3d(region, rv3d, point)
 
     if matrix:
-        # Apply transformation to the line
+        # Bring the ray into the line's space so intersect_line_line and the
+        # returned signed distance are both expressed in that space — matches
+        # the ray-transform pattern used by region_2d_to_plane_3d.
         matrix_inv = matrix.inverted_safe()
-        line_origin = matrix_inv @ line_origin
-        line_direction = matrix_inv.to_3x3() @ line_direction
+        ray_origin = matrix_inv @ ray_origin
+        ray_direction = matrix_inv.to_3x3() @ ray_direction
 
     # Compute the closest point between the ray and the line
     intersection = geometry.intersect_line_line(
