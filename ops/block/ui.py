@@ -98,161 +98,114 @@ def update(self, context, event):
     # Redraw the infobar with updated hotkeys
     infobar.draw(context, event, self._infobar, blank=True)
 
+_PHASE_LABEL = {
+    "DRAW": "Draw",
+    "EDIT": "Edit",
+    "EXTRUDE": "Extrude",
+    "BEVEL": "Bevel",
+    "TRANSLATE": "Translate",
+    "ROTATE": "Rotate",
+    "SCALE": "Scale",
+    "BISECT": "Bisect",
+}
+
+
+def _hk(row, factor, text, icon):
+    """Emit one hotkey label + separator."""
+    row.label(text=text, icon=icon)
+    row.separator(factor=factor)
+
+
+def _shape_specific(row, factor, op, name, is_draw):
+    """Phase-specific hotkeys that use X/Y/Z/F/S for non-transform purposes.
+
+    These are the keys that ``_handle_axis_key`` and the F handler map to
+    shape-specific toggles (symmetry, flip, delete) during CREATE phases.
+    In EXTRUDE, Z toggles extrude-symmetry regardless of shape.
+    """
+    shape = op.config.shape
+    if is_draw:
+        if shape in {"RECTANGLE", "BOX"}:
+            _hk(row, factor, "X Symmetry", "EVENT_X")
+            _hk(row, factor, "Y Symmetry", "EVENT_Y")
+        elif shape in {"TRIANGLE", "PRISM"}:
+            _hk(row, factor, "X Symmetry", "EVENT_X")
+            _hk(row, factor, "Flip", "EVENT_F")
+        if shape in {"BOX", "PRISM", "CYLINDER"}:
+            _hk(row, factor, "Z Symmetry", "EVENT_Z")
+        if shape == "SPHERE":
+            _hk(row, factor, "Subd", "EVENT_S")
+    if name == "EDIT" and shape in {"NGON", "NHEDRON"}:
+        _hk(row, factor, "Delete", "EVENT_X")
+    if name == "EXTRUDE":
+        _hk(row, factor, "Z Symmetry", "EVENT_Z")
+
+
 def hotkeys(self, layout, _context, _event):
-    """Draw the infobar hotkeys"""
+    """Draw the infobar hotkeys for the current modal phase."""
     factor = 4.0
     row = layout.row(align=True)
 
-    # Show numeric input mode hotkeys
     ni = self.data.numeric_input
     if ni.active:
-        row.label(text="Input", icon="LINENUMBERS_ON")
-        row.separator(factor=factor)
-        row.label(text="Apply", icon="EVENT_RETURN")
-        row.separator(factor=factor)
-        row.label(text="Cancel", icon="EVENT_ESC")
-        row.separator(factor=factor)
-        row.label(text="Next", icon="EVENT_TAB")
-        row.separator(factor=factor)
-        row.label(text="Delete", icon="EVENT_BACKSPACE")
-        row.separator(factor=factor)
+        _hk(row, factor, "Input", "LINENUMBERS_ON")
+        _hk(row, factor, "Apply", "EVENT_RETURN")
+        _hk(row, factor, "Cancel", "EVENT_ESC")
+        _hk(row, factor, "Next", "EVENT_TAB")
+        _hk(row, factor, "Delete", "EVENT_BACKSPACE")
         return
 
     name = self.state.phase
     is_draw = name == "DRAW"
     is_modify = self.state.is_modify
 
-    label = {
-        "DRAW": "Draw",
-        "EDIT": "Edit",
-        "EXTRUDE": "Extrude",
-        "BEVEL": "Bevel",
-        "TRANSLATE": "Translate",
-        "ROTATE": "Rotate",
-        "SCALE": "Scale",
-        "BISECT": "Bisect",
-    }.get(name, name.capitalize())
-    row.label(text=label, icon="MOUSE_MOVE")
-    row.separator(factor=factor)
-    lmb = "Extrude" if is_draw else "Finish"
-    row.label(text=lmb, icon="MOUSE_LMB")
-    row.separator(factor=factor)
-    row.label(text="Cancel", icon="MOUSE_RMB")
-    row.separator(factor=factor)
-    row.label(text="Snap", icon="EVENT_CTRL")
-    row.separator(factor=factor)
+    # Base row: phase label + primary pointer / confirm keys.
+    _hk(row, factor, _PHASE_LABEL.get(name, name.capitalize()), "MOUSE_MOVE")
+    _hk(row, factor, "Extrude" if is_draw else "Finish", "MOUSE_LMB")
+    _hk(row, factor, "Cancel", "MOUSE_RMB")
+    _hk(row, factor, "Snap", "EVENT_CTRL")
 
+    # BISECT is its own branch — only flip applies, and G/R/S are blocked.
     if name == "BISECT":
-        row.label(text="Flip", icon="EVENT_F")
-        row.separator(factor=factor)
+        _hk(row, factor, "Flip", "EVENT_F")
         return
 
-    if is_modify:
-        if name == "BEVEL":
-            if self.config.shape in {"BOX", "NHEDRON", "PRISM"}:
-                text = "Round" if self.data.bevel.type == "FILL" else "Fill"
-                row.label(text=f"Bevel:{text}", icon="EVENT_B")
-                row.separator(factor=factor)
-            if self.data.bevel.mode == "OFFSET":
-                row.label(text="Segments", icon="EVENT_S")
-                row.separator(factor=factor)
-        else:
-            row.label(text="Bevel", icon="EVENT_B")
-            row.separator(factor=factor)
-            if name != "SCALE":
-                row.label(text="Scale", icon="EVENT_S")
-                row.separator(factor=factor)
+    # Phase-specific keys (X/Y/Z/F/S used for non-transform purposes).
+    # Skipped for MODIFY (TRANSLATE/ROTATE/SCALE) — there X/Y/Z are axis locks.
+    if not is_modify:
+        _shape_specific(row, factor, self, name, is_draw)
 
-        if name != "TRANSLATE":
-            row.label(text="Move", icon="EVENT_G")
-            row.separator(factor=factor)
-        if name != "ROTATE":
-            row.label(text="Rotate", icon="EVENT_R")
-            row.separator(factor=factor)
-
-        if name in {"TRANSLATE", "ROTATE", "SCALE"}:
-            if self.state.volume == "3D":
-                row.label(text="Axis", icon="EVENT_X")
-                row.separator(factor=factor)
-                row.label(text="Axis", icon="EVENT_Y")
-                row.separator(factor=factor)
-                row.label(text="Axis", icon="EVENT_Z")
-                row.separator(factor=factor)
-            else:
-                row.label(text="Axis", icon="EVENT_X")
-                row.separator(factor=factor)
-                row.label(text="Axis", icon="EVENT_Y")
-                row.separator(factor=factor)
+    # BEVEL owns B (round/fill) and S (segments); no "Bevel"/"Scale"
+    # hotkey hint here to avoid confusion.
+    if name == "BEVEL":
+        if self.config.shape in {"BOX", "NHEDRON", "PRISM"}:
+            label = "Round" if self.data.bevel.type == "FILL" else "Fill"
+            _hk(row, factor, f"Bevel:{label}", "EVENT_B")
+        if self.data.bevel.mode == "OFFSET":
+            _hk(row, factor, "Segments", "EVENT_S")
     else:
-        shape = self.config.shape
-        match shape:
-            case "RECTANGLE":
-                if is_draw:
-                    row.label(text="X Symmetry", icon="EVENT_X")
-                    row.separator(factor=factor)
-                    row.label(text="Y Symmetry", icon="EVENT_Y")
-                    row.separator(factor=factor)
-                row.label(text="Bevel", icon="EVENT_B")
-                row.separator(factor=factor)
-            case "TRIANGLE":
-                if is_draw:
-                    row.label(text="X Symmetry", icon="EVENT_X")
-                    row.separator(factor=factor)
-                    row.label(text="Flip", icon="EVENT_F")
-                    row.separator(factor=factor)
-                row.label(text="Bevel", icon="EVENT_B")
-                row.separator(factor=factor)
-            case "PRISM":
-                if is_draw:
-                    row.label(text="X Symmetry", icon="EVENT_X")
-                    row.separator(factor=factor)
-                    row.label(text="Flip", icon="EVENT_F")
-                    row.separator(factor=factor)
-                row.label(text="Z Symmetry", icon="EVENT_Z")
-                row.separator(factor=factor)
-                row.label(text="Bevel", icon="EVENT_B")
-                row.separator(factor=factor)
-            case "BOX":
-                if is_draw:
-                    row.label(text="X Symmetry", icon="EVENT_X")
-                    row.separator(factor=factor)
-                    row.label(text="Y Symmetry", icon="EVENT_Y")
-                    row.separator(factor=factor)
-                row.label(text="Z Symmetry", icon="EVENT_Z")
-                row.separator(factor=factor)
-                row.label(text="Bevel", icon="EVENT_B")
-                row.separator(factor=factor)
-            case "CIRCLE":
-                row.separator(factor=factor)
-            case "CYLINDER":
-                row.label(text="Symmetry", icon="EVENT_Z")
-                row.separator(factor=factor)
-                if self.state.volume == "3D":
-                    row.label(text="Bevel", icon="EVENT_B")
-                    row.separator(factor=factor)
-            case "SPHERE":
-                row.label(text="Subd", icon="EVENT_S")
-                row.separator(factor=factor)
-            case "CORNER":
-                row.label(text="Bevel", icon="EVENT_B")
-                row.separator(factor=factor)
-            case "NGON" | "NHEDRON":
-                row.label(text="Bevel", icon="EVENT_B")
-                row.separator(factor=factor)
-                row.label(text="Delete", icon="EVENT_X")
-                row.separator(factor=factor)
+        # B enters BEVEL sub-op in all non-BEVEL, non-BISECT phases.
+        _hk(row, factor, "Bevel", "EVENT_B")
 
-        if self.state.phase == "EXTRUDE":
-            row.label(text="Move", icon="EVENT_G")
-            row.separator(factor=factor)
-            row.label(text="Rotate", icon="EVENT_R")
-            row.separator(factor=factor)
-            row.label(text="Scale", icon="EVENT_S")
-            row.separator(factor=factor)
+    # G/R/S enter the corresponding MODIFY sub-op. Skip the current one
+    # when already in it. In BEVEL, S is segments — handled above.
+    # SPHERE's DRAW already uses S for Subd (see _shape_specific).
+    if name != "TRANSLATE":
+        _hk(row, factor, "Move", "EVENT_G")
+    if name != "ROTATE":
+        _hk(row, factor, "Rotate", "EVENT_R")
+    s_taken = name == "BEVEL" or (is_draw and self.config.shape == "SPHERE")
+    if name != "SCALE" and not s_taken:
+        _hk(row, factor, "Scale", "EVENT_S")
+
+    # Axis keys in MODIFY TRANSLATE/ROTATE/SCALE (Z only in 3D).
+    if name in {"TRANSLATE", "ROTATE", "SCALE"}:
+        axes = ("X", "Y", "Z") if self.state.volume == "3D" else ("X", "Y")
+        for k in axes:
+            _hk(row, factor, "Axis", f"EVENT_{k}")
 
     if not self.pref.reveal:
-        row.label(text="Reveal", icon="EVENT_Q")
-        row.separator(factor=factor)
+        _hk(row, factor, "Reveal", "EVENT_Q")
 
 class Theme(bpy.types.PropertyGroup):
     cut: bpy.props.FloatVectorProperty(
