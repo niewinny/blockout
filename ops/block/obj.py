@@ -19,7 +19,6 @@ from . import bevel, boolean, draw, extrude, weld
 from .data import Config, Modifier
 from .operator import Block
 
-
 class BOUT_OT_BlockObjTool(Block):
     bl_idname = "object.bout_block_obj_tool"
     bl_label = "Blockout Block"
@@ -57,14 +56,15 @@ class BOUT_OT_BlockObjTool(Block):
 
     def _invoke(self, context, event):
         """Invoke the operator"""
-        if self.mode == "BISECT":
+        if self.state.is_bisect:
             return
         self.objects.created = self.data.obj
-        if self.mode == "DRAW" and self.config.mode == "SLICE":
+        if self.config.mode == "SLICE":
             self.objects.duplicated = self._duplicate_objects(context)
 
+
     def get_object(self, context):
-        if self.mode == "BISECT":
+        if self.state.is_bisect:
             active_obj = (
                 context.active_object
                 if context.active_object and context.active_object.type == "MESH"
@@ -98,7 +98,7 @@ class BOUT_OT_BlockObjTool(Block):
 
     def build_bmesh(self, obj):
         bm = bmesh.new()
-        if self.mode == "BISECT":
+        if self.state.is_bisect:
             mesh = obj.data
             bm.from_mesh(mesh)
 
@@ -115,11 +115,15 @@ class BOUT_OT_BlockObjTool(Block):
         bevel_fill_offset = self.pref.bevel.fill.offset
         bevel_fill_segments = self.pref.bevel.fill.segments
         bevel_fill = (bevel_fill_enable, bevel_fill_offset, bevel_fill_segments)
-        location = self.pref.plane.location
+        origin = self.pref.plane.origin
         normal = self.pref.plane.normal
-        plane = (location, normal)
+        plane = (origin, normal)
         direction = self.pref.direction
         extrusion = self.pref.extrusion
+        # For non-ADD modes, offset extends the cutter by `offset` in the
+        # extrude direction so total Z span equals |extrusion| + offset.
+        if mode != "ADD" and extrusion != 0.0:
+            extrusion = extrusion + (offset if extrusion >= 0 else -offset)
         symmetry_extrude = self.pref.symmetry_extrude
         symmetry_draw = (self.pref.symmetry_draw_x, self.pref.symmetry_draw_y)
         detected_obj = (
@@ -132,10 +136,16 @@ class BOUT_OT_BlockObjTool(Block):
             case "RECTANGLE":
                 faces_indexes = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
+                # 2D cutters: oversize XY by 1% so the boolean cut extends
+                # slightly past the target surface and avoids coplanar/precision
+                # artifacts. 3D shapes (BOX/PRISM/CYLINDER) keep exact dimensions.
+                co = self.shape.rectangle.co
+                if mode != "ADD":
+                    co = (co[0] * 1.01, co[1] * 1.01)
                 rectangle.set_xy(
                     face,
                     plane,
-                    self.shape.rectangle.co,
+                    co,
                     direction,
                     local_space=True,
                     symmetry=symmetry_draw,
@@ -176,12 +186,16 @@ class BOUT_OT_BlockObjTool(Block):
                     bm, plane, verts_number=self.shape.circle.verts
                 )
                 face = bmeshface.from_index(bm, faces_indexes[0])
+                # 2D cutter: oversize radius by 1% (see RECTANGLE note).
+                radius = self.shape.circle.radius
+                if mode != "ADD":
+                    radius = radius * 1.01
                 circle.set_xy(
                     face,
                     plane,
                     None,
                     direction,
-                    radius=self.shape.circle.radius,
+                    radius=radius,
                     local_space=True,
                 )
                 facet.set_z(face, normal, offset)
@@ -274,6 +288,10 @@ class BOUT_OT_BlockObjTool(Block):
                 # Convert height and angle to (x, y) coordinates
                 x = self.shape.triangle.height * math.cos(self.shape.triangle.angle)
                 y = self.shape.triangle.height * math.sin(self.shape.triangle.angle)
+                # 2D cutter: oversize XY by 1% (see RECTANGLE note).
+                if mode != "ADD":
+                    x *= 1.01
+                    y *= 1.01
                 triangle.set_xy(
                     face,
                     plane,
@@ -321,8 +339,6 @@ class BOUT_OT_BlockObjTool(Block):
             case _:
                 raise ValueError(f"Unsupported shape: {self.pref.shape}")
 
-        self._set_origin(obj)
-
         if self.pref.reveal:
             self._reveal_objects(bpy.context, obj)
 
@@ -338,8 +354,37 @@ class BOUT_OT_BlockObjTool(Block):
 
     def _extrude_invoke(self, context, event):
         super()._extrude_invoke(context, event)
+        # If a bevel modifier was added during 2D MODIFY (vertex bevel),
+        # switch it to edge-weight mode now that we have 3D edges.
+        self._promote_bevel_to_edges()
         self._boolean(self.config.mode, self.data.obj)
         infobar.draw(context, event, self._infobar, blank=True)
+
+    def _promote_bevel_to_edges(self):
+        """Convert existing vertex-bevel modifiers to edge-weight mode
+        once we enter 3D (after extrude). ROUND weight applies to MID
+        edges (vertical); FILL weight applies to END edges (top face)."""
+        if not self.modifiers.bevels:
+            return
+        bm = self.data.bm
+        round_edges = [e.index for e in self.data.extrude.edges if e.position == "MID"]
+        fill_edges = [e.index for e in self.data.extrude.edges if e.position == "END"]
+        if round_edges:
+            bevel.set_edge_weight(bm, round_edges, type="ROUND")
+        if fill_edges:
+            bevel.set_edge_weight(bm, fill_edges, type="FILL")
+        for m in self.modifiers.bevels:
+            if not m.mod:
+                continue
+            if m.mod.affect != "EDGES":
+                m.mod.affect = "EDGES"
+                m.mod.limit_method = "WEIGHT"
+                m.mod.edge_weight = (
+                    "bout_bevel_weight_edge_round"
+                    if m.type == "ROUND"
+                    else "bout_bevel_weight_edge_fill"
+                )
+        self.update_bmesh(self.data.obj, bm, loop_triangles=True, destructive=False)
 
     def _bevel_invoke(self, context, event):
         super()._bevel_invoke(context, event)
@@ -586,7 +631,7 @@ class BOUT_OT_BlockObjTool(Block):
 
     def _finish(self, context):
 
-        if self.mode != "BISECT":
+        if not self.state.is_bisect:
             if self.config.mode != "ADD":
                 if self.shape.volume == "2D":
                     extrude.uniform(self, context)
@@ -617,8 +662,6 @@ class BOUT_OT_BlockObjTool(Block):
                 collection.append([self.data.obj], "Cutters")
                 self.data.obj.hide_set(True)
                 self.data.obj.data.shade_smooth()
-
-            self._set_origin(self.data.obj)
 
             if self.pref.reveal:
                 self._reveal_objects(context, self.data.obj)
@@ -687,6 +730,5 @@ class BOUT_OT_BlockObjTool(Block):
                 bpy.data.meshes.remove(mesh_data)
 
         super()._cancel(context)
-
 
 classes = (BOUT_OT_BlockObjTool,)

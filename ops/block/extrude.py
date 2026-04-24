@@ -4,13 +4,14 @@ from ...utils import view3d
 from ...utils.scene import ray_cast
 from ...utils.types import DrawVert
 from ...utilsbmesh import corner, facet
+from . import ui as block_ui
 from .data import ExtrudeEdge
-
 
 def invoke(op, context, event):
     """Extrude the mesh"""
 
-    op.mode = "EXTRUDE"
+    op.state.phase = "EXTRUDE"
+    op.state.volume = "3D"
     op.shape.volume = "3D"
     op.mouse.extrude = op.mouse.co
 
@@ -67,11 +68,8 @@ def invoke(op, context, event):
 
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
-    op.ui.xaxis.callback.clear()
-    op.ui.yaxis.callback.clear()
-    op.ui.guid.callback.clear()
-    op.ui.interface.callback.clear()
-    op.ui.vert.callback.clear()
+    # Wipe prior-phase handles; extrude will re-set zaxis below.
+    block_ui.clear_phase(op)
 
     plane_world = (obj.matrix_world @ plane[0], obj.matrix_world.to_3x3() @ plane[1])
     line_origin = view3d.region_2d_to_plane_3d(
@@ -81,7 +79,6 @@ def invoke(op, context, event):
     point1 = line_origin
     point2 = line_origin + plane_world[1]
     op.ui.zaxis.callback.update_batch((point1, point2))
-
 
 def modal(op, context, event):
     """Set the extrusion based on mouse or numeric input."""
@@ -120,7 +117,15 @@ def modal(op, context, event):
     dz = op.data.extrude.value
     increments = op.config.align.increments if op.config.snap else 0.0
     dz = facet.set_z(face, normal, dz, verts, snap_value=increments)
-    op.data.extrude.value = dz  # Update with snapped value
+    op.data.extrude.value = dz  # Update with snapped value (user-facing)
+
+    # For non-ADD (CUT/SLICE/etc.) extend the extrude face by `offset` in the
+    # extrude direction so the final Z span equals |dz| + offset. The draw
+    # face stays lifted by +offset (from set_offset) for z-fighting buffer.
+    offset = op.config.align.offset if op.config.mode != "ADD" else 0.0
+    if offset and dz != 0.0:
+        dz_effective = dz + (offset if dz >= 0 else -offset)
+        facet.set_z(face, normal, dz_effective, verts, snap_value=0.0)
 
     draw_face = bm.faces[op.data.extrude.faces[0]]
     draw_verts = [v.co for v in op.data.draw.verts]
@@ -145,7 +150,6 @@ def modal(op, context, event):
 
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
-
 def _update_ui(op, region, rv3d, point_global, dz):
     """Update extrude UI elements."""
 
@@ -154,7 +158,6 @@ def _update_ui(op, region, rv3d, point_global, dz):
         {"point": point_2d, "text_tuple": (f"Z: {dz:.3f}",)},
     ]
     op.ui.interface.callback.update_batch(lines)
-
 
 def uniform(op, context):
     """Finish 2D shapes by extruding them based on raycasting"""
@@ -276,34 +279,40 @@ def uniform(op, context):
             distance = (ray.location - mid_point).length
             extrusion_candidates.append(distance)
 
-    # Pick the maximum extrusion value
+    # Pick the maximum extrusion value. `depth` is the user-intended cut
+    # depth (stored in pref.extrusion); `extrusion_value` additionally
+    # includes `offset` so the cutter's total Z span is depth + offset
+    # (matches modal extrude and build_geometry semantics).
+    offset = getattr(op.config.align, "offset", 0.1)
     if extrusion_candidates:
-        extrusion_value = max(extrusion_candidates)
-        # Add offset
-        offset = (
-            op.config.align.offset if hasattr(op.config.align, "offset") else 0.1
-        )
-        extrusion_value += offset
+        depth = max(extrusion_candidates)
     else:
-        # Default minimal extrusion if no hits
-        extrusion_value = 0.1
+        depth = 0.1
+    extrusion_value = depth + offset
 
     # Perform the extrusion
     if extrusion_value > 0:
         # Store current face selection state
         was_selected = face.select
 
-        # Extrude the face
+        # Lift the 2D face by +offset (z-fighting buffer) so the extrude
+        # direction produces total Z span of depth + offset.
+        facet.set_z(face, normal, offset)
+
+        # Extrude the face by the effective magnitude (includes offset).
         extruded_faces = facet.extrude(bm, face, plane, -extrusion_value)
 
         # Update shape volume to 3D
         op.shape.volume = "3D"
+        op.state.volume = "3D"
 
-        # Update extrude data
-        op.data.extrude.value = -extrusion_value
+        # Update extrude data. Store the user-intended depth (without the
+        # offset extension) in pref so F9 rebuild via build_geometry
+        # applies the offset extension consistently.
+        op.data.extrude.value = -depth
         op.data.extrude.faces = extruded_faces
 
-        op.pref.extrusion = -extrusion_value
+        op.pref.extrusion = -depth
 
         # Restore selection if needed
         if was_selected:

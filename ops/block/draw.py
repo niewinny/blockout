@@ -5,7 +5,6 @@ from mathutils import Matrix, Vector
 from ...utils import view3d
 from ...utilsbmesh import circle, corner, ngon, rectangle, sphere, triangle
 
-
 def _build_plane_matrix(plane, direction):
     """Build transformation matrix for plane local space."""
     location, normal = plane
@@ -15,7 +14,6 @@ def _build_plane_matrix(plane, direction):
     matrix = rotation_matrix.to_4x4()
     matrix.translation = location
     return matrix
-
 
 def _mouse_to_local(op, mouse_point):
     """Convert mouse point to plane local coordinates with optional snapping."""
@@ -33,7 +31,6 @@ def _mouse_to_local(op, mouse_point):
         y = round(y / snap) * snap
 
     return x, y
-
 
 def invoke(op, context):
     """Build the mesh data"""
@@ -79,10 +76,10 @@ def invoke(op, context):
 
     if op.config.shape in {"SPHERE"}:
         op.shape.volume = "3D"
+        op.state.volume = "3D"
 
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
     return True
-
 
 def modal(op, context, event):
     """Update draw geometry based on mouse or numeric input."""
@@ -224,7 +221,6 @@ def modal(op, context, event):
         direction_global,
     )
 
-
 def _update_ui(op, shape, region, rv3d, point_global, location, normal, direction):
     """Update UI labels for current shape."""
     match shape:
@@ -346,7 +342,6 @@ def _update_ui(op, shape, region, rv3d, point_global, location, normal, directio
                 {"point": point_y_2d, "text_tuple": (f"Y: {dy:.3f}",)},
             ]
             op.ui.interface.callback.update_batch(lines)
-
 
 def update_ui(op, context):
     """Update the drawing"""

@@ -5,7 +5,6 @@ import bpy
 from ...shaders import handle
 from ...utils import addon, infobar
 
-
 @dataclass
 class DrawUI(handle.Common):
     """Dataclass for the UI  drawing"""
@@ -34,6 +33,21 @@ class DrawUI(handle.Common):
         axis = bpy.context.scene.bout.axis
         axis.highlight.x, axis.highlight.y = (False, False)
 
+def clear_phase(op):
+    """Clear UI elements carried over from prior CREATE/EDIT/EXTRUDE/MODIFY phases.
+
+    Called from each phase entry (extrude, bevel, translate/rotate/scale) so
+    stale handles from the previous phase (colored axes, guide polylines,
+    vert markers, active highlights, text) don't leak into the new phase's
+    drawing. The entering phase re-populates only the handles it owns.
+    """
+    op.ui.xaxis.callback.clear()
+    op.ui.yaxis.callback.clear()
+    op.ui.zaxis.callback.clear()
+    op.ui.guid.callback.clear()
+    op.ui.vert.callback.clear()
+    op.ui.active.callback.clear()
+    op.ui.interface.callback.clear()
 
 def setup(self, context):
     """Setup the UI drawing"""
@@ -79,12 +93,10 @@ def setup(self, context):
     lines = []
     self.ui.interface.create(context, lines=lines)
 
-
 def update(self, context, event):
     """Update the UI including infobar and viewport"""
     # Redraw the infobar with updated hotkeys
     infobar.draw(context, event, self._infobar, blank=True)
-
 
 def hotkeys(self, layout, _context, _event):
     """Draw the infobar hotkeys"""
@@ -106,9 +118,23 @@ def hotkeys(self, layout, _context, _event):
         row.separator(factor=factor)
         return
 
-    row.label(text=self.mode.capitalize(), icon="MOUSE_MOVE")
+    name = self.state.phase
+    is_draw = name == "DRAW"
+    is_modify = self.state.is_modify
+
+    label = {
+        "DRAW": "Draw",
+        "EDIT": "Edit",
+        "EXTRUDE": "Extrude",
+        "BEVEL": "Bevel",
+        "TRANSLATE": "Translate",
+        "ROTATE": "Rotate",
+        "SCALE": "Scale",
+        "BISECT": "Bisect",
+    }.get(name, name.capitalize())
+    row.label(text=label, icon="MOUSE_MOVE")
     row.separator(factor=factor)
-    lmb = "Extrude" if self.mode == "DRAW" else "Finish"
+    lmb = "Extrude" if is_draw else "Finish"
     row.label(text=lmb, icon="MOUSE_LMB")
     row.separator(factor=factor)
     row.label(text="Cancel", icon="MOUSE_RMB")
@@ -116,16 +142,52 @@ def hotkeys(self, layout, _context, _event):
     row.label(text="Snap", icon="EVENT_CTRL")
     row.separator(factor=factor)
 
-    if self.mode == "BISECT":
+    if name == "BISECT":
         row.label(text="Flip", icon="EVENT_F")
         row.separator(factor=factor)
         return
 
-    if not self.mode == "BEVEL":
+    if is_modify:
+        if name == "BEVEL":
+            if self.config.shape in {"BOX", "NHEDRON", "PRISM"}:
+                text = "Round" if self.data.bevel.type == "FILL" else "Fill"
+                row.label(text=f"Bevel:{text}", icon="EVENT_B")
+                row.separator(factor=factor)
+            if self.data.bevel.mode == "OFFSET":
+                row.label(text="Segments", icon="EVENT_S")
+                row.separator(factor=factor)
+        else:
+            row.label(text="Bevel", icon="EVENT_B")
+            row.separator(factor=factor)
+            if name != "SCALE":
+                row.label(text="Scale", icon="EVENT_S")
+                row.separator(factor=factor)
+
+        if name != "TRANSLATE":
+            row.label(text="Move", icon="EVENT_G")
+            row.separator(factor=factor)
+        if name != "ROTATE":
+            row.label(text="Rotate", icon="EVENT_R")
+            row.separator(factor=factor)
+
+        if name in {"TRANSLATE", "ROTATE", "SCALE"}:
+            if self.state.volume == "3D":
+                row.label(text="Axis", icon="EVENT_X")
+                row.separator(factor=factor)
+                row.label(text="Axis", icon="EVENT_Y")
+                row.separator(factor=factor)
+                row.label(text="Axis", icon="EVENT_Z")
+                row.separator(factor=factor)
+            else:
+                row.label(text="Axis", icon="EVENT_X")
+                row.separator(factor=factor)
+                row.label(text="Axis", icon="EVENT_Y")
+                row.separator(factor=factor)
+    else:
         shape = self.config.shape
         match shape:
             case "RECTANGLE":
-                if self.mode == "DRAW":
+                if is_draw:
                     row.label(text="X Symmetry", icon="EVENT_X")
                     row.separator(factor=factor)
                     row.label(text="Y Symmetry", icon="EVENT_Y")
@@ -133,7 +195,7 @@ def hotkeys(self, layout, _context, _event):
                 row.label(text="Bevel", icon="EVENT_B")
                 row.separator(factor=factor)
             case "TRIANGLE":
-                if self.mode == "DRAW":
+                if is_draw:
                     row.label(text="X Symmetry", icon="EVENT_X")
                     row.separator(factor=factor)
                     row.label(text="Flip", icon="EVENT_F")
@@ -141,7 +203,7 @@ def hotkeys(self, layout, _context, _event):
                 row.label(text="Bevel", icon="EVENT_B")
                 row.separator(factor=factor)
             case "PRISM":
-                if self.mode == "DRAW":
+                if is_draw:
                     row.label(text="X Symmetry", icon="EVENT_X")
                     row.separator(factor=factor)
                     row.label(text="Flip", icon="EVENT_F")
@@ -151,7 +213,7 @@ def hotkeys(self, layout, _context, _event):
                 row.label(text="Bevel", icon="EVENT_B")
                 row.separator(factor=factor)
             case "BOX":
-                if self.mode == "DRAW":
+                if is_draw:
                     row.label(text="X Symmetry", icon="EVENT_X")
                     row.separator(factor=factor)
                     row.label(text="Y Symmetry", icon="EVENT_Y")
@@ -165,7 +227,7 @@ def hotkeys(self, layout, _context, _event):
             case "CYLINDER":
                 row.label(text="Symmetry", icon="EVENT_Z")
                 row.separator(factor=factor)
-                if self.shape.volume == "3D":
+                if self.state.volume == "3D":
                     row.label(text="Bevel", icon="EVENT_B")
                     row.separator(factor=factor)
             case "SPHERE":
@@ -179,23 +241,18 @@ def hotkeys(self, layout, _context, _event):
                 row.separator(factor=factor)
                 row.label(text="Delete", icon="EVENT_X")
                 row.separator(factor=factor)
-    else:
-        if self.config.shape == "BOX":
-            text = "Round" if self.data.bevel.type == "FILL" else "Fill"
-            row.label(text=f"Bevel:{text}", icon="EVENT_B")
+
+        if self.state.phase == "EXTRUDE":
+            row.label(text="Move", icon="EVENT_G")
             row.separator(factor=factor)
-        else:
-            if self.data.bevel.mode == "SEGMENTS":
-                row.label(text="Bevel", icon="EVENT_B")
-                row.separator(factor=factor)
-        if self.data.bevel.mode == "OFFSET":
-            row.label(text="Segments", icon="EVENT_S")
+            row.label(text="Rotate", icon="EVENT_R")
+            row.separator(factor=factor)
+            row.label(text="Scale", icon="EVENT_S")
             row.separator(factor=factor)
 
     if not self.pref.reveal:
         row.label(text="Reveal", icon="EVENT_Q")
         row.separator(factor=factor)
-
 
 class Theme(bpy.types.PropertyGroup):
     cut: bpy.props.FloatVectorProperty(
@@ -261,6 +318,5 @@ class Theme(bpy.types.PropertyGroup):
         min=0.0,
         max=1.0,
     )
-
 
 classes = (Theme,)
