@@ -194,8 +194,12 @@ class DrawVert:
     :vartype co: mathutils.Vector
     :ivar region: 2D region coordinates.
     :vartype region: mathutils.Vector
+    :ivar direction: Per-vert displacement axis (used by the CORNER
+        extrude snapshot so each vert can slide along its own normal).
+    :vartype direction: mathutils.Vector
     """
 
     index: int = -1
     co: Vector = Vector()
     region: Vector = Vector()
+    direction: Vector = Vector()

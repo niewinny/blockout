@@ -1,4 +1,4 @@
-from mathutils import Matrix, Vector
+from mathutils import Vector
 
 from ...utils import view3d
 from ...utils.scene import ray_cast
@@ -8,36 +8,10 @@ from . import ui as block_ui
 from .data import ExtrudeEdge
 
 
-def _corner_normals(direction, base_normal, rotations):
-    """Return ``(n1, n2, avg)`` — the rot_min/rot_max plane normals plus
-    their averaged direction (used as the visual extrude axis)."""
-    rot_min, rot_max = rotations
-    n1 = Matrix.Rotation(rot_min, 4, direction) @ base_normal
-    n2 = Matrix.Rotation(rot_max, 4, direction) @ base_normal
-    avg = ((n1 + n2) / 2).normalized()
-    return n1, n2, avg
-
-
-def _corner_vert_dirs(bm, top_face_indexes, normals):
-    """Map each top-face vert index to its extrusion direction:
-    face1-only -> n1, face2-only -> n2, shared mid-edge ->
-    ``avg / cos(half_angle)`` so the top stays at uniform perpendicular
-    distance from each face."""
-    n1, n2, avg = normals
-    cos_half = avg.dot(n1)
-    shared_dir = avg / cos_half if cos_half > 1e-6 else avg
-    f1, f2 = top_face_indexes
-    s1 = {v.index for v in bm.faces[f1].verts}
-    s2 = {v.index for v in bm.faces[f2].verts}
-    shared = s1 & s2
-    dirs = {}
-    for vi in s1 - shared:
-        dirs[vi] = n1
-    for vi in s2 - shared:
-        dirs[vi] = n2
-    for vi in shared:
-        dirs[vi] = shared_dir
-    return dirs
+def _corner_bevel_jump(op):
+    """``True`` when CORNER + cutter mode skips the interactive extrude
+    and routes straight to BEVEL (depth is fixed at 0.2 in invoke)."""
+    return op.config.shape == "CORNER" and op.config.mode in {"CUT", "CARVE"}
 
 def invoke(op, context, event):
     """Extrude the mesh"""
@@ -62,6 +36,7 @@ def invoke(op, context, event):
     offset = op.config.align.offset
 
     shape = op.config.shape
+    skip_modal_setup = _corner_bevel_jump(op)
     match shape:
         case "CORNER":
             op.data.extrude.value = 0.2
@@ -80,23 +55,25 @@ def invoke(op, context, event):
                     bm, extruded_faces_indexes, direction, normal, rotations, offset
                 )
 
-            # corner.extrude already places each new vert along its own
-            # face normal (shared mid-edge verts along the avg). Snapshot
-            # the dz=0 reference (= old_co) AND the per-vert direction
-            # baked into ``region`` so modal doesn't need to recompute the
-            # face/vert partition every frame.
-            corner_normals = _corner_normals(direction, normal, rotations)
-            initial_dz = op.data.extrude.value
-            top_face_indexes = extruded_faces_indexes[-2:]
-            vert_dirs = _corner_vert_dirs(bm, top_face_indexes, corner_normals)
-            op.data.extrude.verts = [
-                DrawVert(
-                    index=vi,
-                    co=(bm.verts[vi].co - vert_dirs[vi] * initial_dz).copy(),
-                    region=vert_dirs[vi].copy(),
-                )
-                for vi in vert_dirs
-            ]
+            # Skip the snapshot when BEVEL will take over immediately —
+            # the depth never changes again, so modal doesn't run.
+            if not skip_modal_setup:
+                # corner.extrude already places each new vert along its
+                # own normal. Snapshot the dz=0 reference (= old_co) and
+                # bake the per-vert direction so modal can play it back
+                # without recomputing the partition every frame.
+                n1, n2, avg, cos_half = corner.normals(direction, normal, rotations)
+                top_faces = [bm.faces[fi] for fi in extruded_faces_indexes[-2:]]
+                v_dirs = corner.vert_dirs(top_faces, n1, n2, avg, cos_half)
+                initial_dz = op.data.extrude.value
+                op.data.extrude.verts = [
+                    DrawVert(
+                        index=vi,
+                        co=(bm.verts[vi].co - v_dirs[vi] * initial_dz).copy(),
+                        direction=v_dirs[vi].copy(),
+                    )
+                    for vi in v_dirs
+                ]
 
         case _:
             extruded_faces_indexes = facet.extrude(bm, draw_face, plane, 0.0)
@@ -122,8 +99,11 @@ def invoke(op, context, event):
 
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
-    # Wipe prior-phase handles; extrude will re-set zaxis below.
+    # Wipe prior-phase handles; extrude will re-set zaxis below (unless
+    # BEVEL is about to take over, which clears + sets its own UI).
     block_ui.clear_phase(op)
+    if skip_modal_setup:
+        return
 
     plane_world = (obj.matrix_world @ plane[0], obj.matrix_world.to_3x3() @ plane[1])
     line_origin = view3d.region_2d_to_plane_3d(
@@ -131,8 +111,8 @@ def invoke(op, context, event):
     )
     op.data.extrude.origin = line_origin
     if shape == "CORNER":
-        _, _, axis_local = _corner_normals(direction, normal, rotations)
-        axis = obj.matrix_world.to_3x3() @ axis_local
+        _, _, avg, _ = corner.normals(direction, normal, rotations)
+        axis = obj.matrix_world.to_3x3() @ avg
     else:
         axis = plane_world[1]
     point1 = line_origin
@@ -151,14 +131,13 @@ def modal(op, context, event):
 
     is_corner = op.config.shape == "CORNER"
     if is_corner:
-        # Mouse projects along the avg normal; geometry update uses the
-        # per-face normals so each top face slides along its own plane
-        # and the shared mid-edge verts move along the avg.
-        direction = op.data.draw.matrix.direction
-        base_normal = op.data.draw.matrix.normal
-        rotations = (op.shape.corner.min, op.shape.corner.max)
-        corner_normals = _corner_normals(direction, base_normal, rotations)
-        normal = corner_normals[2]  # avg
+        # Mouse projects along the avg normal; the per-vert geometry
+        # update reads each ``DrawVert.direction`` baked at invoke time.
+        _, _, normal, _ = corner.normals(
+            op.data.draw.matrix.direction,
+            op.data.draw.matrix.normal,
+            (op.shape.corner.min, op.shape.corner.max),
+        )
     else:
         normal = op.data.draw.matrix.plane[1]
 
@@ -202,14 +181,14 @@ def modal(op, context, event):
         op.data.extrude.value = dz
 
         # Direct assignment per vert: ref + (its own baked direction) * dz.
-        # Each DrawVert carries its own normal in ``region`` from invoke,
-        # so face1-only get n1, face2-only get n2, shared get avg/cos_half
-        # — independent of any subsequent face structure changes.
+        # face1-only verts get n1, face2-only get n2, shared mid-edge get
+        # avg/cos_half — all decided at invoke time and stored on each
+        # DrawVert.
         dz_effective = dz
         if offset and dz != 0.0:
             dz_effective = dz + (offset if dz >= 0 else -offset)
         for dv in op.data.extrude.verts:
-            bm.verts[dv.index].co = dv.co + dv.region * dz_effective
+            bm.verts[dv.index].co = dv.co + dv.direction * dz_effective
 
         face = bm.faces[op.data.extrude.faces[-1]]
     else:

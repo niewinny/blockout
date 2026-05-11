@@ -3,27 +3,33 @@ from mathutils import Matrix, Vector
 from . import bmeshface
 
 
-def _vert_dirs(faces, n1, n2, avg, cos_half):
-    """Per old-vert displacement direction: face1-unique -> n1,
-    face2-unique -> n2, shared mid-edge -> ``avg / cos(half_angle)`` so
-    the top stays at uniform perpendicular distance from each face.
-    Falls back to ``avg`` when the corner degenerates (~180°)."""
-    if len(faces) >= 2:
-        s1 = {v.index for v in faces[0].verts}
-        s2 = {v.index for v in faces[1].verts}
-        shared = s1 & s2
-    else:
-        shared = set()
+def normals(direction, base_normal, rotations):
+    """Return ``(n1, n2, avg, cos_half)`` for a corner shape — the two
+    rotated face normals, their unit bisector, and ``avg · n1`` (= the
+    half-angle cosine, used to scale shared-vert displacement)."""
+    rot_min, rot_max = rotations
+    n1 = Matrix.Rotation(rot_min, 4, direction) @ base_normal
+    n2 = Matrix.Rotation(rot_max, 4, direction) @ base_normal
+    avg = ((n1 + n2) / 2).normalized()
+    return n1, n2, avg, avg.dot(n1)
+
+
+def vert_dirs(faces, n1, n2, avg, cos_half):
+    """Per-vert displacement direction keyed by vert index: face1-unique
+    -> ``n1``, face2-unique -> ``n2``, shared mid-edge -> ``avg /
+    cos(half_angle)`` so the result stays at uniform perpendicular
+    distance from each face. Falls back to ``avg`` when the corner is
+    degenerate (~180°)."""
+    s1 = {v.index for v in faces[0].verts}
+    s2 = {v.index for v in faces[1].verts} if len(faces) >= 2 else set()
+    shared = s1 & s2
     shared_dir = avg / cos_half if cos_half > 1e-6 else avg
-    face_normals_list = [n1, n2]
-    dirs = {}
-    for fi, face in enumerate(faces):
-        face_n = face_normals_list[fi] if fi < len(face_normals_list) else avg
+    face_n = (n1, n2)
+    dirs = {vi: shared_dir for vi in shared}
+    for fi, face in enumerate(faces[:2]):
         for v in face.verts:
-            if v.index in shared:
-                dirs[v.index] = shared_dir
-            elif v.index not in dirs:
-                dirs[v.index] = face_n
+            if v.index not in dirs:
+                dirs[v.index] = face_n[fi]
     return dirs
 
 
@@ -196,21 +202,8 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
     new_face_refs = []
     mid_edge = None
 
-    # Generate normals from base_normal and rotations
-    rot_min, rot_max = rotations
-    rot_matrix_min = Matrix.Rotation(rot_min, 4, direction)
-    rot_matrix_max = Matrix.Rotation(rot_max, 4, direction)
+    n1, n2, avg, cos_half = normals(direction, base_normal, rotations)
 
-    normal1 = rot_matrix_min @ base_normal
-    normal2 = rot_matrix_max @ base_normal
-
-    # Bisector + half-angle cosine. The shared mid-edge verts ride along
-    # ``avg / cos_half`` so the top stays at uniform perpendicular distance
-    # ``dz`` from each face (an even extrusion).
-    avg_normal = ((normal1 + normal2) / 2).normalized()
-    cos_half = avg_normal.dot(normal1)
-
-    # Ensure all lookup tables are updated
     bm.verts.ensure_lookup_table()
     bm.edges.ensure_lookup_table()
     bm.faces.ensure_lookup_table()
@@ -219,10 +212,7 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
         face.normal_flip()
 
     old_face_refs = list(faces)
-
-    # Per-vert displacement direction (face1-only -> n1, face2-only -> n2,
-    # shared -> avg/cos_half).
-    vert_dir = _vert_dirs(faces, normal1, normal2, avg_normal, cos_half)
+    vert_dir = vert_dirs(faces, n1, n2, avg, cos_half)
 
     # Store old vertices and create new vertices (copied and offset)
     new_verts_map = {}  # Maps old vertex index to new vertex
@@ -327,17 +317,9 @@ def offset(bm, faces_indexes, direction, base_normal, rotations, dz):
     Returns:
         None
     """
-    rot_min, rot_max = rotations
-    rot_matrix_min = Matrix.Rotation(rot_min, 4, direction)
-    rot_matrix_max = Matrix.Rotation(rot_max, 4, direction)
-
-    normal1 = rot_matrix_min @ base_normal
-    normal2 = rot_matrix_max @ base_normal
-    avg_normal = ((normal1 + normal2) / 2).normalized()
-    cos_half = avg_normal.dot(normal1)
-
+    n1, n2, avg, cos_half = normals(direction, base_normal, rotations)
     faces = [bmeshface.from_index(bm, index) for index in faces_indexes[:2]]
-    vert_dir = _vert_dirs(faces, normal1, normal2, avg_normal, cos_half)
+    vert_dir = vert_dirs(faces, n1, n2, avg, cos_half)
 
     moved = set()
     for face in faces:
