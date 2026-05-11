@@ -3,6 +3,30 @@ from mathutils import Matrix, Vector
 from . import bmeshface
 
 
+def _vert_dirs(faces, n1, n2, avg, cos_half):
+    """Per old-vert displacement direction: face1-unique -> n1,
+    face2-unique -> n2, shared mid-edge -> ``avg / cos(half_angle)`` so
+    the top stays at uniform perpendicular distance from each face.
+    Falls back to ``avg`` when the corner degenerates (~180°)."""
+    if len(faces) >= 2:
+        s1 = {v.index for v in faces[0].verts}
+        s2 = {v.index for v in faces[1].verts}
+        shared = s1 & s2
+    else:
+        shared = set()
+    shared_dir = avg / cos_half if cos_half > 1e-6 else avg
+    face_normals_list = [n1, n2]
+    dirs = {}
+    for fi, face in enumerate(faces):
+        face_n = face_normals_list[fi] if fi < len(face_normals_list) else avg
+        for v in face.verts:
+            if v.index in shared:
+                dirs[v.index] = shared_dir
+            elif v.index not in dirs:
+                dirs[v.index] = face_n
+    return dirs
+
+
 def create(bm, plane):
     """Create a corner shape with two connected faces"""
     location, normal = plane
@@ -164,10 +188,12 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
     Returns:
         Tuple of (ordered_faces, mid_edge): List of face indices in the order [old_faces, mid_faces, new_faces] and mid edge index
     """
-    # Initialize variables
-    old_faces = []
-    mid_faces = []
-    new_faces = []
+    # Initialize variables. Hold *references* to created faces — their
+    # ``.index`` is invalid until ``bm.faces.index_update()`` is called at
+    # the end, so we resolve to indices then.
+    old_face_refs = []
+    mid_face_refs = []
+    new_face_refs = []
     mid_edge = None
 
     # Generate normals from base_normal and rotations
@@ -178,9 +204,11 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
     normal1 = rot_matrix_min @ base_normal
     normal2 = rot_matrix_max @ base_normal
 
-    # Calculate average normal for the extrusion
-    normal = (normal1 + normal2) / 2
-    normal.normalize()
+    # Bisector + half-angle cosine. The shared mid-edge verts ride along
+    # ``avg / cos_half`` so the top stays at uniform perpendicular distance
+    # ``dz`` from each face (an even extrusion).
+    avg_normal = ((normal1 + normal2) / 2).normalized()
+    cos_half = avg_normal.dot(normal1)
 
     # Ensure all lookup tables are updated
     bm.verts.ensure_lookup_table()
@@ -190,18 +218,21 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
     for face in faces:
         face.normal_flip()
 
-    old_faces = [f.index for f in faces]
+    old_face_refs = list(faces)
+
+    # Per-vert displacement direction (face1-only -> n1, face2-only -> n2,
+    # shared -> avg/cos_half).
+    vert_dir = _vert_dirs(faces, normal1, normal2, avg_normal, cos_half)
 
     # Store old vertices and create new vertices (copied and offset)
     new_verts_map = {}  # Maps old vertex index to new vertex
     edge_map = {}  # Maps (v1_idx, v2_idx) pairs to new edge
 
-    # First create all new vertices by copying and offsetting
+    # Create new vertices, each displaced along its own assigned normal
     for face in faces:
         for v in face.verts:
             if v.index not in new_verts_map:
-                # Create a new vertex at an offset position
-                new_vert = bm.verts.new(v.co + normal * dz)
+                new_vert = bm.verts.new(v.co + vert_dir[v.index] * dz)
                 new_verts_map[v.index] = new_vert
 
     # Update tables after creating new vertices
@@ -236,7 +267,7 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
             if edge_key not in edge_map:
                 new_face = bm.faces.new([v1, v2, new_v2, new_v1])
                 new_face.select = True
-                mid_faces.append(new_face.index)
+                mid_face_refs.append(new_face)
                 edge_map[edge_key] = True
 
     # Create top faces (equivalent to the extruded faces)
@@ -250,7 +281,7 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
 
         new_face = bm.faces.new(new_verts)
         new_face.select = True
-        new_faces.append(new_face.index)
+        new_face_refs.append(new_face)
 
     # Update all indices and ensure lookup tables
     bm.normal_update()
@@ -260,6 +291,14 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
     bm.verts.index_update()
     bm.edges.index_update()
     bm.faces.index_update()
+
+    # Resolve face indices NOW — newly-created BMFaces have ``.index = -1``
+    # until ``index_update`` runs above. Capturing earlier would slot every
+    # mid/new face in as -1, collapsing downstream lookups onto a single
+    # face.
+    old_faces = [f.index for f in old_face_refs]
+    mid_faces = [f.index for f in mid_face_refs]
+    new_faces = [f.index for f in new_face_refs]
 
     # Find the mid edge (edge shared by both original faces)
     for e in faces[0].edges:
@@ -275,7 +314,9 @@ def extrude(bm, faces, direction, base_normal, rotations, dz):
 
 def offset(bm, faces_indexes, direction, base_normal, rotations, dz):
     """
-    Offset each face along its corresponding normal by dz.
+    Offset each face along its corresponding normal by dz, with shared
+    mid-edge verts displaced along ``avg / cos(half_angle)`` so the
+    offset stays at uniform perpendicular distance from each face.
     Args:
         bm: The BMesh object
         faces_indexes: List of face indices to offset
@@ -286,21 +327,25 @@ def offset(bm, faces_indexes, direction, base_normal, rotations, dz):
     Returns:
         None
     """
-    # Generate normals from base_normal and rotations
     rot_min, rot_max = rotations
     rot_matrix_min = Matrix.Rotation(rot_min, 4, direction)
     rot_matrix_max = Matrix.Rotation(rot_max, 4, direction)
 
     normal1 = rot_matrix_min @ base_normal
     normal2 = rot_matrix_max @ base_normal
+    avg_normal = ((normal1 + normal2) / 2).normalized()
+    cos_half = avg_normal.dot(normal1)
 
-    offset_faces_indexes = [faces_indexes[0], faces_indexes[1]]
-    faces = [bmeshface.from_index(bm, index) for index in offset_faces_indexes]
-    normals = [normal1, normal2]
+    faces = [bmeshface.from_index(bm, index) for index in faces_indexes[:2]]
+    vert_dir = _vert_dirs(faces, normal1, normal2, avg_normal, cos_half)
 
-    for face, normal in zip(faces, normals):
+    moved = set()
+    for face in faces:
         for v in face.verts:
-            v.co += normal * dz
+            if v.index in moved:
+                continue
+            moved.add(v.index)
+            v.co += vert_dir[v.index] * dz
 
 
 def bevel(bm, edge, bevel_offset=0.0, bevel_segments=1):
