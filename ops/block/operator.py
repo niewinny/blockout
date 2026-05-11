@@ -289,6 +289,13 @@ class Block(bpy.types.Operator):
         if self.state.is_bisect:
             return
 
+        # CORNER has two draw faces at different normals; ``corner.offset``
+        # (called from ``extrude.invoke``) handles its bottom offset per-face,
+        # so skip the single-face base-normal shift here.
+        if self.config.shape == "CORNER":
+            self._offset_applied = True
+            return
+
         bm = self.data.bm
         obj = self.data.obj
         face = self.data.bm.faces[self.data.draw.faces[0]]
@@ -988,6 +995,16 @@ class Block(bpy.types.Operator):
             edit.invoke(self, context)
         elif next_sub == "EXTRUDE":
             self._extrude_invoke(context, event)
+            # CORNER in CUT/CARVE doesn't need a mouse-driven extrude —
+            # the depth is fixed at 0.2 by ``extrude.invoke``. Transition
+            # straight into BEVEL so the user can dial in the round on
+            # the mid edge instead. Other modes (ADD/UNION/INTERSECT/
+            # SLICE) keep the interactive extrude.
+            if (
+                self.config.shape == "CORNER"
+                and self.config.mode in {"CUT", "CARVE"}
+            ):
+                self._bevel_invoke(context, event)
         else:
             self.state.phase = next_sub
         ui.update(self, context, event)

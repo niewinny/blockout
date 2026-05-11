@@ -6,7 +6,7 @@ import bpy
 from mathutils import Vector
 
 from ...utils.input import NumericInput
-from ...utils.types import DrawMatrix, DrawVert
+from ...utils.types import DrawMatrix
 
 @dataclass
 class Config:
@@ -118,8 +118,8 @@ class Extrude:
     """Dataclass for storing options"""
 
     origin: Vector = field(default_factory=Vector)
-    verts: DrawVert = field(default_factory=DrawVert)
-    edges: ExtrudeEdge = field(default_factory=ExtrudeEdge)
+    verts: list = field(default_factory=list)  # list[DrawVert]
+    edges: list = field(default_factory=list)  # list[ExtrudeEdge]
     faces: list = field(default_factory=list)  # f.index
     value: float = 0.0
     symmetry: bool = False
