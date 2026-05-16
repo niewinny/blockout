@@ -32,14 +32,14 @@ def set_xy(
     direction,
     local_space=False,
     snap_value=0,
-    symmetry=False,
+    equilateral=False,
     flip=False,
 ):
     """
     Expand the triangle face. The `loc` parameter is always provided.
     If `local_space` is True, `loc` is given in the plane's local coordinate system.
     If `local_space` is False, `loc` is given in global coordinate system and will be transformed.
-    If `symmetry` is True, the triangle will be symmetric along the x-axis of the plane's local coordinate system.
+    If `equilateral` is True, an equilateral triangle is produced; otherwise a right triangle.
     If `flip` is True, the triangle's right angle will be flipped.
     """
 
@@ -146,8 +146,7 @@ def set_xy(
     # We want it to be consistent, let's say rotated -90 degrees (clockwise)
     local_x = Vector((local_y.y, -local_y.x, 0))
 
-    # Calculate vertices based on symmetry
-    if symmetry:  # "Perfect" Triangle (Equilateral)
+    if equilateral:
         # Width for equilateral triangle: height * 2 / sqrt(3)
         width = height_len * 2 / math.sqrt(3)
         half_width = width / 2
@@ -163,8 +162,8 @@ def set_xy(
 
         v_local = [p1, p2, p3]
 
-    else:  # "Half" Triangle (Right Angle)
-        # "half if no symetry" -> Right triangle.
+    else:
+        # Right triangle (height / sqrt(3) along the base).
         width = height_len / math.sqrt(3)
 
         # Vertices:

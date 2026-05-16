@@ -40,13 +40,11 @@ class BOUT_OT_BlockMeshTool(Block):
         return ray
 
     def _header_text(self):
-        """Set the header text"""
         pref = addon.pref().tools.block
         text = f"Shape: {pref.shape.capitalize()}"
         return text
 
     def set_config(self, context):
-        """Set the config dataclass"""
         config = Config()
         config.shape = addon.pref().tools.block.shape
         config.form = addon.pref().tools.block.form
@@ -93,23 +91,24 @@ class BOUT_OT_BlockMeshTool(Block):
         normal = self.pref.plane.normal
         plane = (origin, normal)
         direction = self.pref.direction
-        extrusion = self.pref.extrusion
-        # For non-ADD modes, extend the cutter along the extrude axis by
-        # ``offset`` as a z-fighting / coplanar buffer. 2D cutters use the
-        # target object's dimension as ``extrusion`` (set by extrude.uniform)
-        # and need ``offset`` on BOTH sides so the cut portion equals the
-        # dimension exactly with buffers hanging past each surface. 3D
-        # extrudes (BOX/CYLINDER/PRISM/etc.) are user-sized, so the buffer
-        # stays one-sided (only the far face needs a buffer).
-        shape_2d = self.pref.shape in {"RECTANGLE", "CIRCLE", "TRIANGLE", "NGON"}
-        buffer_mult = 2.0 if shape_2d else 1.0
+
+        shape = self.shape.active
+        sd = self.shape.data
+        extrusion = self.cutter_extrusion
+        symmetry_extrude = self.symmetry_extrude
+        symmetry_draw = (
+            getattr(sd, "symmetry_x", False),
+            getattr(sd, "symmetry_y", False),
+        )
+
+        # Non-ADD modes need a z-fighting buffer along the extrude axis.
+        # 2D-final cutters (cutter_buffer_mult=2.0) carry it on both sides
+        # because their ``extrusion`` is the target's dimension; 3D extrudes
+        # need it only on the far face.
+        buffer_mult = sd.cutter_buffer_mult
         if mode != "ADD" and extrusion != 0.0:
             ext_buffer = offset * buffer_mult
             extrusion = extrusion + (ext_buffer if extrusion >= 0 else -ext_buffer)
-        symmetry_extrude = self.pref.symmetry_extrude
-        symmetry_draw = (self.pref.symmetry_draw_x, self.pref.symmetry_draw_y)
-
-        shape = self.pref.shape
 
         if mode != "ADD":
             bpy.ops.mesh.select_all(action="DESELECT")
@@ -118,12 +117,10 @@ class BOUT_OT_BlockMeshTool(Block):
             case "RECTANGLE":
                 faces_indexes = rectangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                # XY dimensions are honored exactly. Z buffer (offset on both
-                # sides) is handled via the ``buffer_mult`` logic above.
                 rectangle.set_xy(
                     face,
                     plane,
-                    self.shape.rectangle.co,
+                    self.shape.rectangle.size,
                     direction,
                     local_space=True,
                     symmetry=symmetry_draw,
@@ -151,7 +148,7 @@ class BOUT_OT_BlockMeshTool(Block):
                 rectangle.set_xy(
                     face,
                     plane,
-                    self.shape.rectangle.co,
+                    self.shape.box.size,
                     direction,
                     local_space=True,
                     symmetry=symmetry_draw,
@@ -166,27 +163,23 @@ class BOUT_OT_BlockMeshTool(Block):
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
                 facet.set_z(face, normal, offset)
-                if self.shape.volume == "3D":
-                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
-                    self._recalculate_normals(bm, extruded_faces)
-                    if symmetry_extrude:
-                        facet.set_z(
-                            bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
-                        )
-                    if self.pref.bevel.fill.enable:
-                        face_index = extruded_faces[-1]
-                        face = bmeshface.from_index(bm, face_index)
-                        edges = face.edges
-                        verts_indicies = facet.bevel_edges(
-                            bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
-                        )
-                        remove_doubles(bm, verts_indicies)
-                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                    if apply_boolean:
-
-                        self._boolean(self.pref.mode, obj, bm, ui)
-                else:
-                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                self._recalculate_normals(bm, extruded_faces)
+                if symmetry_extrude:
+                    facet.set_z(
+                        bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
+                    )
+                if self.pref.bevel.fill.enable:
+                    face_index = extruded_faces[-1]
+                    face = bmeshface.from_index(bm, face_index)
+                    edges = face.edges
+                    verts_indicies = facet.bevel_edges(
+                        bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
+                    )
+                    remove_doubles(bm, verts_indicies)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if apply_boolean:
+                    self._boolean(self.pref.mode, obj, bm, ui)
             case "CIRCLE":
                 faces_indexes = circle.create(
                     bm, plane, verts_number=self.shape.circle.verts
@@ -212,7 +205,7 @@ class BOUT_OT_BlockMeshTool(Block):
                         self._boolean(self.pref.mode, obj, bm, ui)
             case "CYLINDER":
                 faces_indexes = circle.create(
-                    bm, plane, verts_number=self.shape.circle.verts
+                    bm, plane, verts_number=self.shape.cylinder.verts
                 )
                 face = bmeshface.from_index(bm, faces_indexes[0])
                 circle.set_xy(
@@ -220,7 +213,7 @@ class BOUT_OT_BlockMeshTool(Block):
                     plane,
                     None,
                     direction,
-                    radius=self.shape.circle.radius,
+                    radius=self.shape.cylinder.radius,
                     local_space=True,
                 )
                 facet.set_z(face, normal, offset)
@@ -249,7 +242,7 @@ class BOUT_OT_BlockMeshTool(Block):
                     plane,
                     direction,
                     radius=self.shape.sphere.radius,
-                    subd=self.shape.sphere.subd,
+                    subdivisions=self.shape.sphere.subdivisions,
                 )
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 if apply_boolean:
@@ -264,12 +257,12 @@ class BOUT_OT_BlockMeshTool(Block):
                 corner.set_xy(
                     faces,
                     plane,
-                    self.shape.corner.co,
+                    self.shape.corner.size,
                     direction,
-                    (self.shape.corner.min, self.shape.corner.max),
+                    (self.shape.corner.rotation_a, self.shape.corner.rotation_b),
                     local_space=True,
                 )
-                rotations = (self.shape.corner.min, self.shape.corner.max)
+                rotations = (self.shape.corner.rotation_a, self.shape.corner.rotation_b)
                 extruded_face_indexes, edge_index = corner.extrude(
                     bm, faces, direction, normal, rotations, extrusion
                 )
@@ -289,7 +282,7 @@ class BOUT_OT_BlockMeshTool(Block):
 
                     self._boolean(self.pref.mode, obj, bm, ui)
             case "NGON":
-                face = ngon.new(bm, self.pref.ngon)
+                face = ngon.new(bm, self.shape.ngon.points)
                 faces_indexes = [face.index]
                 facet.set_z(face, normal, offset)
                 if self.pref.bevel.round.enable:
@@ -307,10 +300,9 @@ class BOUT_OT_BlockMeshTool(Block):
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
                 if mode != "ADD":
                     if apply_boolean:
-
                         self._boolean(self.pref.mode, obj, bm, ui)
             case "NHEDRON":
-                face = ngon.new(bm, self.pref.ngon)
+                face = ngon.new(bm, self.shape.nhedron.points)
                 faces_indexes = [face.index]
                 facet.set_z(face, normal, offset)
                 if self.pref.bevel.round.enable:
@@ -322,27 +314,22 @@ class BOUT_OT_BlockMeshTool(Block):
                     )
                     face = bmeshface.from_index(bm, face_index)
                     facet.remove_doubles(bm, face)
-                if self.shape.volume == "3D":
-                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
-                    self._recalculate_normals(bm, extruded_faces)
-                    if self.pref.bevel.fill.enable:
-                        face_index = extruded_faces[-1]
-                        face = bmeshface.from_index(bm, face_index)
-                        edges = face.edges
-                        verts_indicies = facet.bevel_edges(
-                            bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
-                        )
-                        remove_doubles(bm, verts_indicies)
-                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                    if apply_boolean:
-
-                        self._boolean(self.pref.mode, obj, bm, ui)
-                else:
-                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                self._recalculate_normals(bm, extruded_faces)
+                if self.pref.bevel.fill.enable:
+                    face_index = extruded_faces[-1]
+                    face = bmeshface.from_index(bm, face_index)
+                    edges = face.edges
+                    verts_indicies = facet.bevel_edges(
+                        bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
+                    )
+                    remove_doubles(bm, verts_indicies)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if apply_boolean:
+                    self._boolean(self.pref.mode, obj, bm, ui)
             case "TRIANGLE":
                 faces_indexes = triangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                # Convert height and angle to (x, y) coordinates
                 x = self.shape.triangle.height * math.cos(self.shape.triangle.angle)
                 y = self.shape.triangle.height * math.sin(self.shape.triangle.angle)
                 triangle.set_xy(
@@ -351,7 +338,7 @@ class BOUT_OT_BlockMeshTool(Block):
                     (x, y),
                     direction,
                     local_space=True,
-                    symmetry=self.shape.triangle.symmetry,
+                    equilateral=self.shape.triangle.equilateral,
                     flip=self.shape.triangle.flip,
                 )
                 facet.set_z(face, normal, offset)
@@ -374,19 +361,19 @@ class BOUT_OT_BlockMeshTool(Block):
 
                         self._boolean(self.pref.mode, obj, bm, ui)
             case "PRISM":
+                pri = self.shape.prism
                 faces_indexes = triangle.create(bm, plane)
                 face = bmeshface.from_index(bm, faces_indexes[0])
-                # Convert height and angle to (x, y) coordinates
-                x = self.shape.triangle.height * math.cos(self.shape.triangle.angle)
-                y = self.shape.triangle.height * math.sin(self.shape.triangle.angle)
+                x = pri.height * math.cos(pri.angle)
+                y = pri.height * math.sin(pri.angle)
                 triangle.set_xy(
                     face,
                     plane,
                     (x, y),
                     direction,
                     local_space=True,
-                    symmetry=self.shape.triangle.symmetry,
-                    flip=self.shape.triangle.flip,
+                    equilateral=pri.equilateral,
+                    flip=pri.flip,
                 )
                 if self.pref.bevel.round.enable:
                     face_index = facet.bevel_verts(
@@ -399,32 +386,25 @@ class BOUT_OT_BlockMeshTool(Block):
                     facet.remove_doubles(bm, face)
 
                 facet.set_z(face, normal, offset)
-                if self.shape.volume == "3D":
-                    extruded_faces = facet.extrude(bm, face, plane, extrusion)
-                    self._recalculate_normals(bm, extruded_faces)
-
-                    if symmetry_extrude:
-                        facet.set_z(
-                            bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
-                        )
-
-                    if self.pref.bevel.fill.enable:
-                        face_index = extruded_faces[-1]
-                        face = bmeshface.from_index(bm, face_index)
-                        edges = face.edges
-                        verts_indicies = facet.bevel_edges(
-                            bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
-                        )
-                        remove_doubles(bm, verts_indicies)
-
-                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-                    if apply_boolean:
-
-                        self._boolean(self.pref.mode, obj, bm, ui)
-                else:
-                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                extruded_faces = facet.extrude(bm, face, plane, extrusion)
+                self._recalculate_normals(bm, extruded_faces)
+                if symmetry_extrude:
+                    facet.set_z(
+                        bmeshface.from_index(bm, extruded_faces[0]), normal, -extrusion
+                    )
+                if self.pref.bevel.fill.enable:
+                    face_index = extruded_faces[-1]
+                    face = bmeshface.from_index(bm, face_index)
+                    edges = face.edges
+                    verts_indicies = facet.bevel_edges(
+                        bm, edges, bevel_fill_offset, bevel_segments=bevel_fill_segments
+                    )
+                    remove_doubles(bm, verts_indicies)
+                self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+                if apply_boolean:
+                    self._boolean(self.pref.mode, obj, bm, ui)
             case _:
-                raise ValueError(f"Unsupported shape: {self.pref.shape}")
+                raise ValueError(f"Unsupported shape: {self.shape.active}")
 
         return faces_indexes
 
@@ -460,64 +440,63 @@ class BOUT_OT_BlockMeshTool(Block):
                 faces = [f for f in bm.faces if f.select]
                 self.ui.faces.callback.update_batch(faces)
 
-            if self.shape.volume == "3D":
-                match mode:
-                    case "UNION":
-                        operation = "UNION"
-                    case "CUT":
-                        operation = "DIFFERENCE"
-                    case "INTERSECT":
-                        operation = "INTERSECT"
-                    case "SLICE":
-                        selected_faces = [f for f in bm.faces if f.select]
-                        facet.solidify(bm, selected_faces)
-                        self.update_bmesh(
-                            obj, bm, loop_triangles=True, destructive=True
-                        )
-                        operation = "DIFFERENCE"
-                    case "CARVE":
-                        selected_faces = [f for f in bm.faces if f.select]
-                        verts = [
-                            (v.index, v.co.copy())
-                            for v in bm.verts
-                            if any(f in selected_faces for f in v.link_faces)
-                        ]
-                        edges = [
-                            (e.verts[0].index, e.verts[1].index)
-                            for e in bm.edges
-                            if any(f in selected_faces for f in e.link_faces)
-                        ]
-                        faces = [[v.index for v in f.verts] for f in selected_faces]
-                        operation = "DIFFERENCE"
-                    case _:
-                        operation = "DIFFERENCE"
+            match mode:
+                case "UNION":
+                    operation = "UNION"
+                case "CUT":
+                    operation = "DIFFERENCE"
+                case "INTERSECT":
+                    operation = "INTERSECT"
+                case "SLICE":
+                    selected_faces = [f for f in bm.faces if f.select]
+                    facet.solidify(bm, selected_faces)
+                    self.update_bmesh(
+                        obj, bm, loop_triangles=True, destructive=True
+                    )
+                    operation = "DIFFERENCE"
+                case "CARVE":
+                    selected_faces = [f for f in bm.faces if f.select]
+                    verts = [
+                        (v.index, v.co.copy())
+                        for v in bm.verts
+                        if any(f in selected_faces for f in v.link_faces)
+                    ]
+                    edges = [
+                        (e.verts[0].index, e.verts[1].index)
+                        for e in bm.edges
+                        if any(f in selected_faces for f in e.link_faces)
+                    ]
+                    faces = [[v.index for v in f.verts] for f in selected_faces]
+                    operation = "DIFFERENCE"
+                case _:
+                    operation = "DIFFERENCE"
 
-                solver = addon.pref().tools.block.align.solver
-                bpy.ops.mesh.intersect_boolean(
-                    operation=operation,
-                    use_swap=False,
-                    use_self=False,
-                    threshold=1e-06,
-                    solver=solver,
-                )
+            solver = addon.pref().tools.block.align.solver
+            bpy.ops.mesh.intersect_boolean(
+                operation=operation,
+                use_swap=False,
+                use_self=False,
+                threshold=1e-06,
+                solver=solver,
+            )
+            self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+
+            if mode == "CARVE":
+                vert_map = {}
+                for old_idx, co in verts:
+                    new_v = bm.verts.new(co)
+                    vert_map[old_idx] = new_v
+                bm.verts.index_update()
+
+                for v1_idx, v2_idx in edges:
+                    if v1_idx in vert_map and v2_idx in vert_map:
+                        bm.edges.new((vert_map[v1_idx], vert_map[v2_idx]))
+
+                for f_verts in faces:
+                    if all(idx in vert_map for idx in f_verts):
+                        bm.faces.new([vert_map[idx] for idx in f_verts])
+
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-
-                if mode == "CARVE":
-                    vert_map = {}
-                    for old_idx, co in verts:
-                        new_v = bm.verts.new(co)
-                        vert_map[old_idx] = new_v
-                    bm.verts.index_update()
-
-                    for v1_idx, v2_idx in edges:
-                        if v1_idx in vert_map and v2_idx in vert_map:
-                            bm.edges.new((vert_map[v1_idx], vert_map[v2_idx]))
-
-                    for f_verts in faces:
-                        if all(idx in vert_map for idx in f_verts):
-                            bm.faces.new([vert_map[idx] for idx in f_verts])
-
-                    self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     def execute(self, context):
         """F9 redo path: build cutter without boolean so rotate/scale
@@ -601,7 +580,7 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def _translate_modal(self, context, event):
         super()._translate_modal(context, event)
-        if self.state.volume != "3D" or self.config.mode == "ADD":
+        if not self.is_3d or self.config.mode == "ADD":
             return
         # 3D cut/slice/etc.: fold live delta into the draw matrix temporarily,
         # rebuild the cutter, then boolean — revert after. We must also
@@ -621,7 +600,7 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def _rotate_modal(self, context, event):
         super()._rotate_modal(context, event)
-        if self.state.volume != "3D" or self.config.mode == "ADD":
+        if not self.is_3d or self.config.mode == "ADD":
             return
         ro = self.data.transform.rotate
         lock = self.data.transform.axis_lock
@@ -644,7 +623,7 @@ class BOUT_OT_BlockMeshTool(Block):
 
     def _scale_modal(self, context, event):
         super()._scale_modal(context, event)
-        if self.state.volume != "3D" or self.config.mode == "ADD":
+        if not self.is_3d or self.config.mode == "ADD":
             return
         sc = self.data.transform.scale
         saved = tuple(self.pref.scale_factor)
@@ -661,7 +640,9 @@ class BOUT_OT_BlockMeshTool(Block):
     def _finish(self, context):
         if not self.state.is_bisect:
             if self.config.mode != "ADD":
-                if self.shape.volume == "2D":
+                # 2D-final shapes need a raycast-driven extrude here to
+                # turn the flat cutter into a 3D volume before booleaning.
+                if not self.is_3d:
                     extrude.uniform(self, context)
                     self._boolean(self.pref.mode, self.data.obj, self.data.bm)
 

@@ -10,8 +10,6 @@ from ...utils.types import DrawMatrix
 
 @dataclass
 class Config:
-    """Dataclass for storing options"""
-
     shape: str = "RECTANGLE"
     mode: str = "ADD"
     type: str = "OBJECT"
@@ -25,19 +23,13 @@ MODIFY = {"BEVEL", "TRANSLATE", "ROTATE", "SCALE"}
 
 @dataclass
 class ModalState:
-    """Runtime modal state.
-
-    `phase` is the currently-active sub-state, one of:
+    """``phase`` is one of:
       - CREATE stages: "DRAW", "EDIT", "EXTRUDE"
       - MODIFY detours: "BEVEL", "TRANSLATE", "ROTATE", "SCALE"
-      - "BISECT" when the op runs in bisect mode (overrides the pipeline)
-
-    `is_create` / `is_modify` / `is_bisect` classify the current phase.
+      - "BISECT" overrides the pipeline
     """
 
     phase: str = "DRAW"
-    volume: str = "2D"
-    spine_index: int = 0
 
     @property
     def is_create(self) -> bool:
@@ -51,36 +43,17 @@ class ModalState:
     def is_bisect(self) -> bool:
         return self.phase == "BISECT"
 
-# Per-shape pipeline of CREATE stages, ordered. Advance walks this list on
-# LMB-release from DRAW/EDIT or LMB-press from EXTRUDE/MODIFY. Finalize when
-# past the end. MODIFY is a user-triggered detour (via B/G/R/S), not a stage.
-SPINE = {
-    "RECTANGLE": [("DRAW", "2D")],
-    "TRIANGLE": [("DRAW", "2D")],
-    "CIRCLE": [("DRAW", "2D")],
-    "NGON": [("DRAW", "2D"), ("EDIT", "2D")],
-    "BOX": [("DRAW", "2D"), ("EXTRUDE", "3D")],
-    "CYLINDER": [("DRAW", "2D"), ("EXTRUDE", "3D")],
-    "PRISM": [("DRAW", "2D"), ("EXTRUDE", "3D")],
-    "NHEDRON": [("DRAW", "2D"), ("EDIT", "2D"), ("EXTRUDE", "3D")],
-    "CORNER": [("DRAW", "2D"), ("EXTRUDE", "3D")],
-    "SPHERE": [("DRAW", "3D")],
-}
-
 @dataclass
 class Draw:
-    """Dataclass for storing options"""
-
     matrix: DrawMatrix = field(default_factory=DrawMatrix)
     faces: list = field(default_factory=list)  # f.index
     verts: list = field(default_factory=list)
-    symmetry: tuple = (False, False)
+    # Per-axis snap flags detected at invoke; not user-controlled symmetry.
+    axis_snap: tuple = (False, False)
     corner: Vector = field(default_factory=Vector)
 
 @dataclass
 class BevelType:
-    """Dataclass for storing options"""
-
     enable: bool = False
     offset: float = 0.0
     offset_stored: float = 0.0
@@ -89,8 +62,6 @@ class BevelType:
 
 @dataclass
 class Bevel:
-    """Dataclass for storing options"""
-
     origin: Vector = field(default_factory=Vector)
     round: BevelType = field(default_factory=BevelType)
     fill: BevelType = field(default_factory=BevelType)
@@ -100,23 +71,17 @@ class Bevel:
 
 @dataclass
 class Bisect:
-    """Dataclass for storing options"""
-
     plane: tuple = field(default_factory=lambda: (Vector(), Vector()))
     mode: str = "CUT"
     flip: bool = False
 
 @dataclass
 class ExtrudeEdge:
-    """Dataclass for storing options"""
-
     index: int = -1
     position: str = "MID"
 
 @dataclass
 class Extrude:
-    """Dataclass for storing options"""
-
     origin: Vector = field(default_factory=Vector)
     verts: list = field(default_factory=list)  # list[DrawVert]
     edges: list = field(default_factory=list)  # list[ExtrudeEdge]
@@ -126,11 +91,8 @@ class Extrude:
 
 @dataclass
 class Translate:
-    """Per-session translate-modify state.
-
-    mouse_invoke is the 2D mouse position at sub-op entry; anchor resets
-    (on axis-lock change) rewind to it so the full mouse travel since
-    invoke gets re-projected by the new rule, matching Blender.
+    """``mouse_invoke`` is the 2D mouse at sub-op entry; axis-lock resets
+    rewind to it so the full travel re-projects by the new rule.
     """
 
     delta: Vector = field(default_factory=Vector)
@@ -142,8 +104,6 @@ class Translate:
 
 @dataclass
 class Rotate:
-    """Per-session rotate-modify state."""
-
     angle: float = 0.0
     angle_stored: float = 0.0
     pivot: Vector = field(default_factory=Vector)
@@ -155,8 +115,6 @@ class Rotate:
 
 @dataclass
 class Scale:
-    """Per-session scale-modify state."""
-
     factor: Vector = field(default_factory=lambda: Vector((1.0, 1.0, 1.0)))
     factor_stored: Vector = field(default_factory=lambda: Vector((1.0, 1.0, 1.0)))
     pivot: Vector = field(default_factory=Vector)
@@ -167,28 +125,22 @@ class Scale:
 
 @dataclass
 class Transform:
-    """Shared modify-layer state.
-
-    axis_lock persists across G/R/S sub-op switches within a single MODIFY stage.
-    axis_lock_exclude follows Blender's convention: False means constrain TO the
-    chosen axis (pressed X alone); True means lock the chosen axis and move
-    along the others (Shift+X). Rotate ignores axis_lock_exclude.
-
-    The plane basis itself lives on Plane (origin/normal/direction) and is
-    stable across modal frames — sub-ops read it via ``common.plane_basis``.
+    """``axis_lock_exclude`` follows Blender's convention: False = constrain
+    TO the chosen axis (X), True = lock that axis and move the others
+    (Shift+X). Rotate ignores ``axis_lock_exclude``.
     """
 
     active: str = ""
     axis_lock: str = ""
     axis_lock_exclude: bool = False
+    # Stashed CREATE phase; restored on modify commit.
+    origin_phase: str = ""
     translate: Translate = field(default_factory=Translate)
     rotate: Rotate = field(default_factory=Rotate)
     scale: Scale = field(default_factory=Scale)
 
 @dataclass
 class Copy:
-    """Dataclass for storing options"""
-
     init: bpy.types.Mesh = None
     draw: bpy.types.Mesh = None
     boolean: bpy.types.Mesh = None
@@ -196,8 +148,6 @@ class Copy:
 
 @dataclass
 class CreatedData:
-    """Dataclass for storing all operation data"""
-
     obj: bpy.types.Object = None
     bm: bmesh.types.BMesh = None
     copy: Copy = field(default_factory=Copy)
@@ -210,8 +160,6 @@ class CreatedData:
 
 @dataclass
 class Objects:
-    """Dataclass for storing object references"""
-
     active: bpy.types.Object = None
     selected: list = field(default_factory=list)
     created: bpy.types.Object = None
@@ -220,24 +168,18 @@ class Objects:
 
 @dataclass
 class Modifier:
-    """Dataclass for storing modifier references"""
-
     obj: bpy.types.Object = None
     mod: bpy.types.Modifier = None
     type: str = ""
 
 @dataclass
 class Modifiers:
-    """Dataclass for storing multiple modifier references"""
-
     booleans: list = field(default_factory=list)
     bevels: list = field(default_factory=list)
     welds: list = field(default_factory=list)
 
 @dataclass
 class Mouse:
-    """Dataclass for tracking mouse positions."""
-
     init: Vector = field(default_factory=Vector)
     extrude: Vector = field(default_factory=Vector)
     bevel: Vector = field(default_factory=Vector)
@@ -247,45 +189,112 @@ class Mouse:
     scale: Vector = field(default_factory=Vector)
     co: Vector = field(default_factory=Vector)
 
-class Corner(bpy.types.PropertyGroup):
-    """PropertyGroup for storing corner data"""
 
+@dataclass(frozen=True, slots=True)
+class BevelInfo:
+    """Per-shape bevel behaviour. ``None`` on a shape disables BEVEL entirely.
+
+      ``type``           bevel.type set on first entry, or None to leave alone.
+      ``toggles``        re-entering BEVEL flips ROUND ↔ FILL.
+      ``after_extrude``  EXTRUDE is fixed-depth — jump straight to BEVEL.
+      ``needs_3d``       BEVEL no-ops until the cutter is 3D.
+    """
+
+    type: str | None = None
+    toggles: bool = False
+    after_extrude: bool = False
+    needs_3d: bool = False
+
+
+class ShapeBase(bpy.types.PropertyGroup):
+    """Per-shape behavioural attributes:
+
+      ``stages``                 ordered CREATE phases this shape walks.
+      ``volumetric``             True iff DRAW yields 3D geometry.
+      ``bevel``                  per-shape bevel policy, or None to disable.
+      ``draw_editable_indices``  numeric-input indices during DRAW.
+    """
+
+    stages = ()
+    volumetric = False
+    bevel = BevelInfo()
+    draw_editable_indices = ()
+
+    @property
+    def cutter_buffer_mult(self):
+        """2.0 for 2D-final cutters (DRAW-only, non-volumetric); 1.0 otherwise."""
+        return 1.0 if "EXTRUDE" in self.stages or self.volumetric else 2.0
+
+    def next_phase(self, phase):
+        try:
+            idx = self.stages.index(phase)
+        except ValueError:
+            return None
+        return self.stages[idx + 1] if idx + 1 < len(self.stages) else None
+
+
+class NgonPoint(bpy.types.PropertyGroup):
     co: bpy.props.FloatVectorProperty(
-        name="Corner",
-        description="Corner coordinates",
+        name="Co",
+        description="Vertex coordinate",
+        size=3,
+        default=(0, 0, 0),
+        subtype="XYZ_LENGTH",
+    )
+
+
+class Rectangle(ShapeBase):
+    stages = ("DRAW",)
+    bevel = BevelInfo(type="ROUND")
+    draw_editable_indices = (0, 1)
+
+    size: bpy.props.FloatVectorProperty(
+        name="Size",
+        description="Rectangle XY dimensions",
         size=2,
         default=(0, 0),
         subtype="XYZ_LENGTH",
     )
-    min: bpy.props.FloatProperty(
-        name="Rotation",
-        description="Rotation",
-        default=math.radians(0),
-        subtype="ANGLE",
-    )
-    max: bpy.props.FloatProperty(
-        name="Rotation",
-        description="Rotation",
-        default=math.radians(0),
-        subtype="ANGLE",
+    symmetry_x: bpy.props.BoolProperty(name="X", description="Symmetry X", default=False)
+    symmetry_y: bpy.props.BoolProperty(name="Y", description="Symmetry Y", default=False)
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Cutter depth (auto-promoted)", default=0.0, subtype="DISTANCE"
     )
 
-class Rectangle(bpy.types.PropertyGroup):
-    """PropertyGroup for storing rectangle data"""
 
-    co: bpy.props.FloatVectorProperty(
-        name="Rectangle",
-        description="Rectangle coordinates",
+class Box(ShapeBase):
+    stages = ("DRAW", "EXTRUDE")
+    bevel = BevelInfo(toggles=True)
+    draw_editable_indices = (0, 1)
+
+    size: bpy.props.FloatVectorProperty(
+        name="Size",
+        description="Box base XY dimensions",
         size=2,
         default=(0, 0),
         subtype="XYZ_LENGTH",
     )
+    symmetry_x: bpy.props.BoolProperty(name="X", description="Symmetry X", default=False)
+    symmetry_y: bpy.props.BoolProperty(name="Y", description="Symmetry Y", default=False)
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Extrude depth", default=0.0, subtype="DISTANCE"
+    )
+    symmetry_extrude: bpy.props.BoolProperty(
+        name="Z", description="Symmetry Z", default=False
+    )
 
-class Triangle(bpy.types.PropertyGroup):
-    """PropertyGroup for storing triangle data"""
+
+class Triangle(ShapeBase):
+    stages = ("DRAW",)
+    bevel = BevelInfo(type="ROUND")
+    draw_editable_indices = (0, 1)
 
     flip: bpy.props.BoolProperty(name="Flip", description="Flip", default=False)
-    symmetry: bpy.props.BoolProperty(name="H", description="Symmetry", default=True)
+    equilateral: bpy.props.BoolProperty(
+        name="Equilateral",
+        description="Equilateral (vs right-angle) triangle",
+        default=True,
+    )
     height: bpy.props.FloatProperty(
         name="Height",
         description="Triangle height",
@@ -298,20 +307,45 @@ class Triangle(bpy.types.PropertyGroup):
         default=0.0,
         subtype="ANGLE",
     )
-
-class Ngon(bpy.types.PropertyGroup):
-    """PropertyGroup for storing ngon data"""
-
-    co: bpy.props.FloatVectorProperty(
-        name="Ngon",
-        description="Ngon coordinates",
-        size=3,
-        default=(0, 0, 0),
-        subtype="XYZ_LENGTH",
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Cutter depth (auto-promoted)", default=0.0, subtype="DISTANCE"
     )
 
-class Circle(bpy.types.PropertyGroup):
-    """PropertyGroup for storing circle data"""
+
+class Prism(ShapeBase):
+    stages = ("DRAW", "EXTRUDE")
+    bevel = BevelInfo(toggles=True)
+    draw_editable_indices = (0, 1)
+
+    flip: bpy.props.BoolProperty(name="Flip", description="Flip", default=False)
+    equilateral: bpy.props.BoolProperty(
+        name="Equilateral",
+        description="Equilateral (vs right-angle) triangle",
+        default=True,
+    )
+    height: bpy.props.FloatProperty(
+        name="Height",
+        description="Prism height",
+        default=1.0,
+        subtype="DISTANCE",
+    )
+    angle: bpy.props.FloatProperty(
+        name="Angle",
+        description="Prism angle",
+        default=0.0,
+        subtype="ANGLE",
+    )
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Extrude depth", default=0.0, subtype="DISTANCE"
+    )
+    symmetry_extrude: bpy.props.BoolProperty(
+        name="Z", description="Symmetry Z", default=False
+    )
+
+
+class Circle(ShapeBase):
+    stages = ("DRAW",)
+    draw_editable_indices = (0,)
 
     radius: bpy.props.FloatProperty(
         name="Radius", description="Circle radius", default=0.0, subtype="DISTANCE"
@@ -319,10 +353,94 @@ class Circle(bpy.types.PropertyGroup):
     verts: bpy.props.IntProperty(
         name="Verts", description="Circle Verts", default=32, min=3, max=256
     )
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Cutter depth (auto-promoted)", default=0.0, subtype="DISTANCE"
+    )
+
+
+class Cylinder(ShapeBase):
+    stages = ("DRAW", "EXTRUDE")
+    bevel = BevelInfo(type="FILL", needs_3d=True)
+    draw_editable_indices = (0,)
+
+    radius: bpy.props.FloatProperty(
+        name="Radius", description="Cylinder radius", default=0.0, subtype="DISTANCE"
+    )
+    verts: bpy.props.IntProperty(
+        name="Verts", description="Cylinder verts", default=32, min=3, max=256
+    )
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Extrude depth", default=0.0, subtype="DISTANCE"
+    )
+    symmetry_extrude: bpy.props.BoolProperty(
+        name="Z", description="Symmetry Z", default=False
+    )
+
+
+class Sphere(ShapeBase):
+    stages = ("DRAW",)
+    volumetric = True
+    bevel = None
+    draw_editable_indices = (0,)
+
+    radius: bpy.props.FloatProperty(
+        name="Radius", description="Sphere radius", default=0.0, subtype="DISTANCE"
+    )
+    subdivisions: bpy.props.IntProperty(
+        name="Subdivisions", description="Sphere subdivisions", default=3, min=1, max=32
+    )
+
+
+class Corner(ShapeBase):
+    stages = ("DRAW", "EXTRUDE")
+    bevel = BevelInfo(after_extrude=True)
+    draw_editable_indices = (0, 1)
+
+    size: bpy.props.FloatVectorProperty(
+        name="Size",
+        description="Corner XY dimensions",
+        size=2,
+        default=(0, 0),
+        subtype="XYZ_LENGTH",
+    )
+    rotation_a: bpy.props.FloatProperty(
+        name="Rotation A",
+        description="Rotation of the first corner face",
+        default=math.radians(0),
+        subtype="ANGLE",
+    )
+    rotation_b: bpy.props.FloatProperty(
+        name="Rotation B",
+        description="Rotation of the second corner face",
+        default=math.radians(0),
+        subtype="ANGLE",
+    )
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Extrude depth", default=0.0, subtype="DISTANCE"
+    )
+
+
+class Ngon(ShapeBase):
+    stages = ("DRAW", "EDIT")
+    bevel = BevelInfo(type="ROUND")
+
+    points: bpy.props.CollectionProperty(type=NgonPoint)
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Cutter depth (auto-promoted)", default=0.0, subtype="DISTANCE"
+    )
+
+
+class Nhedron(ShapeBase):
+    stages = ("DRAW", "EDIT", "EXTRUDE")
+    bevel = BevelInfo(toggles=True)
+
+    points: bpy.props.CollectionProperty(type=NgonPoint)
+    extrusion: bpy.props.FloatProperty(
+        name="Z", description="Extrude depth", default=0.0, subtype="DISTANCE"
+    )
+
 
 class Plane(bpy.types.PropertyGroup):
-    """PropertyGroup for storing plane data"""
-
     origin: bpy.props.FloatVectorProperty(
         name="Origin",
         description="Plane origin (world-space)",
@@ -348,15 +466,6 @@ class Plane(bpy.types.PropertyGroup):
         subtype="XYZ",
     )
 
-class Sphere(bpy.types.PropertyGroup):
-    """PropertyGroup for storing circle data"""
-
-    radius: bpy.props.FloatProperty(
-        name="Radius", description="Sphere radius", default=0.0, subtype="DISTANCE"
-    )
-    subd: bpy.props.IntProperty(
-        name="Subd", description="Sphere Subdivisions", default=3, min=1, max=32
-    )
 
 class BevelPrefType(bpy.types.PropertyGroup):
     enable: bpy.props.BoolProperty(name="Enable", description="Enable", default=False)
@@ -368,14 +477,10 @@ class BevelPrefType(bpy.types.PropertyGroup):
     )
 
 class BevelPref(bpy.types.PropertyGroup):
-    """PropertyGroup for storing bevel data"""
-
     round: bpy.props.PointerProperty(type=BevelPrefType)
     fill: bpy.props.PointerProperty(type=BevelPrefType)
 
 class BisectPref(bpy.types.PropertyGroup):
-    """PropertyGroup for storing bisect data"""
-
     running: bpy.props.BoolProperty(
         name="Running", description="Running", default=False
     )
@@ -389,30 +494,13 @@ class BisectPref(bpy.types.PropertyGroup):
     plane: bpy.props.PointerProperty(type=Plane)
 
 class Pref(bpy.types.PropertyGroup):
-    """PropertyGroup for storing preferences"""
-
     type: bpy.props.EnumProperty(
         name="Type",
         description="Type",
         items=[("OBJECT", "Object", "Object"), ("EDIT_MESH", "Edit Mesh", "Edit Mesh")],
         default="OBJECT",
     )
-    extrusion: bpy.props.FloatProperty(
-        name="Z", description="Z coordinates", default=0.0, subtype="DISTANCE"
-    )
-    symmetry_extrude: bpy.props.BoolProperty(
-        name="Z", description="Symmetry Z", default=False
-    )
-    symmetry_draw_x: bpy.props.BoolProperty(
-        name="X", description="Symmetry X", default=False
-    )
-    symmetry_draw_y: bpy.props.BoolProperty(
-        name="Y", description="Symmetry Y", default=False
-    )
 
-    shape: bpy.props.StringProperty(
-        name="Shape", description="Shape", default="RECTANGLE"
-    )
     mode: bpy.props.StringProperty(name="Mode", description="Mode", default="ADD")
 
     offset: bpy.props.FloatProperty(
@@ -459,8 +547,6 @@ class Pref(bpy.types.PropertyGroup):
         name="Detected", description="Detected", default=""
     )
 
-    ngon: bpy.props.CollectionProperty(type=Ngon)
-
     reveal: bpy.props.BoolProperty(name="Reveal", description="Reveal", default=False)
 
     rotate_x: bpy.props.FloatProperty(
@@ -490,22 +576,48 @@ class Pref(bpy.types.PropertyGroup):
     )
 
 class Shape(bpy.types.PropertyGroup):
-    volume: bpy.props.StringProperty(name="Volume", description="Volume", default="2D")
+    """``data`` resolves ``active`` to its sub-PG."""
+
+    active: bpy.props.StringProperty(
+        name="Active",
+        description="Active shape enum name",
+        default="RECTANGLE",
+    )
+
     rectangle: bpy.props.PointerProperty(type=Rectangle)
+    box: bpy.props.PointerProperty(type=Box)
     triangle: bpy.props.PointerProperty(type=Triangle)
-    ngon: bpy.props.PointerProperty(type=Ngon)
+    prism: bpy.props.PointerProperty(type=Prism)
     circle: bpy.props.PointerProperty(type=Circle)
+    cylinder: bpy.props.PointerProperty(type=Cylinder)
     sphere: bpy.props.PointerProperty(type=Sphere)
     corner: bpy.props.PointerProperty(type=Corner)
+    ngon: bpy.props.PointerProperty(type=Ngon)
+    nhedron: bpy.props.PointerProperty(type=Nhedron)
+
+    @property
+    def data(self):
+        name = self.active.lower()
+        pg = getattr(self, name, None)
+        if pg is None:
+            raise KeyError(
+                f"Shape.active={self.active!r}: no sub-PG named {name!r}"
+            )
+        return pg
 
 classes = (
-    Corner,
+    NgonPoint,
     Rectangle,
+    Box,
     Triangle,
-    Ngon,
+    Prism,
     Circle,
-    Plane,
+    Cylinder,
     Sphere,
+    Corner,
+    Ngon,
+    Nhedron,
+    Plane,
     BevelPrefType,
     BevelPref,
     BisectPref,

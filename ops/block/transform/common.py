@@ -64,7 +64,7 @@ def render_axis_guides(op, anchor_world):
     """
     lock = op.data.transform.axis_lock
     exclude = op.data.transform.axis_lock_exclude
-    is_2d = op.state.volume == "2D"
+    is_2d = not op.is_3d
     px, py, pz = plane_basis(op)
     rot3 = op.data.obj.matrix_world.to_3x3()
 

@@ -3,14 +3,14 @@ import bmesh
 from mathutils import Matrix, Vector
 
 
-def create(bm, plane, direction=None, subd=1, radius=None):
+def create(bm, plane, direction=None, subdivisions=1, radius=None):
     """
     Create a spherical mesh at the given location and orientation.
 
     :param bm: The bmesh object to modify.
     :param plane: A tuple (location, normal) defining the orientation and center.
     :param direction: Optional direction vector to define the orientation. If None, one will be generated.
-    :param subd: Number of subdivisions (0 gives 6 faces/cube, 1 gives 24 faces, higher values give more detail).
+    :param subdivisions: Number of subdivisions (0 gives 6 faces/cube, 1 gives 24 faces, higher values give more detail).
     :param radius: The radius of the sphere. Defaults to 1.0.
     :return: List of Vert objects making up the sphere.
     """
@@ -47,7 +47,7 @@ def create(bm, plane, direction=None, subd=1, radius=None):
     cube_verts = result["verts"]
 
     # Step 2: Subdivide the cube if needed to get more detail
-    if subd > 0:
+    if subdivisions > 0:
         # Get all edges from the created cube
         edges = []
         for v in cube_verts:
@@ -56,7 +56,7 @@ def create(bm, plane, direction=None, subd=1, radius=None):
 
         # Subdivide the cube
         subd_result = bmesh.ops.subdivide_edges(
-            bm, edges=edges, cuts=subd, use_grid_fill=True
+            bm, edges=edges, cuts=subdivisions, use_grid_fill=True
         )
 
         for f in subd_result["geom"]:

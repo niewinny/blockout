@@ -20,7 +20,7 @@ def _axis_local(op):
     """Rotation axis in object-local space, resolved against the draw plane."""
     lock = op.data.transform.axis_lock
     x, y, z = common.plane_basis(op)
-    if op.state.volume == "2D":
+    if not op.is_3d:
         return z
     if lock == "X":
         return x
@@ -71,7 +71,7 @@ def _compute_angle(op, context):
     ro = op.data.transform.rotate
 
     lock = op.data.transform.axis_lock
-    trackball = op.state.volume == "3D" and lock not in {"X", "Y", "Z"}
+    trackball = op.is_3d and lock not in {"X", "Y", "Z"}
     if trackball:
         view_up = (rv3d.view_rotation @ Vector((0.0, 1.0, 0.0))).normalized()
         view_right = (rv3d.view_rotation @ Vector((1.0, 0.0, 0.0))).normalized()
@@ -194,7 +194,7 @@ def _ui(op, context):
     # 2D always rotates about plane Z. 3D axis-locked draws that axis.
     # 3D free (trackball) → no axis line (no single rotation axis).
     lock = op.data.transform.axis_lock
-    is_2d = op.state.volume == "2D"
+    is_2d = not op.is_3d
     if is_2d:
         active = "Z"
     elif lock in {"X", "Y", "Z"}:
@@ -217,10 +217,17 @@ def _ui(op, context):
     if op.data.numeric_input.active:
         op.ui.interface.callback.clear()
     else:
+        # Anchor the label at the live cutter centroid so it tracks the
+        # rotated geometry rather than the invoke-time pivot.
+        live_pivot = common.pivot_local(op)
+        anchor_world = matrix_world @ live_pivot if live_pivot is not None else pivot_world
+        label_2d = view3d.location_3d_to_region_2d(
+            region, rv3d, anchor_world, default=op.mouse.co
+        )
         deg = math.degrees(ro.angle)
-        axis_label = lock if lock else ("Z" if op.state.volume == "2D" else "Free")
+        axis_label = lock if lock else ("Z" if not op.is_3d else "Free")
         text = (f"Rotate {axis_label}", f"{deg:.2f}°")
-        lines = [{"point": pivot_2d, "text_tuple": text}]
+        lines = [{"point": label_2d, "text_tuple": text}]
         op.ui.interface.callback.update_batch(lines)
 
 
@@ -233,7 +240,7 @@ def commit(op):
     """
     ro = op.data.transform.rotate
     lock = op.data.transform.axis_lock
-    if op.state.volume == "2D":
+    if not op.is_3d:
         axis = "Z"
     elif lock in {"X", "Y", "Z"}:
         axis = lock

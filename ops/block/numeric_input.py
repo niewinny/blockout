@@ -178,7 +178,7 @@ def _get_editable_indices(op):
     """
     phase = op.state.phase
     if phase in {"TRANSLATE", "SCALE"}:
-        all_idx = [0, 1] if op.state.volume == "2D" else [0, 1, 2]
+        all_idx = [0, 1] if not op.is_3d else [0, 1, 2]
         lock_idx = _AXIS_INDEX.get(op.data.transform.axis_lock)
         if lock_idx is None:
             return all_idx
@@ -188,13 +188,7 @@ def _get_editable_indices(op):
 
     match phase:
         case "DRAW":
-            match op.config.shape:
-                case "RECTANGLE" | "BOX" | "CORNER" | "TRIANGLE" | "PRISM":
-                    return [0, 1]
-                case "CIRCLE" | "CYLINDER" | "SPHERE":
-                    return [0]
-                case _:
-                    return []
+            return list(op.shape.data.draw_editable_indices)
         case "EXTRUDE":
             return [0]
         case "BEVEL":
@@ -227,17 +221,14 @@ def _get_current_value(op):
     name = op.state.phase
 
     if name == "DRAW":
+        sd = op.shape.data
         match op.config.shape:
-            case "RECTANGLE" | "BOX":
-                return op.shape.rectangle.co[idx]
-            case "CORNER":
-                return op.shape.corner.co[idx]
+            case "RECTANGLE" | "BOX" | "CORNER":
+                return sd.size[idx]
             case "TRIANGLE" | "PRISM":
-                return op.shape.triangle.height if idx == 0 else op.shape.triangle.angle
-            case "CIRCLE" | "CYLINDER":
-                return op.shape.circle.radius
-            case "SPHERE":
-                return op.shape.sphere.radius
+                return sd.height if idx == 0 else sd.angle
+            case "CIRCLE" | "CYLINDER" | "SPHERE":
+                return sd.radius
             case _:
                 return 0.0
     if name == "EXTRUDE":
@@ -258,20 +249,17 @@ def _set_current_value(op, value):
     name = op.state.phase
 
     if name == "DRAW":
+        sd = op.shape.data
         match op.config.shape:
-            case "RECTANGLE" | "BOX":
-                op.shape.rectangle.co[idx] = value
-            case "CORNER":
-                op.shape.corner.co[idx] = value
+            case "RECTANGLE" | "BOX" | "CORNER":
+                sd.size[idx] = value
             case "TRIANGLE" | "PRISM":
                 if idx == 0:
-                    op.shape.triangle.height = value
+                    sd.height = value
                 else:
-                    op.shape.triangle.angle = value
-            case "CIRCLE" | "CYLINDER":
-                op.shape.circle.radius = value
-            case "SPHERE":
-                op.shape.sphere.radius = value
+                    sd.angle = value
+            case "CIRCLE" | "CYLINDER" | "SPHERE":
+                sd.radius = value
         return
     if name == "EXTRUDE":
         op.data.extrude.value = value

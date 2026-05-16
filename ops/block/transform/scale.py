@@ -46,7 +46,7 @@ def _axis_components(op):
     """
     lock = op.data.transform.axis_lock
     exclude = op.data.transform.axis_lock_exclude
-    is_2d = op.state.volume == "2D"
+    is_2d = not op.is_3d
 
     if lock not in {"X", "Y", "Z"}:
         return (1.0, 1.0, 0.0) if is_2d else (1.0, 1.0, 1.0)
@@ -197,16 +197,23 @@ def _ui(op, context):
     if op.data.numeric_input.active:
         op.ui.interface.callback.clear()
     else:
+        # Anchor the label at the live cutter centroid so it tracks the
+        # scaled geometry rather than the invoke-time pivot.
+        live_pivot = common.pivot_local(op)
+        anchor_world = matrix_world @ live_pivot if live_pivot is not None else pivot_world
+        label_2d = view3d.location_3d_to_region_2d(
+            region, rv3d, anchor_world, default=op.mouse.co
+        )
         lock = op.data.transform.axis_lock
         exclude = op.data.transform.axis_lock_exclude
-        is_2d = op.state.volume == "2D"
+        is_2d = not op.is_3d
         all_axes = [(0, "X"), (1, "Y")] if is_2d else [(0, "X"), (1, "Y"), (2, "Z")]
         if lock in {"X", "Y", "Z"}:
             active = [(i, n) for i, n in all_axes if n != lock] if exclude else [(i, n) for i, n in all_axes if n == lock]
         else:
             active = all_axes
         text = tuple(f"S{n.lower()}:{sc.factor[i]:.3f}" for i, n in active)
-        lines = [{"point": pivot_2d, "text_tuple": text}]
+        lines = [{"point": label_2d, "text_tuple": text}]
         op.ui.interface.callback.update_batch(lines)
 
 

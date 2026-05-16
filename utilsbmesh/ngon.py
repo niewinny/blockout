@@ -252,11 +252,14 @@ def dissolve_vert(bm, vert_index, face_index):
 
 
 def store(self):
-    """Store the ngon face"""
+    """Store the ngon face to the active shape's ``points`` collection."""
 
-    self.pref.ngon.clear()
+    sd = self.shape.data
+    if sd is None or not hasattr(sd, "points"):
+        return
+    sd.points.clear()
     if self.data.draw.faces:
         face = self.data.bm.faces[self.data.draw.faces[0]]
         for v in face.verts:
-            ngon_item = self.pref.ngon.add()
+            ngon_item = sd.points.add()
             ngon_item.co = v.co

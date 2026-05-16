@@ -67,7 +67,7 @@ def _compute_delta(op, context):
     exclude = op.data.transform.axis_lock_exclude
     basis_map = {"X": px, "Y": py, "Z": pz}
     lock_axis = basis_map.get(lock)
-    is_2d = op.state.volume == "2D"
+    is_2d = not op.is_3d
 
     # ── 2D: translate strictly on the draw plane ────────────────────────
     if is_2d:
@@ -223,7 +223,7 @@ def _ui(op, context):
     else:
         lock = op.data.transform.axis_lock
         exclude = op.data.transform.axis_lock_exclude
-        is_2d = op.state.volume == "2D"
+        is_2d = not op.is_3d
         all_axes = [(0, "X"), (1, "Y")] if is_2d else [(0, "X"), (1, "Y"), (2, "Z")]
         if lock in {"X", "Y", "Z"}:
             active = [(i, n) for i, n in all_axes if n != lock] if exclude else [(i, n) for i, n in all_axes if n == lock]

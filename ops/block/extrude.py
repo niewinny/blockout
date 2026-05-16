@@ -8,17 +8,13 @@ from . import ui as block_ui
 from .data import ExtrudeEdge
 
 
-def _corner_bevel_jump(op):
-    """``True`` when CORNER + cutter mode skips the interactive extrude
-    and routes straight to BEVEL (depth is fixed at 0.2 in invoke)."""
-    return op.config.shape == "CORNER" and op.config.mode in {"CUT", "CARVE"}
+def _bevel_jump(op):
+    """``True`` when EXTRUDE is fixed-depth and should jump straight to BEVEL."""
+    info = op.shape.data.bevel
+    return bool(info and info.after_extrude) and op.config.mode in {"CUT", "CARVE"}
 
 def invoke(op, context, event):
-    """Extrude the mesh"""
-
     op.state.phase = "EXTRUDE"
-    op.state.volume = "3D"
-    op.shape.volume = "3D"
     op.mouse.extrude = op.mouse.co
 
     region = context.region
@@ -32,11 +28,11 @@ def invoke(op, context, event):
     plane = op.data.draw.matrix.plane
     normal = op.data.draw.matrix.normal
     direction = op.data.draw.matrix.direction
-    rotations = (op.shape.corner.min, op.shape.corner.max)
+    rotations = (op.shape.corner.rotation_a, op.shape.corner.rotation_b)
     offset = op.config.align.offset
 
     shape = op.config.shape
-    skip_modal_setup = _corner_bevel_jump(op)
+    skip_modal_setup = _bevel_jump(op)
     match shape:
         case "CORNER":
             op.data.extrude.value = 0.2
@@ -47,9 +43,7 @@ def invoke(op, context, event):
             op.data.extrude.edges = [
                 ExtrudeEdge(index=mid_edge_index, position="MID")
             ]
-            # Bottom offset is the cutter buffer — only meaningful in non-ADD
-            # modes. Redo (mesh.py CORNER) reads ``pref.offset`` which is 0
-            # in ADD mode, so gate the call here to match.
+            # Only non-ADD modes use a cutter buffer; in ADD ``pref.offset`` is 0.
             if op.config.mode != "ADD":
                 corner.offset(
                     bm, extruded_faces_indexes, direction, normal, rotations, offset
@@ -120,7 +114,6 @@ def invoke(op, context, event):
     op.ui.zaxis.callback.update_batch((point1, point2))
 
 def modal(op, context, event):
-    """Set the extrusion based on mouse or numeric input."""
     obj = op.data.obj
     bm = op.data.bm
     ni = op.data.numeric_input
@@ -136,7 +129,7 @@ def modal(op, context, event):
         _, _, normal, _ = corner.normals(
             op.data.draw.matrix.direction,
             op.data.draw.matrix.normal,
-            (op.shape.corner.min, op.shape.corner.max),
+            (op.shape.corner.rotation_a, op.shape.corner.rotation_b),
         )
     else:
         normal = op.data.draw.matrix.plane[1]
@@ -144,7 +137,6 @@ def modal(op, context, event):
     region = context.region
     rv3d = context.region_data
 
-    # Only calculate from mouse when not in numeric input mode
     if not ni.active:
         matrix_world = obj.matrix_world
         line_origin = op.data.extrude.origin
@@ -170,7 +162,6 @@ def modal(op, context, event):
                     extrude = round(extrude / increments) * increments
                 op.data.extrude.value = extrude
 
-    # Update geometry using current value
     dz = op.data.extrude.value
     increments = op.config.align.increments if op.config.snap else 0.0
     offset = op.config.align.offset if op.config.mode != "ADD" else 0.0
@@ -227,8 +218,6 @@ def modal(op, context, event):
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
 def _update_ui(op, region, rv3d, point_global, dz):
-    """Update extrude UI elements."""
-
     point_2d = view3d.location_3d_to_region_2d(region, rv3d, point_global)
     lines = [
         {"point": point_2d, "text_tuple": (f"Z: {dz:.3f}",)},
@@ -236,8 +225,7 @@ def _update_ui(op, region, rv3d, point_global, dz):
     op.ui.interface.callback.update_batch(lines)
 
 def uniform(op, context):
-    """Finish 2D shapes by extruding them based on raycasting"""
-
+    """Raycast-driven extrude for 2D-final cutters."""
     obj = op.data.obj
     bm = op.data.bm
 
@@ -355,11 +343,8 @@ def uniform(op, context):
             distance = (ray.location - mid_point).length
             extrusion_candidates.append(distance)
 
-    # Pick the maximum extrusion value. ``depth`` is the target object's
-    # dimension along the cut direction (stored into pref.extrusion).
-    # ``extrusion_value`` adds ``offset`` on BOTH sides so the cut portion
-    # equals ``depth`` exactly with z-fighting buffer hanging past each
-    # target surface. Matches ``mesh.build_geometry``'s 2D-cutter logic.
+    # extrusion_value = depth + 2*offset, so the cut equals depth exactly
+    # with a z-fight buffer hanging past each target surface.
     offset = getattr(op.config.align, "offset", 0.1)
     if extrusion_candidates:
         depth = max(extrusion_candidates)
@@ -367,34 +352,21 @@ def uniform(op, context):
         depth = 0.1
     extrusion_value = depth + 2.0 * offset
 
-    # Perform the extrusion
     if extrusion_value > 0:
-        # Store current face selection state
         was_selected = face.select
 
         # Lift the 2D face by +offset (z-fighting buffer) so the extrude
         # direction produces total Z span of depth + offset.
         facet.set_z(face, normal, offset)
-
-        # Extrude the face by the effective magnitude (includes offset).
         extruded_faces = facet.extrude(bm, face, plane, -extrusion_value)
 
-        # Update shape volume to 3D
-        op.shape.volume = "3D"
-        op.state.volume = "3D"
-
-        # Update extrude data. Store the user-intended depth (without the
-        # offset extension) in pref so F9 rebuild via build_geometry
-        # applies the offset extension consistently.
+        # Persist raw depth (without buffer) so F9 rebuild re-applies the buffer.
         op.data.extrude.value = -depth
         op.data.extrude.faces = extruded_faces
+        op.shape.data.extrusion = -depth
 
-        op.pref.extrusion = -depth
-
-        # Restore selection if needed
         if was_selected:
             for face_idx in extruded_faces:
                 bm.faces[face_idx].select_set(True)
 
-        # Update the mesh
         op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)

@@ -9,6 +9,17 @@ from ...utils.types import DrawMatrix
 from ...utilsbmesh import orientation
 
 
+def _apply_axis_snap(op, detected_axis):
+    """Cache the detected (snap_x, snap_y) tuple and seed it into the
+    active shape's ``symmetry_x``/``symmetry_y`` when present, so pulling
+    along an axis enables mirror symmetry there.
+    """
+    op.data.draw.axis_snap = detected_axis
+    sd = op.shape.data
+    if hasattr(sd, "symmetry_x"):
+        sd.symmetry_x, sd.symmetry_y = detected_axis
+
+
 def _resolve_face_index(op, hit_bm, hit_obj_eval, hit_data):
     """Safely get face or return fallback orientation for instanced objects"""
 
@@ -124,8 +135,8 @@ def edge_orientation(op, context):
     )
 
     if hit_face is None:
-        op.shape.corner.min = 0.0
-        op.shape.corner.max = 0.0
+        op.shape.corner.rotation_a = 0.0
+        op.shape.corner.rotation_b = 0.0
         return fallback_direction, fallback_plane
 
     matrix = op.ray.obj.matrix_world
@@ -159,7 +170,7 @@ def edge_orientation(op, context):
     world_normal = matrix.to_3x3() @ normal_local
     world_normal.normalize()
     plane_world = (point_on_edge, world_normal)
-    op.shape.corner.min = 0.0
+    op.shape.corner.rotation_a = 0.0
 
     direction_world.normalize()
 
@@ -181,7 +192,7 @@ def edge_orientation(op, context):
     if cross_product.dot(direction_world) < 0:
         angle = -angle
 
-    op.shape.corner.max = angle
+    op.shape.corner.rotation_b = angle
 
     hit_bm.free()
     del hit_obj_eval
@@ -216,7 +227,7 @@ def custom_orientation(op, context):
         region, rv3d, custom_plane, custom_direction, location_world, distance=30
     )
 
-    op.data.draw.symmetry = detected_axis
+    _apply_axis_snap(op, detected_axis)
 
     axis = context.scene.bout.axis
     axis.highlight.x, axis.highlight.y = detected_axis
@@ -255,7 +266,7 @@ def world_orientation(op, context):
         region, rv3d, world_plane, world_direction, location_world, distance=30
     )
 
-    op.data.draw.symmetry = detected_axis
+    _apply_axis_snap(op, detected_axis)
 
     axis = context.scene.bout.axis
     axis.highlight.x, axis.highlight.y = detected_axis

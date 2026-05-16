@@ -31,7 +31,7 @@ def modal(op, context, event):
     direction = op.data.draw.matrix.direction
     matrix_world = obj.matrix_world
     [bm.faces[i] for i in op.data.draw.faces]
-    symmetry = op.data.draw.symmetry
+    axis_snap = op.data.draw.axis_snap
 
     mouse = op.mouse.co
 
@@ -211,7 +211,7 @@ def modal(op, context, event):
                     mouse_point_on_plane,
                     direction,
                     snap_value=increments,
-                    symmetry=symmetry,
+                    symmetry=axis_snap,
                 )
                 # Update the stored position
                 op.data.draw.verts[index].co = bm.verts[op.edit_point].co.copy()
@@ -223,7 +223,7 @@ def modal(op, context, event):
                     mouse_point_on_plane,
                     direction,
                     snap_value=increments,
-                    symmetry=symmetry,
+                    symmetry=axis_snap,
                 )
                 # Update the stored position
                 op.data.draw.verts[index].co = bm.verts[op.edit_point].co.copy()

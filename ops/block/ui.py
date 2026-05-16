@@ -7,8 +7,6 @@ from ...utils import addon, infobar
 
 @dataclass
 class DrawUI(handle.Common):
-    """Dataclass for the UI  drawing"""
-
     xaxis: handle.Line = field(default_factory=handle.Line)
     yaxis: handle.Line = field(default_factory=handle.Line)
     zaxis: handle.Line = field(default_factory=handle.Line)
@@ -29,7 +27,6 @@ class DrawUI(handle.Common):
         self.clear_all()
 
     def clear_higlight(self):
-        """Clear axis highlight"""
         axis = bpy.context.scene.bout.axis
         axis.highlight.x, axis.highlight.y = (False, False)
 
@@ -50,8 +47,6 @@ def clear_phase(op):
     op.ui.interface.callback.clear()
 
 def setup(self, context):
-    """Setup the UI drawing"""
-
     color = addon.pref().theme.axis
     self.ui.zaxis.create(context, color=color.z)
     self.ui.xaxis.create(context, color=color.x)
@@ -94,8 +89,6 @@ def setup(self, context):
     self.ui.interface.create(context, lines=lines)
 
 def update(self, context, event):
-    """Update the UI including infobar and viewport"""
-    # Redraw the infobar with updated hotkeys
     infobar.draw(context, event, self._infobar, blank=True)
 
 _PHASE_LABEL = {
@@ -111,38 +104,31 @@ _PHASE_LABEL = {
 
 
 def _hk(row, factor, text, icon):
-    """Emit one hotkey label + separator."""
     row.label(text=text, icon=icon)
     row.separator(factor=factor)
 
 
 def _shape_specific(row, factor, op, name, is_draw):
-    """Phase-specific hotkeys that use X/Y/Z/F/S for non-transform purposes.
-
-    These are the keys that ``_handle_axis_key`` and the F handler map to
-    shape-specific toggles (symmetry, flip, delete) during CREATE phases.
-    In EXTRUDE, Z toggles extrude-symmetry regardless of shape.
-    """
-    shape = op.config.shape
+    """Phase-specific hotkeys (X/Y/Z/F/S). EXTRUDE: Z toggles extrude-symmetry."""
+    sd = op.shape.data
     if is_draw:
-        if shape in {"RECTANGLE", "BOX"}:
+        if hasattr(sd, "symmetry_x"):
             _hk(row, factor, "X Symmetry", "EVENT_X")
             _hk(row, factor, "Y Symmetry", "EVENT_Y")
-        elif shape in {"TRIANGLE", "PRISM"}:
+        elif hasattr(sd, "flip"):
             _hk(row, factor, "X Symmetry", "EVENT_X")
             _hk(row, factor, "Flip", "EVENT_F")
-        if shape in {"BOX", "PRISM", "CYLINDER"}:
+        if hasattr(sd, "symmetry_extrude"):
             _hk(row, factor, "Z Symmetry", "EVENT_Z")
-        if shape == "SPHERE":
+        if hasattr(sd, "subdivisions"):
             _hk(row, factor, "Subd", "EVENT_S")
-    if name == "EDIT" and shape in {"NGON", "NHEDRON"}:
+    if name == "EDIT" and hasattr(sd, "points"):
         _hk(row, factor, "Delete", "EVENT_X")
     if name == "EXTRUDE":
         _hk(row, factor, "Z Symmetry", "EVENT_Z")
 
 
 def hotkeys(self, layout, _context, _event):
-    """Draw the infobar hotkeys for the current modal phase."""
     factor = 4.0
     row = layout.row(align=True)
 
@@ -159,7 +145,6 @@ def hotkeys(self, layout, _context, _event):
     is_draw = name == "DRAW"
     is_modify = self.state.is_modify
 
-    # Base row: phase label + primary pointer / confirm keys.
     _hk(row, factor, _PHASE_LABEL.get(name, name.capitalize()), "MOUSE_MOVE")
     _hk(row, factor, "Extrude" if is_draw else "Finish", "MOUSE_LMB")
     _hk(row, factor, "Cancel", "MOUSE_RMB")
@@ -175,10 +160,11 @@ def hotkeys(self, layout, _context, _event):
     if not is_modify:
         _shape_specific(row, factor, self, name, is_draw)
 
+    sd = self.shape.data
     # BEVEL owns B (round/fill) and S (segments); no "Bevel"/"Scale"
     # hotkey hint here to avoid confusion.
     if name == "BEVEL":
-        if self.config.shape in {"BOX", "NHEDRON", "PRISM"}:
+        if sd.bevel and sd.bevel.toggles:
             label = "Round" if self.data.bevel.type == "FILL" else "Fill"
             _hk(row, factor, f"Bevel:{label}", "EVENT_B")
         if self.data.bevel.mode == "OFFSET":
@@ -187,20 +173,19 @@ def hotkeys(self, layout, _context, _event):
         # B enters BEVEL sub-op in all non-BEVEL, non-BISECT phases.
         _hk(row, factor, "Bevel", "EVENT_B")
 
-    # G/R/S enter the corresponding MODIFY sub-op. Skip the current one
-    # when already in it. In BEVEL, S is segments — handled above.
-    # SPHERE's DRAW already uses S for Subd (see _shape_specific).
+    # G/R/S enter MODIFY (skip current). S is taken by BEVEL segments and
+    # by Sphere's Subdivisions during DRAW.
     if name != "TRANSLATE":
         _hk(row, factor, "Move", "EVENT_G")
     if name != "ROTATE":
         _hk(row, factor, "Rotate", "EVENT_R")
-    s_taken = name == "BEVEL" or (is_draw and self.config.shape == "SPHERE")
+    s_taken = name == "BEVEL" or (is_draw and hasattr(sd, "subdivisions"))
     if name != "SCALE" and not s_taken:
         _hk(row, factor, "Scale", "EVENT_S")
 
     # Axis keys in MODIFY TRANSLATE/ROTATE/SCALE (Z only in 3D).
     if name in {"TRANSLATE", "ROTATE", "SCALE"}:
-        axes = ("X", "Y", "Z") if self.state.volume == "3D" else ("X", "Y")
+        axes = ("X", "Y", "Z") if self.is_3d else ("X", "Y")
         for k in axes:
             _hk(row, factor, "Axis", f"EVENT_{k}")
 

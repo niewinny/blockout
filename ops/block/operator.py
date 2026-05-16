@@ -18,7 +18,7 @@ from . import (
     ui,
 )
 from .data import (
-    SPINE,
+    CREATE,
     Config,
     CreatedData,
     ModalState,
@@ -49,42 +49,54 @@ class Block(bpy.types.Operator):
         self.edit_mode = "NONE"
         self._offset_applied = False
 
+    @property
+    def is_3d(self):
+        """True iff the cutter is 3D — volumetric shapes always, others
+        once ``extrude.faces`` has been populated.
+        """
+        sd = self.shape.data
+        if sd.volumetric:
+            return True
+        return bool(self.data.extrude.faces)
+
+    @property
+    def cutter_extrusion(self):
+        """``sd.extrusion`` or 0.0 for shapes without it (Sphere)."""
+        return getattr(self.shape.data, "extrusion", 0.0)
+
+    @property
+    def symmetry_extrude(self):
+        return bool(getattr(self.shape.data, "symmetry_extrude", False))
+
     def set_config(self, context):
-        """Set the options"""
         raise NotImplementedError("Subclasses must implement the set_options method")
 
     def get_tool_prpoerties(self):
-        """Get the tool properties"""
         self.data.bevel.round.segments = addon.pref().tools.block.form.bevel_segments
         self.data.bevel.fill.segments = addon.pref().tools.block.form.bevel_segments
-        self.shape.circle.verts = addon.pref().tools.block.form.circle_verts
+        verts = addon.pref().tools.block.form.circle_verts
+        self.shape.circle.verts = verts
+        self.shape.cylinder.verts = verts
 
     def get_object(self, context):
-        """Set the object data"""
         raise NotImplementedError("Subclasses must implement the get_object method")
 
     def build_bmesh(self, obj):
-        """Set the object data"""
         raise NotImplementedError("Subclasses must implement the get_object method")
 
     def build_geometry(self, obj, bm):
-        """Build the geometry"""
         raise NotImplementedError("Subclasses must implement the build_geometry method")
 
     def update_bmesh(self, obj, bm, loop_triangles=False, destructive=False):
-        """Update the bmesh data"""
         raise NotImplementedError("Subclasses must implement the update_bmesh method")
 
     def ray_cast(self, context):
-        """Ray cast the scene"""
         raise NotImplementedError("Subclasses must implement the ray_cast method")
 
     def _invoke(self, context, event):
-        """Invoke the operator"""
         raise NotImplementedError("Subclasses must implement the _invoke method")
 
     def draw(self, context):
-        """Draw the operator"""
         layout = self.layout
         layout.use_property_split = True
 
@@ -96,15 +108,16 @@ class Block(bpy.types.Operator):
             layout.prop(self.pref.bisect, "flip", text="Flip")
             return
 
-        shape = self.pref.shape
+        shape = self.shape.active
         match shape:
             case "RECTANGLE":
+                rect = self.shape.rectangle
                 col = layout.column(align=True)
-                col.prop(self.shape.rectangle, "co", text="Dimensions")
+                col.prop(rect, "size", text="Dimensions")
                 col = layout.column(align=True, heading="Symmetry")
                 row = col.row(align=True)
-                row.prop(self.pref, "symmetry_draw_x", toggle=True)
-                row.prop(self.pref, "symmetry_draw_y", toggle=True)
+                row.prop(rect, "symmetry_x", toggle=True)
+                row.prop(rect, "symmetry_y", toggle=True)
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
@@ -112,13 +125,14 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.round, "offset", text="")
                 row.prop(self.pref.bevel.round, "segments", text="")
             case "TRIANGLE":
+                tri = self.shape.triangle
                 col = layout.column(align=True)
-                col.prop(self.shape.triangle, "height")
-                col.prop(self.shape.triangle, "angle")
-                col = layout.column(align=True, heading="Symmetry")
+                col.prop(tri, "height")
+                col.prop(tri, "angle")
+                col = layout.column(align=True, heading="Equilateral")
                 row = col.row(align=True)
-                row.prop(self.shape.triangle, "symmetry", toggle=True)
-                col.prop(self.shape.triangle, "flip", toggle=True)
+                row.prop(tri, "equilateral", toggle=True)
+                col.prop(tri, "flip", toggle=True)
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
@@ -126,15 +140,16 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.round, "offset", text="")
                 row.prop(self.pref.bevel.round, "segments", text="")
             case "PRISM":
+                pri = self.shape.prism
                 col = layout.column(align=True)
-                col.prop(self.shape.triangle, "height")
-                col.prop(self.shape.triangle, "angle")
-                col.prop(self.pref, "extrusion", text="Z")
-                col = layout.column(align=True, heading="Symmetry")
+                col.prop(pri, "height")
+                col.prop(pri, "angle")
+                col.prop(pri, "extrusion", text="Z")
+                col = layout.column(align=True, heading="Equilateral")
                 row = col.row(align=True)
-                row.prop(self.shape.triangle, "symmetry", toggle=True)
-                col.prop(self.shape.triangle, "flip", toggle=True)
-                row.prop(self.pref, "symmetry_extrude", toggle=True)
+                row.prop(pri, "equilateral", toggle=True)
+                col.prop(pri, "flip", toggle=True)
+                row.prop(pri, "symmetry_extrude", toggle=True)
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
@@ -146,14 +161,15 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.fill, "offset", text="")
                 row.prop(self.pref.bevel.fill, "segments", text="")
             case "BOX":
+                box = self.shape.box
                 col = layout.column(align=True)
-                col.prop(self.shape.rectangle, "co", text="Dimensions")
-                col.prop(self.pref, "extrusion", text="Z")
+                col.prop(box, "size", text="Dimensions")
+                col.prop(box, "extrusion", text="Z")
                 col = layout.column(align=True, heading="Symmetry")
                 row = col.row(align=True)
-                row.prop(self.pref, "symmetry_draw_x", toggle=True)
-                row.prop(self.pref, "symmetry_draw_y", toggle=True)
-                row.prop(self.pref, "symmetry_extrude", toggle=True)
+                row.prop(box, "symmetry_x", toggle=True)
+                row.prop(box, "symmetry_y", toggle=True)
+                row.prop(box, "symmetry_extrude", toggle=True)
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
@@ -165,15 +181,17 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.fill, "offset", text="")
                 row.prop(self.pref.bevel.fill, "segments", text="")
             case "CIRCLE":
-                layout.prop(self.shape.circle, "radius", text="Radius")
-                layout.prop(self.shape.circle, "verts", text="Verts")
+                cir = self.shape.circle
+                layout.prop(cir, "radius", text="Radius")
+                layout.prop(cir, "verts", text="Verts")
                 layout.prop(self.pref, "offset", text="Offset")
             case "CYLINDER":
-                layout.prop(self.shape.circle, "radius", text="Radius")
-                layout.prop(self.pref, "extrusion", text="Dimensions Z")
+                cyl = self.shape.cylinder
+                layout.prop(cyl, "radius", text="Radius")
+                layout.prop(cyl, "extrusion", text="Dimensions Z")
                 col = layout.column(align=True, heading="Symmetry")
-                col.prop(self.pref, "symmetry_extrude", toggle=True)
-                layout.prop(self.shape.circle, "verts", text="Verts")
+                col.prop(cyl, "symmetry_extrude", toggle=True)
+                layout.prop(cyl, "verts", text="Verts")
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
@@ -181,11 +199,13 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.fill, "offset", text="")
                 row.prop(self.pref.bevel.fill, "segments", text="")
             case "SPHERE":
-                layout.prop(self.shape.sphere, "radius", text="Radius")
-                layout.prop(self.shape.sphere, "subd", text="Subdivisions")
+                sph = self.shape.sphere
+                layout.prop(sph, "radius", text="Radius")
+                layout.prop(sph, "subdivisions", text="Subdivisions")
             case "CORNER":
-                layout.prop(self.shape.corner, "co", text="Dimensions")
-                layout.prop(self.pref, "extrusion", text="Dimensions Z")
+                cor = self.shape.corner
+                layout.prop(cor, "size", text="Dimensions")
+                layout.prop(cor, "extrusion", text="Dimensions Z")
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
@@ -193,8 +213,8 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.round, "offset", text="")
                 row.prop(self.pref.bevel.round, "segments", text="")
                 col = layout.column(align=True, heading="Rotation")
-                col.prop(self.shape.corner, "min", text="Rotation Min")
-                col.prop(self.shape.corner, "max", text="Max")
+                col.prop(cor, "rotation_a", text="Rotation A")
+                col.prop(cor, "rotation_b", text="B")
             case "NGON":
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
@@ -203,8 +223,9 @@ class Block(bpy.types.Operator):
                 row.prop(self.pref.bevel.round, "offset", text="")
                 row.prop(self.pref.bevel.round, "segments", text="")
             case "NHEDRON":
+                nhe = self.shape.nhedron
                 col = layout.column(align=True)
-                col.prop(self.pref, "extrusion", text="Z")
+                col.prop(nhe, "extrusion", text="Z")
                 layout.prop(self.pref, "offset", text="Offset")
                 col = layout.column(align=True, heading="Bevel")
                 row = col.row(align=True)
@@ -243,11 +264,9 @@ class Block(bpy.types.Operator):
         context.space_data.show_gizmo_context = self.pref.transform_gizmo
 
     def _infobar(self, layout, context, event):
-        """Draw the infobar hotkeys"""
         ui.hotkeys(self, layout, context, event)
 
     def _recalculate_normals(self, bm, faces_indexes):
-        """Recalculate the normals"""
         bm.faces.ensure_lookup_table()
         faces = [
             bm.faces[index] for index in faces_indexes if 0 <= index < len(bm.faces)
@@ -256,7 +275,6 @@ class Block(bpy.types.Operator):
             bmesh.ops.recalc_face_normals(bm, faces=faces)
 
     def store_props(self):
-        """Finish the operator"""
         self.pref.bisect.plane.origin = self.data.bisect.plane[0]
         self.pref.bisect.plane.normal = self.data.bisect.plane[1]
         self.pref.bisect.flip = self.data.bisect.flip
@@ -264,10 +282,11 @@ class Block(bpy.types.Operator):
         self.pref.plane.origin = self.data.draw.matrix.location
         self.pref.plane.normal = self.data.draw.matrix.normal
         self.pref.direction = self.data.draw.matrix.direction
-        self.pref.extrusion = self.data.extrude.value
-        self.pref.symmetry_extrude = self.data.extrude.symmetry
-        self.pref.symmetry_draw_x, self.pref.symmetry_draw_y = self.data.draw.symmetry
-        self.pref.shape = self.config.shape
+        sd = self.shape.data
+        if hasattr(sd, "extrusion"):
+            sd.extrusion = self.data.extrude.value
+        if hasattr(sd, "symmetry_extrude"):
+            sd.symmetry_extrude = self.data.extrude.symmetry
         self.pref.mode = self.config.mode
         self.pref.bevel.round.enable = self.data.bevel.round.enable
         self.pref.bevel.round.offset = self.data.bevel.round.offset
@@ -280,12 +299,12 @@ class Block(bpy.types.Operator):
             self.pref.offset = self.config.align.offset
 
     def save_props(self):
-        """Store the properties"""
         addon.pref().tools.block.form.bevel_segments = self.pref.bevel.round.segments
-        addon.pref().tools.block.form.circle_verts = self.shape.circle.verts
+        verts = getattr(self.shape.data, "verts", None)
+        if verts is not None:
+            addon.pref().tools.block.form.circle_verts = verts
 
     def set_offset(self):
-        """Set the offset"""
         if self.state.is_bisect:
             return
 
@@ -321,12 +340,11 @@ class Block(bpy.types.Operator):
             return
         if self.state.phase not in {"DRAW", "EDIT"}:
             return
-        if self.state.volume != "2D":
+        if self.is_3d:
             return
         self.set_offset()
 
     def invoke(self, context, event):
-        """Start the operator"""
 
         # Exit rule: the first LMB event (press OR release) after phase
         # entry advances the spine. Second/later LMB events in the same
@@ -337,6 +355,7 @@ class Block(bpy.types.Operator):
 
         self._hide_transform_gizmo(context)
         self.config = self.set_config(context)
+        self.shape.active = self.config.shape
         self.pref.type = self.config.type
         self.get_tool_prpoerties()
 
@@ -390,7 +409,6 @@ class Block(bpy.types.Operator):
 
         if not self.state.is_bisect:
             self.state.phase = "DRAW"
-            self.state.spine_index = 0
             # Capture the draw plane's world origin as the base for local
             # translate coordinates in the F9 redo panel (see Pref.origin_local).
             self.pref.plane.origin_local = tuple(self.data.draw.matrix.location)
@@ -404,12 +422,10 @@ class Block(bpy.types.Operator):
                 self._end(context)
                 return {"CANCELLED"}
 
-            spine = SPINE.get(self.config.shape)
-            if not spine:
+            sd = self.shape.data
+            if sd is None or not getattr(sd, "stages", None):
                 self.report({"ERROR"}, f"Unknown shape: {self.config.shape}")
                 return {"CANCELLED"}
-            if spine[0][1] == "3D":
-                self.state.volume = "3D"
 
         context.window.cursor_set("SCROLL_XY")
         self._header(context)
@@ -418,8 +434,6 @@ class Block(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        """Execute the operator"""
-
         depsgraph = context.view_layer.depsgraph
         depsgraph.update()
 
@@ -539,7 +553,6 @@ class Block(bpy.types.Operator):
 
     @safe
     def modal(self, context, event):
-        """Run the operator modal"""
         if event.type == "MIDDLEMOUSE":
             return {"PASS_THROUGH"}
 
@@ -679,7 +692,8 @@ class Block(bpy.types.Operator):
                     "TRIANGLE",
                     "PRISM",
                 }:
-                    self.shape.triangle.flip = not self.shape.triangle.flip
+                    sd = self.shape.data
+                    sd.flip = not sd.flip
                     self._header(context)
                     return {"RUNNING_MODAL"}
 
@@ -696,7 +710,7 @@ class Block(bpy.types.Operator):
         MODIFY: toggle shared axis_lock (X/Y/Z) following Blender's convention.
         Press X to constrain TO X (lock Y/Z); Shift+X to lock X (free Y/Z).
         Pressing the same combo again toggles the lock off. Axes unavailable
-        in the current volume/phase are silently rejected — 2D TRANSLATE/SCALE
+        in the current stage/phase are silently rejected — 2D TRANSLATE/SCALE
         rejects Z, and 2D ROTATE rejects all axis keys (rotation is fixed to
         the plane normal). Rotate ignores the Shift modifier.
         CREATE/DRAW: legacy symmetry toggles for rectangle/box/triangle/prism,
@@ -705,7 +719,7 @@ class Block(bpy.types.Operator):
         key = event.type
 
         if self.state.is_modify:
-            is_2d = self.state.volume == "2D"
+            is_2d = not self.is_3d
             if is_2d:
                 if self.state.phase == "ROTATE":
                     # 2D rotate is always around the plane normal; X/Y/Z are no-ops.
@@ -740,22 +754,17 @@ class Block(bpy.types.Operator):
             return True
 
         if self.state.phase == "DRAW":
-            if key == "X" and self.config.shape in {"RECTANGLE", "BOX"}:
-                self.data.draw.symmetry = (
-                    not self.data.draw.symmetry[0],
-                    self.data.draw.symmetry[1],
-                )
+            sd = self.shape.data
+            if key == "X" and hasattr(sd, "symmetry_x"):
+                sd.symmetry_x = not sd.symmetry_x
                 self._header(context)
                 return True
-            if key == "X" and self.config.shape in {"TRIANGLE", "PRISM"}:
-                self.shape.triangle.symmetry = not self.shape.triangle.symmetry
+            if key == "X" and hasattr(sd, "equilateral"):
+                sd.equilateral = not sd.equilateral
                 self._header(context)
                 return True
-            if key == "Y" and self.config.shape in {"RECTANGLE", "BOX"}:
-                self.data.draw.symmetry = (
-                    self.data.draw.symmetry[0],
-                    not self.data.draw.symmetry[1],
-                )
+            if key == "Y" and hasattr(sd, "symmetry_y"):
+                sd.symmetry_y = not sd.symmetry_y
                 self._header(context)
                 return True
             if key == "Z":
@@ -800,6 +809,10 @@ class Block(bpy.types.Operator):
         if self.state.is_modify and self.state.phase != sub:
             self._commit_active_modify()
 
+        # Stash CREATE phase for restore-on-commit.
+        if self.state.phase in CREATE:
+            self.data.transform.origin_phase = self.state.phase
+
         match sub:
             case "TRANSLATE":
                 translate.invoke(self, context, event)
@@ -813,7 +826,7 @@ class Block(bpy.types.Operator):
         return True
 
     def _enter_modify_bevel(self, context, event):
-        """Enter BEVEL sub-op with shape-dependent bevel type toggling."""
+        """Enter BEVEL; ``sd.bevel_*`` flags drive type/eligibility."""
         if self.state.is_bisect:
             return None
 
@@ -823,33 +836,21 @@ class Block(bpy.types.Operator):
             self._header(context)
             context.area.tag_redraw()
 
-        if self.config.shape not in {
-            "RECTANGLE",
-            "BOX",
-            "CYLINDER",
-            "CORNER",
-            "NGON",
-            "NHEDRON",
-            "TRIANGLE",
-            "PRISM",
-        }:
+        info = self.shape.data.bevel
+        if info is None:
             return None
+
+        if info.needs_3d and not self.is_3d:
+            return True
 
         self.data.bevel.mode = "OFFSET"
 
-        if self.config.shape in {"RECTANGLE", "NGON", "TRIANGLE"}:
-            self.data.bevel.type = "ROUND"
-
-        if self.config.shape == "CYLINDER":
-            if self.state.volume == "2D":
-                return True
-            self.data.bevel.type = "FILL"
-
-        if self.config.shape in {"BOX", "NHEDRON", "PRISM"}:
-            if self.state.phase == "BEVEL":
-                self.data.bevel.type = (
-                    "ROUND" if self.data.bevel.type == "FILL" else "FILL"
-                )
+        if info.type is not None:
+            self.data.bevel.type = info.type
+        elif info.toggles and self.state.phase == "BEVEL":
+            self.data.bevel.type = (
+                "ROUND" if self.data.bevel.type == "FILL" else "FILL"
+            )
 
         if self.data.bevel.type != "ROUND":
             self.data.bevel.fill.segments = self.data.bevel.round.segments
@@ -858,6 +859,10 @@ class Block(bpy.types.Operator):
 
         if self.state.is_modify and self.state.phase != "BEVEL":
             self._commit_active_modify()
+
+        # Stash CREATE phase for restore-on-commit.
+        if self.state.phase in CREATE:
+            self.data.transform.origin_phase = self.state.phase
 
         self._bevel_invoke(context, event)
         ui.update(self, context, event)
@@ -946,7 +951,7 @@ class Block(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _edit_advance(self, context, event, value):
-        """EDIT meta state transitions, preserving legacy edit_mode sub-FSM."""
+        """EDIT meta state transitions."""
         if value == "PRESS":
             self.edit_mode = "GET"
             return {"RUNNING_MODAL"}
@@ -960,7 +965,9 @@ class Block(bpy.types.Operator):
         return self._advance_spine(context, event)
 
     def _commit_active_modify(self):
-        """Persist current modify sub-op values to pref, for redo panel."""
+        """Persist current modify sub-op values to pref, and restore
+        ``state.phase`` to the CREATE phase the detour was entered from.
+        """
         match self.state.phase:
             case "TRANSLATE":
                 translate.commit(self)
@@ -968,6 +975,9 @@ class Block(bpy.types.Operator):
                 rotate.commit(self)
             case "SCALE":
                 scale.commit(self)
+        if self.data.transform.origin_phase:
+            self.state.phase = self.data.transform.origin_phase
+            self.data.transform.origin_phase = ""
 
     def _advance_spine(self, context, event):
         """Step to the next CREATE stage for the current shape, or finalize.
@@ -982,28 +992,20 @@ class Block(bpy.types.Operator):
         """
         self._apply_offset_if_needed()
 
-        shape = self.config.shape
-        spine = SPINE.get(shape, [])
-        self.state.spine_index += 1
-        if self.state.spine_index >= len(spine):
+        sd = self.shape.data
+        next_sub = sd.next_phase(self.state.phase)
+        if next_sub is None:
             return self._finalize(context)
-
-        next_sub, next_volume = spine[self.state.spine_index]
-        self.state.volume = next_volume
 
         if next_sub == "EDIT":
             edit.invoke(self, context)
         elif next_sub == "EXTRUDE":
             self._extrude_invoke(context, event)
-            # CORNER in CUT/CARVE doesn't need a mouse-driven extrude —
-            # the depth is fixed at 0.2 by ``extrude.invoke``. Transition
-            # straight into BEVEL so the user can dial in the round on
-            # the mid edge instead. Other modes (ADD/UNION/INTERSECT/
-            # SLICE) keep the interactive extrude.
-            if (
-                self.config.shape == "CORNER"
-                and self.config.mode in {"CUT", "CARVE"}
-            ):
+            # Fixed-depth extrude: skip straight to BEVEL so the user can
+            # dial in the round on the mid edge instead. Stash EXTRUDE as
+            # origin_phase so commit's spine walk still terminates here.
+            if sd.bevel and sd.bevel.after_extrude and self.config.mode in {"CUT", "CARVE"}:
+                self.data.transform.origin_phase = "EXTRUDE"
                 self._bevel_invoke(context, event)
         else:
             self.state.phase = next_sub
@@ -1011,23 +1013,18 @@ class Block(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _finalize(self, context):
-        """Terminate the operator and persist props."""
         self.store_props()
         self.save_props()
         self._finish(context)
         return {"FINISHED"}
 
     def _finish(self, context):
-        """Finish the operator"""
         self._end(context)
 
     def _cancel(self, context):
-        """Cancel the operator"""
         self._end(context)
 
     def _end(self, context):
-        """End the operator"""
-
         self._restore_transform_gizmo(context)
 
         # Hygiene: clear modify-layer state so the next invocation starts
@@ -1059,11 +1056,9 @@ class Block(bpy.types.Operator):
         child_obj.matrix_parent_inverse = parent_world.inverted()
 
     def _header_text(self):
-        """Set the header text"""
         raise NotImplementedError("Subclasses must implement the _header method")
 
     def _header(self, context):
-        """Set the header text"""
         if self.state.is_bisect:
             header = (
                 f"Bisec: mode:{self.data.bisect.mode}, flip:{self.data.bisect.flip}"
@@ -1074,12 +1069,11 @@ class Block(bpy.types.Operator):
         text = self._header_text()
         ni = self.data.numeric_input
 
-        x_length, y_length = self.shape.rectangle.co
+        shape = self.config.shape
+        sd = self.shape.data
         z_length = self.data.extrude.value
-        radius = self.shape.circle.radius
         dimensions = ""
 
-        shape = self.config.shape
         phase = self.state.phase
         in_draw = phase == "DRAW"
 
@@ -1097,7 +1091,7 @@ class Block(bpy.types.Operator):
             tr = self.data.transform.translate
             lock = self.data.transform.axis_lock
             exclude = self.data.transform.axis_lock_exclude
-            is_2d = self.state.volume == "2D"
+            is_2d = not self.is_3d
             lock_idx = {"X": 0, "Y": 1, "Z": 2}.get(lock)
             all_axes = ["X", "Y"] if is_2d else ["X", "Y", "Z"]
             if lock:
@@ -1124,7 +1118,7 @@ class Block(bpy.types.Operator):
             text = "Rotate"
             ro = self.data.transform.rotate
             lock = self.data.transform.axis_lock
-            is_2d = self.state.volume == "2D"
+            is_2d = not self.is_3d
             # 2D rotate is always around the plane normal; lock is ignored there.
             axis_label = "Z" if is_2d else (lock if lock else "Free")
             a_str = ni.format_value(0, math.degrees(ro.angle))
@@ -1134,7 +1128,7 @@ class Block(bpy.types.Operator):
             sc = self.data.transform.scale
             lock = self.data.transform.axis_lock
             exclude = self.data.transform.axis_lock_exclude
-            is_2d = self.state.volume == "2D"
+            is_2d = not self.is_3d
             lock_idx = {"X": 0, "Y": 1, "Z": 2}.get(lock)
             all_axes = ["X", "Y"] if is_2d else ["X", "Y", "Z"]
             if lock:
@@ -1160,19 +1154,19 @@ class Block(bpy.types.Operator):
         else:
             match shape:
                 case "RECTANGLE":
+                    x_length, y_length = sd.size
                     x_str = ni.format_value(0, x_length)
                     y_str = ni.format_value(1, y_length)
                     dimensions = f" Dx:{x_str},  Dy:{y_str}"
                 case "TRIANGLE":
-                    height = self.shape.triangle.height
-                    angle = self.shape.triangle.angle
-                    h_str = ni.format_value(0, height)
-                    a_str = ni.format_value(1, angle)
+                    h_str = ni.format_value(0, sd.height)
+                    a_str = ni.format_value(1, sd.angle)
                     dimensions = f" Height:{h_str},  Angle:{a_str}"
                 case "CIRCLE":
-                    r_str = ni.format_value(0, radius)
+                    r_str = ni.format_value(0, sd.radius)
                     dimensions = f" Radius:{r_str}"
                 case "BOX":
+                    x_length, y_length = sd.size
                     if in_draw:
                         x_str = ni.format_value(0, x_length)
                         y_str = ni.format_value(1, y_length)
@@ -1183,6 +1177,7 @@ class Block(bpy.types.Operator):
                             f" Dx:{x_length:.4f},  Dy:{y_length:.4f},  Dz:{z_str}"
                         )
                 case "CYLINDER":
+                    radius = sd.radius
                     if in_draw:
                         r_str = ni.format_value(0, radius)
                         dimensions = f" Radius:{r_str},  Dz:{z_length:.4f}"
@@ -1190,8 +1185,8 @@ class Block(bpy.types.Operator):
                         z_str = ni.format_value(0, z_length)
                         dimensions = f" Radius:{radius:.4f},  Dz:{z_str}"
                 case "PRISM":
-                    height = self.shape.triangle.height
-                    angle = self.shape.triangle.angle
+                    height = sd.height
+                    angle = sd.angle
                     if in_draw:
                         h_str = ni.format_value(0, height)
                         a_str = ni.format_value(1, angle)
@@ -1204,10 +1199,10 @@ class Block(bpy.types.Operator):
                             f" Height:{height:.4f},  Angle:{angle:.4f},  Dz:{z_str}"
                         )
                 case "SPHERE":
-                    r_str = ni.format_value(0, self.shape.sphere.radius)
+                    r_str = ni.format_value(0, sd.radius)
                     dimensions = f" Radius:{r_str}"
                 case "CORNER":
-                    cx, cy = self.shape.corner.co
+                    cx, cy = sd.size
                     x_str = ni.format_value(0, cx)
                     y_str = ni.format_value(1, cy)
                     dimensions = f" Dx:{x_str},  Dy:{y_str}"
@@ -1231,11 +1226,9 @@ class Block(bpy.types.Operator):
         extrude.modal(self, context, event)
 
     def _bevel_invoke(self, context, event):
-        """Bevel the mesh"""
         bevel.invoke(self, context, event)
 
     def _bevel_modal(self, context, event):
-        """Bevel the mesh"""
         bevel.modal(self, context, event)
 
     def _translate_modal(self, context, event):
