@@ -121,6 +121,7 @@ class BOUT_PT_ShapeObj(bpy.types.Panel):
     bl_region_type = "WINDOW"
     bl_description = "Pick shape of the object\n • Box\n • Cylinder\n • Rectangle\n • Circle\n • Sphere\n • N-gon\n • N-hedron\n • Corner"
     bl_context = "objectmode"
+    bl_ui_units_x = 16
 
     def draw(self, context):
         layout = self.layout

@@ -112,6 +112,7 @@ class BOUT_PT_ShapeMesh(bpy.types.Panel):
     bl_region_type = "WINDOW"
     bl_description = "Pick shape of the object\n • Box\n • Cylinder\n • Rectangle\n • Circle\n • Sphere"
     bl_context = "editmesh"
+    bl_ui_units_x = 16
 
     def draw(self, context):
         layout = self.layout

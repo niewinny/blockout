@@ -15,24 +15,34 @@ class BOUT_OT_block_popup(bpy.types.Operator):
         block = addon.pref().tools.block
 
         layout.label(text="Shape:")
+        shapes_2d = [
+            ("RECTANGLE", "MESH_PLANE"),
+            ("NGON", "LIGHTPROBE_PLANE"),
+            ("CIRCLE", "MESH_CIRCLE"),
+            ("TRIANGLE", "MARKER"),
+        ]
         grid = layout.grid_flow(
             row_major=True, columns=4, even_columns=True, even_rows=True, align=True
         )
-        shapes = [
+        for shape, icon in shapes_2d:
+            col = grid.column(align=True)
+            col.scale_y = 1.6
+            col.prop_enum(block, "shape", shape, icon=icon)
+
+        shapes_3d = [
             ("BOX", "MESH_CUBE"),
             ("CYLINDER", "MESH_CYLINDER"),
-            ("RECTANGLE", "MESH_PLANE"),
-            ("NGON", "LIGHTPROBE_PLANE"),
             ("NHEDRON", "LIGHTPROBE_SPHERE"),
-            ("CIRCLE", "MESH_CIRCLE"),
             ("SPHERE", "MESH_UVSPHERE"),
             ("CORNER", "AREA_DOCK"),
-            ("TRIANGLE", "MARKER"),
             ("PRISM", "MESH_CONE"),
             ("", ""),
             ("", ""),
         ]
-        for shape, icon in shapes:
+        grid = layout.grid_flow(
+            row_major=True, columns=4, even_columns=True, even_rows=True, align=True
+        )
+        for shape, icon in shapes_3d:
             if shape:
                 col = grid.column(align=True)
                 col.scale_y = 1.6
