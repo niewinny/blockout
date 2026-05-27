@@ -9,7 +9,7 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
     bl_context_mode = "EDIT_MESH"
     bl_idname = "object.bout_block_mesh"
     bl_label = "BlockOut"
-    bl_description = f"v: {addon.version}\n\nDraw a mesh interactively\n • LMB - Draw a mesh\n • D - open the options Menu\n • SPACE - set custom plane to align to\n • SPACE + ALT - move custom plane"
+    bl_description = f"v: {addon.version}\n\nDraw a mesh interactively\n • LMB - Draw a mesh\n • D - open the options Menu\n • SPACE - set custom plane to align to\n • SPACE + ALT - align custom plane (modal)"
     bl_icon = (Path(__file__).parent.parent.parent / "icons" / "cat").as_posix()
     bl_keymap = (
         (
@@ -23,9 +23,9 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
             {"properties": [("mode", "SET")]},
         ),
         (
-            "object.bout_set_custom_plane",
+            "object.bout_align_custom_plane",
             {"type": "SPACE", "value": "PRESS", "alt": True},
-            {"properties": [("mode", "MOVE")]},
+            {},
         ),
         (
             "view3d.select_box",

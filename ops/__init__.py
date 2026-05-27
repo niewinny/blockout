@@ -3,6 +3,7 @@ from . import mesh
 from . import obj
 from . import tools
 from . import block
+from . import align
 
 
 class Theme(bpy.types.PropertyGroup):
@@ -27,4 +28,5 @@ classes = (
     *obj.classes,
     *block.classes,
     *tools.classes,
+    *align.classes,
 )
