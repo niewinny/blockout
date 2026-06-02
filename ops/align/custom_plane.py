@@ -1,10 +1,10 @@
 """Modal operator to interactively re-position or re-orient the custom plane.
 
 Replaces the non-modal Alt+Space "move custom plane" binding. The user aims at any
-visible mesh: the element under the cursor (vert/edge/face) is highlighted and a
-50%-alpha ghost of the plane shows where it lands when confirmed - the in-plane X/Y
-axes in the gizmo theme colours plus a blue arrow along the plane normal. It runs
-whether or not the custom plane is already on - confirming turns custom mode on.
+visible mesh: a 50%-alpha ghost of the plane shows where it lands when confirmed -
+the in-plane X/Y axes in the gizmo theme colours plus a blue arrow along the plane
+normal. It runs whether or not the custom plane is already on - confirming turns
+custom mode on.
 
 Three interactive sub-modes, cycled with Tab (starts in COMBINED):
 - MOVE     - relocate the plane to the hovered element, keep orientation.
@@ -20,20 +20,18 @@ from ...utils import addon
 from ...utils.scene import ray_cast
 from ...utils.types import DrawMatrix
 from ...utilsbmesh.orientation import set_align_rotation_from_vectors
-from ...shaders.draw import DrawPoints, DrawPolyline, DrawFace, DrawLine
+from ...shaders.draw import DrawPolyline, DrawLine
 from . import snap
 
 
-# The plane ghost uses the gizmo axis theme (X/Y in-plane, Z/blue normal arrow); the
-# hovered element gets a neutral highlight - the mode is conveyed by the status text.
+# The plane ghost uses the gizmo axis theme (X/Y in-plane, Z/blue normal arrow);
+# the mode is conveyed by the status text.
 MODE_ORDER = ("MOVE", "ROTATE", "COMBINED")
 MODE_LABEL = {
     "MOVE": "Move (position)",
     "ROTATE": "Orient (rotation)",
     "COMBINED": "Move + Orient",
 }
-HIGHLIGHT_COLOR = (1.0, 1.0, 1.0, 1.0)  # neutral hovered-element highlight
-FILL_ALPHA = 0.18  # face-highlight fill alpha
 AXIS_ALPHA = 0.5  # ghost axes use the gizmo theme hue at this alpha
 
 
@@ -144,7 +142,7 @@ class BOUT_OT_AlignCustomPlane(bpy.types.Operator):
                 element_type, element = snap.find_closest_element(
                     context, obj, ray.location, ray.index, bm
                 )
-                location, normal, direction, hi_points = snap.element_plane(
+                location, normal, direction, _ = snap.element_plane(
                     obj.matrix_world, element_type, element, ray
                 )
             finally:
@@ -158,7 +156,6 @@ class BOUT_OT_AlignCustomPlane(bpy.types.Operator):
             else:  # COMBINED - take both position and orientation from the element
                 self.preview = (location, normal, direction)
 
-            self._draw_highlight(element_type, hi_points)
             self._draw_axes()
         except Exception:
             self.preview = None
@@ -188,35 +185,17 @@ class BOUT_OT_AlignCustomPlane(bpy.types.Operator):
 
     def _setup_handlers(self, context):
         x_color, y_color, z_color = self._axis_colors()
-        self._point = DrawPoints(points=[], size=12.0, color=HIGHLIGHT_COLOR)
-        self._edge = DrawPolyline(points=[], width=2.5, color=HIGHLIGHT_COLOR)
-        self._face = DrawFace(points=[], color=(*HIGHLIGHT_COLOR[:3], FILL_ALPHA))
         self._axis_x = DrawLine(points=[], width=2.0, color=x_color)
         self._axis_y = DrawLine(points=[], width=2.0, color=y_color)
         self._normal = DrawPolyline(points=[], width=2.5, color=z_color)
 
         self._handles = []
-        for d in (self._point, self._edge, self._face, self._axis_x, self._axis_y, self._normal):
+        for d in (self._axis_x, self._axis_y, self._normal):
             self._handles.append(
                 bpy.types.SpaceView3D.draw_handler_add(
                     d.draw, (context,), "WINDOW", "POST_VIEW"
                 )
             )
-
-    def _draw_highlight(self, element_type, hi_points):
-        color = HIGHLIGHT_COLOR
-        self._point.update_batch(
-            points=[hi_points[0]] if element_type == "VERT" and hi_points else [],
-            color=color,
-        )
-        self._edge.update_batch(
-            points=[hi_points] if element_type == "EDGE" and len(hi_points) == 2 else [],
-            color=color,
-        )
-        self._face.color = (*color[:3], FILL_ALPHA)
-        self._face.update_batch(
-            points=hi_points if element_type == "FACE" and len(hi_points) >= 3 else []
-        )
 
     def _draw_axes(self):
         if self.preview is None:
@@ -241,9 +220,6 @@ class BOUT_OT_AlignCustomPlane(bpy.types.Operator):
         )
 
     def _draw_clear(self):
-        self._point.update_batch(points=[])
-        self._edge.update_batch(points=[])
-        self._face.update_batch(points=[])
         self._axis_x.update_batch(points=[])
         self._axis_y.update_batch(points=[])
         self._normal.update_batch(points=[])
