@@ -87,6 +87,15 @@ class Block(bpy.types.Operator):
     def build_geometry(self, obj, bm):
         raise NotImplementedError("Subclasses must implement the build_geometry method")
 
+    def _redo_finish(self, context, obj):
+        """Finish step for the F9-redo path, after build + pref transforms
+        (mesh is final). Mirrors the modal ``_finish``.
+
+        Base no-op; subclasses may re-frame the object. The edit-mesh tool
+        overrides execute() and never reaches it.
+        """
+        pass
+
     def update_bmesh(self, obj, bm, loop_triangles=False, destructive=False):
         raise NotImplementedError("Subclasses must implement the update_bmesh method")
 
@@ -458,6 +467,8 @@ class Block(bpy.types.Operator):
             bm.verts.ensure_lookup_table()
             cutter_verts = list(range(verts_before, len(bm.verts)))
             self._apply_pref_transforms(obj, bm, vert_indices=cutter_verts)
+            # Re-frame LAST, after _apply_pref_transforms' final bm.to_mesh.
+            self._redo_finish(context, obj)
         self.save_props()
 
         return {"FINISHED"}

@@ -5,6 +5,7 @@ import bpy
 import mathutils
 
 from ...utils import addon, collection, infobar, modifier, scene
+from ...utilsmath import geometry
 from ...utilsbmesh import (
     bmeshface,
     circle,
@@ -18,6 +19,7 @@ from ...utilsbmesh import (
 from . import bevel, boolean, draw, extrude, weld
 from .data import Config, Modifier
 from .operator import Block
+from .transform import common as transform_common
 
 class BOUT_OT_BlockObjTool(Block):
     bl_idname = "object.bout_block_obj_tool"
@@ -668,52 +670,51 @@ class BOUT_OT_BlockObjTool(Block):
                 self.data.obj.hide_set(True)
                 self.data.obj.data.shade_smooth()
 
+            self._set_origin(self.data.obj)
+
             if self.pref.reveal:
                 self._reveal_objects(context, self.data.obj)
-            
+
         super()._finish(context)
 
+    def _redo_finish(self, context, obj):
+        """F9-redo re-frame; mirrors the modal ``_finish`` placement."""
+        self._set_origin(obj)
+
     def _set_origin(self, obj):
-        bbox_corners = [mathutils.Vector(corner) for corner in obj.bound_box]
-        bbox_center = sum(bbox_corners, mathutils.Vector()) / 8
+        """Place ``obj`` with a local frame (local Z = draw-plane normal,
+        local X = draw direction) and its origin at the bounding-box center,
+        while preserving every vertex's world position.
 
-        # Create rotation matrix where Z faces normal and X faces direction
-        normal = self.pref.plane.normal.normalized()
-        direction = self.pref.direction.normalized()
+        Only ever called on a freshly drawn BlockOut object — never on a
+        bisect target or an edit-mesh host, which keep their own transform.
+        """
+        # From the mesh verts (not obj.bound_box, which can lag bm.to_mesh).
+        # Local coords == world here, since matrix_world is identity now.
+        center = geometry.bbox_center([v.co for v in obj.data.vertices])
 
-        # Ensure direction is perpendicular to normal (for X axis)
-        x_axis = direction - direction.dot(normal) * normal
-        x_axis.normalize()
+        # Shared helper guards degenerate/parallel inputs and wraps the
+        # FloatVectorProperty arrays.
+        x_axis, y_axis, z_axis = transform_common.plane_basis_from_vectors(
+            mathutils.Vector(self.pref.plane.normal),
+            mathutils.Vector(self.pref.direction),
+        )
 
-        # Y axis is the cross product of Z and X (right-handed system)
-        y_axis = normal.cross(x_axis)
-        y_axis.normalize()
-
-        # Create rotation matrix from these axes
+        # Columns are the local axes, so rot_matrix maps local -> world.
         rot_matrix = mathutils.Matrix()
         rot_matrix.col[0][:3] = x_axis
         rot_matrix.col[1][:3] = y_axis
-        rot_matrix.col[2][:3] = normal
+        rot_matrix.col[2][:3] = z_axis
         rot_matrix.col[3][:3] = (0, 0, 0)
         rot_matrix.col[3][3] = 1.0
 
-        # Store original world matrix
         original_matrix = obj.matrix_world.copy()
 
-        # Create translation to center
-        translation_to_center = mathutils.Matrix.Translation(-bbox_center)
+        # Re-frame the mesh so the object stays put once we rewrite its matrix.
+        obj.data.transform(mathutils.Matrix.Translation(-center))
+        obj.data.transform(rot_matrix.inverted())
 
-        # Create inverse rotation matrix
-        rot_matrix_inverse = rot_matrix.inverted()
-
-        # Apply translation then rotation to mesh vertices
-        obj.data.transform(translation_to_center)
-        obj.data.transform(rot_matrix_inverse)
-
-        # Update object matrix to compensate - keep visual appearance unchanged
-        # First set position to bbox center
-        obj.matrix_world = mathutils.Matrix.Translation(original_matrix @ bbox_center)
-        # Then apply the rotation
+        obj.matrix_world = mathutils.Matrix.Translation(original_matrix @ center)
         obj.matrix_world @= rot_matrix
 
     def _set_parent(self, child_obj, parent_obj):

@@ -4,6 +4,7 @@ import bmesh
 from mathutils import Vector
 
 from ...utils import view3d
+from ...utilsmath import geometry
 
 
 def modal(op, context, event):
@@ -40,7 +41,9 @@ def modal(op, context, event):
     selected_objects = op.objects.selected
 
     objs = list(set(selected_objects + [obj]))
-    bbox = _bbox_center(objs)
+    bbox = geometry.bbox_center(
+        [o.matrix_world @ Vector(v) for o in objs for v in o.bound_box]
+    )
     center_point = view3d.location_3d_to_region_2d(region, rv3d, bbox)
 
     # Calculate line direction
@@ -168,36 +171,3 @@ def _snap(op, context, precision=False):
     direction = Vector((math.cos(snapped_angle), math.sin(snapped_angle)))
     snapped_mouse_pos = op.mouse.init + direction * distance
     return snapped_mouse_pos
-
-
-def _bbox_center(objs):
-    """Return the center of the combined bounding box of multiple objects in world space."""
-    if not objs:
-        return Vector((0, 0, 0))
-
-    # Initialize bounds in world space
-    world_min = Vector((float("inf"),) * 3)
-    world_max = Vector((float("-inf"),) * 3)
-
-    for obj in objs:
-        # Get mesh bounds in world space
-        matrix_world = obj.matrix_world
-
-        # Handle object location/rotation/scale
-        for v in obj.bound_box:
-            world_vertex = matrix_world @ Vector(v)
-
-            # Update bounds
-            world_min.x = min(world_min.x, world_vertex.x)
-            world_min.y = min(world_min.y, world_vertex.y)
-            world_min.z = min(world_min.z, world_vertex.z)
-            world_max.x = max(world_max.x, world_vertex.x)
-            world_max.y = max(world_max.y, world_vertex.y)
-            world_max.z = max(world_max.z, world_vertex.z)
-
-    # Calculate center in world space
-    if world_min.x != float("inf"):
-        world_center = (world_min + world_max) * 0.5
-        return world_center
-
-    return Vector((0, 0, 0))
