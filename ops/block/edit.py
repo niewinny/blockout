@@ -1,6 +1,6 @@
 import math
 from mathutils import Matrix
-from ...utils import view3d
+from ...utils import addon, view3d
 from ...utilsbmesh import ngon
 
 def invoke(op, context):
@@ -271,7 +271,8 @@ def modal(op, context, event):
                 ngon.update_ui_after_change(op, bm, matrix_world)
 
                 op.ui.active.callback.update_batch(
-                    [matrix_world @ bm.verts[op.edit_point].co.copy()]
+                    [matrix_world @ bm.verts[op.edit_point].co.copy()],
+                    color=addon.pref().theme.ops.block.active,
                 )
 
                 point_x_2d = op.mouse.co.copy()
@@ -319,7 +320,11 @@ def modal(op, context, event):
                     op.highlight_index = v.index
                     break
 
-            op.ui.active.callback.update_batch(highlight)
+            theme = addon.pref().theme.ops.block
+            # Edge-midpoint hover is the "add vertex" hint (green); hovering an
+            # existing vertex is the move target (yellow, the active color).
+            color = theme.add if op.highlight_type == "EDGE" else theme.active
+            op.ui.active.callback.update_batch(highlight, color=color)
 
 def _is_near(region, point1, point2):
     """Check if point2 is within 'threshold' pixels of point1."""

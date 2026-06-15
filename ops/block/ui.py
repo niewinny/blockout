@@ -259,5 +259,14 @@ class Theme(bpy.types.PropertyGroup):
         min=0.0,
         max=1.0,
     )
+    add: bpy.props.FloatVectorProperty(
+        name="Add Vertex",
+        description="Add-vertex (edge midpoint) indicator color",
+        default=(0.0, 1.0, 0.0, 0.8),
+        subtype="COLOR",
+        size=4,
+        min=0.0,
+        max=1.0,
+    )
 
 classes = (Theme,)
