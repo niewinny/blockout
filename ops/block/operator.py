@@ -6,7 +6,7 @@ from mathutils import Matrix, Vector
 
 from ...utils import addon, infobar, scene, view3d
 from ...utils.operator import safe
-from ...utilsbmesh import facet
+from ...utilsbmesh import facet, ngon
 from . import (
     bevel,
     bisect,
@@ -18,6 +18,7 @@ from . import (
     ui,
 )
 from .data import (
+    CONVERTABLE,
     CREATE,
     Config,
     CreatedData,
@@ -30,6 +31,28 @@ from .data import (
 )
 from .transform import common as transform_common
 from .transform import rotate, scale, translate
+
+
+# Refuse TAB-convert below this local AABB diagonal (degenerate / coincident verts).
+_CONVERT_MIN_EXTENT = 1e-4
+
+
+def _face_extent(face):
+    """Local-space axis-aligned bbox diagonal of a face's verts."""
+    verts = [v.co for v in face.verts]
+    if len(verts) < 2:
+        return 0.0
+    mn = Vector((
+        min(v.x for v in verts),
+        min(v.y for v in verts),
+        min(v.z for v in verts),
+    ))
+    mx = Vector((
+        max(v.x for v in verts),
+        max(v.y for v in verts),
+        max(v.z for v in verts),
+    ))
+    return (mx - mn).length
 
 
 class Block(bpy.types.Operator):
@@ -708,6 +731,10 @@ class Block(bpy.types.Operator):
                     self._header(context)
                     return {"RUNNING_MODAL"}
 
+        elif event.type == "TAB" and event.value == "PRESS":
+            if self._convert_to_polygon(context, event) is not None:
+                return {"RUNNING_MODAL"}
+
         elif event.type in {"RIGHTMOUSE", "ESC"} and event.value == "PRESS":
             self._cancel(context)
             return {"CANCELLED"}
@@ -878,6 +905,49 @@ class Block(bpy.types.Operator):
         self._bevel_invoke(context, event)
         ui.update(self, context, event)
         return True
+
+    def _convert_to_polygon(self, context, event):
+        """TAB during DRAW: convert the in-progress primitive into an editable
+        NGON (2D shapes) or NHEDRON (3D-base shapes) and drop into point-editing.
+
+        Returns ``{"RUNNING_MODAL"}`` on success, or ``None`` when the gesture
+        is ignored (wrong phase, non-convertible shape, or a degenerate draw)
+        so the caller falls through to the modal's default redraw.
+        """
+        if self.state.phase != "DRAW":
+            return None
+        target = CONVERTABLE.get(self.config.shape)
+        if target is None or not self.data.draw.faces:
+            return None
+
+        bm = self.data.bm
+        bm.faces.ensure_lookup_table()
+        face = bm.faces[self.data.draw.faces[0]]
+        if _face_extent(face) < _CONVERT_MIN_EXTENT:
+            return None
+
+        ni = self.data.numeric_input
+        if ni.active:
+            ni.stop()
+
+        # config.shape is the live mirror; shape.active is the registered truth
+        # that drives build_geometry/F9. Leave the tool pref untouched.
+        self.config.shape = target
+        self.shape.active = target
+
+        # Drop DRAW guide line + dimension text; keep the plane axes.
+        self.ui.guid.callback.clear()
+        self.ui.interface.callback.clear()
+
+        edit.enter_from_converted(self, context)
+
+        # Swallow the trailing release of the still-held draw-drag LMB.
+        self._suppress_next_lmb_release = True
+
+        self._header(context)
+        ui.update(self, context, event)
+        context.area.tag_redraw()
+        return {"RUNNING_MODAL"}
 
     def _force_advance(self, context, event):
         """Numeric-accept path: advance the spine immediately.

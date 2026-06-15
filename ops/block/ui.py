@@ -4,6 +4,7 @@ import bpy
 
 from ...shaders import handle
 from ...utils import addon, infobar
+from .data import CONVERTABLE
 
 @dataclass
 class DrawUI(handle.Common):
@@ -122,6 +123,8 @@ def _shape_specific(row, factor, op, name, is_draw):
             _hk(row, factor, "Z Symmetry", "EVENT_Z")
         if hasattr(sd, "subdivisions"):
             _hk(row, factor, "Subd", "EVENT_S")
+        if op.config.shape in CONVERTABLE:
+            _hk(row, factor, "Edit", "EVENT_TAB")
     if name == "EDIT" and hasattr(sd, "points"):
         _hk(row, factor, "Delete", "EVENT_X")
     if name == "EXTRUDE":

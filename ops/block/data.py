@@ -20,6 +20,16 @@ class Config:
 CREATE = {"DRAW", "EDIT", "EXTRUDE"}
 MODIFY = {"BEVEL", "TRANSLATE", "ROTATE", "SCALE"}
 
+# Primitive a TAB mid-draw converts to its editable polygon (value = target).
+CONVERTABLE = {
+    "RECTANGLE": "NGON",
+    "CIRCLE": "NGON",
+    "TRIANGLE": "NGON",
+    "BOX": "NHEDRON",
+    "CYLINDER": "NHEDRON",
+    "PRISM": "NHEDRON",
+}
+
 
 @dataclass
 class ModalState:

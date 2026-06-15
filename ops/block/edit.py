@@ -21,6 +21,41 @@ def invoke(op, context):
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
     return True
 
+def enter_from_converted(op, context):
+    """Enter EDIT on a TAB-converted primitive face.
+
+    edit_mode stays NONE (free hover) instead of invoke's INIT auto-grab, so a
+    stray click can't immediately finalize.
+    """
+    obj = op.data.obj
+    bm = op.data.bm
+    bm.faces.ensure_lookup_table()
+
+    # Winding depends on the drag quadrant; align it to the plane normal.
+    plane_normal = op.data.draw.matrix.plane[1]
+    op.data.draw.faces[0] = ngon.fix_winding_order(
+        bm, op.data.draw.faces[0], plane_normal
+    )
+
+    # Primitive creators don't maintain the edge tables ngon.create does;
+    # rebuild all three so edge hover + ngon.add_vert don't hit a stale table.
+    bm.verts.ensure_lookup_table()
+    bm.verts.index_update()
+    bm.edges.ensure_lookup_table()
+    bm.edges.index_update()
+    bm.faces.ensure_lookup_table()
+    bm.faces.index_update()
+
+    # draw.verts is empty for primitives; rebuild it from the face.
+    _rebuild_vertex_list(op, bm, op.data.draw.faces[0], preserve_first=False)
+    ngon.store(op)
+
+    op.state.phase = "EDIT"
+    op.edit_mode = "NONE"
+
+    op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+    _update_ui_after_change(op, bm, obj.matrix_world)
+
 def modal(op, context, event):
     obj = op.data.obj
     bm = op.data.bm
