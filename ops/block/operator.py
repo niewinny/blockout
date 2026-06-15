@@ -686,6 +686,24 @@ class Block(bpy.types.Operator):
                 if self._enter_modify(context, event, "SCALE") is not None:
                     return {"RUNNING_MODAL"}
 
+        elif (
+            event.type == "Z"
+            and event.value == "PRESS"
+            and event.ctrl
+            and self.state.phase == "EDIT"
+            and self.config.shape in {"NGON", "NHEDRON"}
+            and self.edit_mode in {"NONE", "END"}
+        ):
+            # Ctrl+Z / Ctrl+Shift+Z undo/redo of point edits. Gated to idle
+            # edit_mode so it can't fire mid-grab; the phase/shape guard keeps
+            # plain Z and non-EDIT Ctrl+Z falling through to existing handling.
+            if event.shift:
+                ngon.redo(self, context)
+            else:
+                ngon.undo(self, context)
+            context.area.tag_redraw()
+            return {"RUNNING_MODAL"}
+
         elif event.type in {"X", "Y", "Z"} and event.value == "PRESS":
             if self._handle_axis_key(context, event):
                 return {"RUNNING_MODAL"}
@@ -1040,6 +1058,9 @@ class Block(bpy.types.Operator):
         if self.config.shape == "NHEDRON" and self.edit_mode == "END":
             return self._advance_spine(context, event)
         if self.edit_mode != "END":
+            # A grab/add drag just ended — record it as one undo step.
+            if self.edit_mode == "MOVE":
+                ngon.history_commit(self)
             self.edit_mode = "NONE"
             return {"RUNNING_MODAL"}
         # NGON end-of-edit

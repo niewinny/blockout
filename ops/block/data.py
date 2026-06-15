@@ -157,6 +157,19 @@ class Copy:
     all: list = field(default_factory=list)
 
 @dataclass
+class EditHistory:
+    """In-modal undo/redo for NGON/NHEDRON point editing.
+
+    Each entry is an ordered snapshot of the editable face's vertex
+    coordinates (object-local, as plain tuples). ``index`` is the current
+    state; committing a new action truncates the redo tail and appends.
+    """
+
+    states: list = field(default_factory=list)  # list[tuple[tuple[float, float, float], ...]]
+    index: int = -1
+    max_depth: int = 64
+
+@dataclass
 class CreatedData:
     obj: bpy.types.Object = None
     bm: bmesh.types.BMesh = None
@@ -167,6 +180,7 @@ class CreatedData:
     draw: Draw = field(default_factory=Draw)
     transform: Transform = field(default_factory=Transform)
     numeric_input: NumericInput = field(default_factory=NumericInput)
+    edit_history: EditHistory = field(default_factory=EditHistory)
 
 @dataclass
 class Objects:

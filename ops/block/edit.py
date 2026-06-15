@@ -1,7 +1,6 @@
 import math
 from mathutils import Matrix
 from ...utils import view3d
-from ...utils.types import DrawVert
 from ...utilsbmesh import ngon
 
 def invoke(op, context):
@@ -19,6 +18,7 @@ def invoke(op, context):
         return False
 
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+    ngon.history_reset(op)
     return True
 
 def enter_from_converted(op, context):
@@ -47,14 +47,15 @@ def enter_from_converted(op, context):
     bm.faces.index_update()
 
     # draw.verts is empty for primitives; rebuild it from the face.
-    _rebuild_vertex_list(op, bm, op.data.draw.faces[0], preserve_first=False)
+    ngon.rebuild_vertex_list(op, bm, op.data.draw.faces[0], preserve_first=False)
     ngon.store(op)
 
     op.state.phase = "EDIT"
     op.edit_mode = "NONE"
 
     op.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
-    _update_ui_after_change(op, bm, obj.matrix_world)
+    ngon.update_ui_after_change(op, bm, obj.matrix_world)
+    ngon.history_reset(op)
 
 def modal(op, context, event):
     obj = op.data.obj
@@ -156,33 +157,19 @@ def modal(op, context, event):
                     )
 
                     if removed_vert:
-                        # Update face index
-                        op.data.draw.faces[0] = new_face_index
-
-                        # Fix winding order after deletion
-                        plane_normal = plane[1]
-                        new_face_index = ngon.fix_winding_order(
-                            bm, new_face_index, plane_normal
-                        )
-                        op.data.draw.faces[0] = new_face_index
-
-                        # Rebuild the draw verts list with correct indices from the face
-                        # Don't preserve first if it was the deleted vertex
+                        # Compute preserve_first against the pre-rebuild list,
+                        # then resync (reindex, winding, verts, mesh, shaders).
+                        # Don't preserve first if it was the deleted vertex.
                         preserve_first = (
                             op.data.draw.verts[0].index != op.highlight_index
                         )
-                        _rebuild_vertex_list(
-                            op, bm, new_face_index, preserve_first=preserve_first
+                        ngon.resync_after_topology_change(
+                            op, bm, new_face_index, plane[1], preserve_first
                         )
 
-                        op.update_bmesh(obj, bm)
-                        ngon.store(op)
-
-                        # Update shader/UI with new vertex positions
-                        _update_ui_after_change(op, bm, matrix_world)
-
-                        # Clear the active highlight
+                        # Clear the active highlight, then record the deletion.
                         op.ui.active.callback.update_batch([])
+                        ngon.history_commit(op)
                     else:
                         op.report(
                             {"INFO"},
@@ -208,7 +195,11 @@ def modal(op, context, event):
 
         # Rebuild the vertex list from the face to maintain consistency
         # The face may have been recreated with vertices in a different order
-        _rebuild_vertex_list(op, bm, op.data.draw.faces[0], preserve_first=True)
+        ngon.rebuild_vertex_list(op, bm, op.data.draw.faces[0], preserve_first=True)
+
+        # Record the insertion as its own undo step; the drag that follows
+        # commits the new point's final position on release.
+        ngon.history_commit(op)
 
         op.edit_mode = "MOVE"
         op.update_bmesh(obj, bm)
@@ -277,7 +268,7 @@ def modal(op, context, event):
 
         match op.config.shape:
             case "NGON" | "NHEDRON":
-                _update_ui_after_change(op, bm, matrix_world)
+                ngon.update_ui_after_change(op, bm, matrix_world)
 
                 op.ui.active.callback.update_batch(
                     [matrix_world @ bm.verts[op.edit_point].co.copy()]
@@ -329,58 +320,6 @@ def modal(op, context, event):
                     break
 
             op.ui.active.callback.update_batch(highlight)
-
-def _rebuild_vertex_list(op, bm, face_index, preserve_first=True):
-    """
-    Rebuild the draw vertex list from the face, preserving the drawing vertex position.
-
-    Args:
-        bm: The BMesh object
-        face_index: The face index to rebuild from
-        preserve_first: If True, keep the first vertex as the first vertex if it still exists
-
-    Returns:
-        None (updates op.data.draw.verts in place)
-    """
-    face = bm.faces[face_index]
-
-    # Store the current drawing vertex (first vertex) if we need to preserve it
-    drawing_vert_index = None
-    if preserve_first and len(op.data.draw.verts) > 0:
-        drawing_vert_index = op.data.draw.verts[0].index
-
-    # Build new vertex list
-    new_draw_verts = []
-    drawing_vert = None
-
-    # First pass: find all vertices and identify the drawing vertex
-    for v in face.verts:
-        draw_vert = DrawVert(index=v.index, co=v.co.copy())
-        if v.index == drawing_vert_index:
-            drawing_vert = draw_vert
-        else:
-            new_draw_verts.append(draw_vert)
-
-    # Reconstruct list with drawing vertex first (if it exists and we're preserving)
-    if drawing_vert and preserve_first:
-        op.data.draw.verts = [drawing_vert] + new_draw_verts
-    else:
-        # Just use face vertex order
-        op.data.draw.verts = []
-        for v in face.verts:
-            op.data.draw.verts.append(DrawVert(index=v.index, co=v.co.copy()))
-
-def _update_ui_after_change(op, bm, matrix_world):
-    """Update the UI/shader after vertex changes."""
-    faces = [bm.faces[i] for i in op.data.draw.faces]
-    points_global = []
-    for p in op.data.draw.verts:
-        point = bm.verts[p.index].co
-        points_global.append(matrix_world @ point)
-
-    op.ui.vert.callback.update_batch(points_global)
-    if op.config.mode != "ADD":
-        op.ui.faces.callback.update_batch(faces)
 
 def _is_near(region, point1, point2):
     """Check if point2 is within 'threshold' pixels of point1."""
