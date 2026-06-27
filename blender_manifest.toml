@@ -8,7 +8,7 @@ type = "add-on"
 
 
 # Optional link to documentation, support, source files, etc
-# website = "https://github.com/niewinny/blockout"
+website = "https://blockout.ezelar.com"
 
 
 tags = ["Modeling", "3D View", "Mesh"]
