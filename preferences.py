@@ -3,28 +3,6 @@ import bpy
 from . import __package__ as base_package
 from . import btypes
 
-LINKS = [
-    ("Support Development", "https://superhivemarket.com/creators/ezelar", "FUND"),
-    ("Report Issues", "https://github.com/niewinny/blockout", "URL"),
-    ("Documentation", "https://blockout.ezelar.com", "HELP"),
-    ("Twitter", "https://twitter.com/_arutkowski", "X"),
-    ("Discord", "https://discord.gg/WNvh3PHZAt", "COMMUNITY"),
-]
-
-
-class BOUT_OT_OpenURL(bpy.types.Operator):
-    bl_idname = "bout.open_url"
-    bl_label = "Open URL"
-    bl_description = "Open URL in browser"
-
-    url: bpy.props.StringProperty()
-
-    def execute(self, context):
-        import webbrowser
-
-        webbrowser.open(self.url)
-        return {"FINISHED"}
-
 
 class BOUT_Preference(bpy.types.AddonPreferences):
     bl_idname = base_package
@@ -88,11 +66,6 @@ class BOUT_Preference(bpy.types.AddonPreferences):
         row.scale_y = 2.0
         row.label(text="BLOCKOUT")
 
-        col.separator()
-        for label, url, icon in LINKS:
-            op = col.operator("bout.open_url", text=label, icon=icon)
-            op.url = url
-
     def theme_layout(self, layout, theme):
         """Draw a theme layout"""
         for prop in theme.bl_rna.properties:
@@ -103,4 +76,4 @@ class BOUT_Preference(bpy.types.AddonPreferences):
         layout.separator()
 
 
-classes = (BOUT_OT_OpenURL, BOUT_Preference)
+classes = (BOUT_Preference,)
