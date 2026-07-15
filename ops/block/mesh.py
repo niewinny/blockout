@@ -468,6 +468,9 @@ class BOUT_OT_BlockMeshTool(Block):
                     ]
                     faces = [[v.index for v in f.verts] for f in selected_faces]
                     operation = "DIFFERENCE"
+                case "KNIFE":
+                    self._knife(obj, bm)
+                    return
                 case _:
                     operation = "DIFFERENCE"
 
@@ -497,6 +500,40 @@ class BOUT_OT_BlockMeshTool(Block):
                         bm.faces.new([vert_map[idx] for idx in f_verts])
 
                 self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
+
+    def _knife(self, obj, bm):
+        """Knife intersect: imprint the selected cutter into the unselected
+        target, then remove the cutter faces so only the cut edges remain.
+        A temporary int face layer tags the cutter because the intersect
+        operator splits faces and rewrites the selection to the cut edges."""
+        layer = bm.faces.layers.int.get("bout_knife")
+        if layer is None:
+            layer = bm.faces.layers.int.new("bout_knife")
+        for face in bm.faces:
+            face[layer] = 1 if face.select else 0
+
+        solver = addon.pref().tools.block.align.solver
+        solvers = {
+            item.identifier
+            for item in bpy.ops.mesh.intersect.get_rna_type()
+            .properties["solver"]
+            .enum_items
+        }
+        if solver not in solvers:
+            solver = "EXACT"
+
+        bpy.ops.mesh.intersect(
+            mode="SELECT_UNSELECT",
+            separate_mode="NONE",
+            threshold=1e-06,
+            solver=solver,
+        )
+
+        layer = bm.faces.layers.int.get("bout_knife")
+        cutter_faces = [f for f in bm.faces if f[layer] == 1]
+        bmesh.ops.delete(bm, geom=cutter_faces, context="FACES")
+        bm.faces.layers.int.remove(layer)
+        self.update_bmesh(obj, bm, loop_triangles=True, destructive=True)
 
     def execute(self, context):
         """F9 redo path: build cutter without boolean so rotate/scale

@@ -79,6 +79,8 @@ class BOUT_MT_Block(bpy.types.WorkSpaceTool):
                 (label, icon) = ("Carve", "STRIP_COLOR_02")
             case "UNION":
                 (label, icon) = ("Union", "STRIP_COLOR_04")
+            case "KNIFE":
+                (label, icon) = ("Knife", "STRIP_COLOR_07")
         row.popover("BOUT_PT_TypeMesh", text=label, icon=icon)
 
         layout.separator()
@@ -124,7 +126,7 @@ class BOUT_PT_TypeMesh(bpy.types.Panel):
     bl_label = "Type"
     bl_space_type = "VIEW_3D"
     bl_region_type = "WINDOW"
-    bl_description = "Select type of the operation\n • Cut - boolean difference object into another\n • Add - add new object\n • Slice - Slice object into another\n • Intersect - boolean intersect object into another \n • Union - boolean union object into another"
+    bl_description = "Select type of the operation\n • Cut - boolean difference object into another\n • Add - add new object\n • Slice - Slice object into another\n • Intersect - boolean intersect object into another \n • Union - boolean union object into another\n • Knife - imprint the shape as edges (knife intersect)"
     bl_context = "editmesh"
 
     def draw(self, context):

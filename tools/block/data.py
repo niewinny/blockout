@@ -24,6 +24,18 @@ modes = [
 ]
 
 
+modes_edit = modes + [
+    ("KNIFE", "Knife", "Knife", "STRIP_COLOR_07", 7),
+]
+
+
+def get_mode_items(self, context):
+    """Get block modes based on context; Knife is edit-mode only"""
+    if context is None or context.mode == "EDIT_MESH":
+        return modes_edit
+    return modes
+
+
 def get_solver_items(self, context):
     """Get boolean solver items based on Blender version"""
     if bpy.app.version >= (5, 0, 0):

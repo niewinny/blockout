@@ -50,6 +50,10 @@ class BOUT_OT_BlockObjTool(Block):
         config.form = addon.pref().tools.block.form
         config.align = addon.pref().tools.block.align
         config.mode = addon.pref().tools.block.mode
+        if not config.mode or config.mode == "KNIFE":
+            # Edit-mode-only KNIFE stored in the shared tool pref reads back
+            # as "" in object mode (not in the dynamic enum) — fall back.
+            config.mode = "CUT"
         config.type = "OBJECT"
         config.snap = context.scene.tool_settings.use_snap
         return config

@@ -65,7 +65,7 @@ class BOUT_OT_block_popup(bpy.types.Operator):
             ("INTERSECT", "STRIP_COLOR_05"),
             ("CARVE", "STRIP_COLOR_02"),
             ("UNION", "STRIP_COLOR_04"),
-            ("", ""),
+            ("KNIFE", "STRIP_COLOR_07") if context.mode == "EDIT_MESH" else ("", ""),
             ("", ""),
         ]
         for mode, icon in modes:

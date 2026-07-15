@@ -64,6 +64,8 @@ def setup(self, context):
             face_color = color.intersect
         case "CARVE":
             face_color = color.carve
+        case "KNIFE":
+            face_color = color.knife
         case _:
             face_color = (0.0, 0.0, 0.0, 0.0)
 
@@ -236,6 +238,15 @@ class Theme(bpy.types.PropertyGroup):
         name="Carve",
         description="Mesh indicator color",
         default=(0.9, 0.5, 0.1, 0.08),
+        subtype="COLOR",
+        size=4,
+        min=0.0,
+        max=1.0,
+    )
+    knife: bpy.props.FloatVectorProperty(
+        name="Knife",
+        description="Mesh indicator color",
+        default=(0.9, 0.2, 0.6, 0.12),
         subtype="COLOR",
         size=4,
         min=0.0,

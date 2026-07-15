@@ -9,7 +9,7 @@ class Pref(bpy.types.PropertyGroup):
         name="Shape", description="Shape", items=data.shapes, default="BOX"
     )
     mode: bpy.props.EnumProperty(
-        name="Mode", description="Mode", items=data.modes, default="ADD"
+        name="Mode", description="Mode", items=data.get_mode_items, default=2
     )
     align: bpy.props.PointerProperty(type=data.Align)
     form: bpy.props.PointerProperty(type=data.Form)
